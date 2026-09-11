@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Iron Log</title>
+<meta name="description" content="Personal strength-training exercise library and weight log.">
+<meta name="theme-color" content="#a23b23">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Iron Log">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#e7e4de; --surface:#f6f4ef; --surface-2:#efece5;
+    --ink:#1c1a16; --muted:#6c675d; --line:#d3cec3; --fig:#3a352c;
+    --accent:#a23b23; --accent-ink:#a23b23; --accent-soft:#f0e0d8;
+    --good:#3f7a34; --good-soft:#e2ecdc;
+    --shadow:0 1px 2px rgba(28,26,22,.06), 0 8px 22px -12px rgba(28,26,22,.22);
+    --radius:13px;
+    --btnfg:#fff;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#151719; --surface:#1f2224; --surface-2:#26292c;
+      --ink:#ece9e2; --muted:#948f84; --line:#343a3d; --fig:#c9c3b6;
+      --accent:#e2724f; --accent-ink:#e88a6c; --accent-soft:#3a2620;
+      --good:#83c069; --good-soft:#28311f;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 26px -14px rgba(0,0,0,.6);
+      --btnfg:#151719;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#151719; --surface:#1f2224; --surface-2:#26292c;
+    --ink:#ece9e2; --muted:#948f84; --line:#343a3d; --fig:#c9c3b6;
+    --accent:#e2724f; --accent-ink:#e88a6c; --accent-soft:#3a2620;
+    --good:#83c069; --good-soft:#28311f;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 26px -14px rgba(0,0,0,.6);
+    --btnfg:#151719;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+  }
+  .app{max-width:640px; margin:0 auto; padding:16px 14px calc(78px + env(safe-area-inset-bottom));}
+  h1,h2,h3,h4{font-family:"Barlow Condensed","Barlow Narrow",sans-serif; margin:0; letter-spacing:.02em}
+  h1{font-weight:700; font-size:27px; text-transform:uppercase; line-height:1}
+  h1 .mk{color:var(--accent-ink)}
+  h2{font-weight:600; font-size:15px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+
+  .screen{display:none}
+  .screen.active{display:block; animation:fade .18s ease}
+  @keyframes fade{from{opacity:.4}to{opacity:1}}
+
+  .apphead{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:4px}
+  .screen-title{margin:2px 0 12px; display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .screen-title h1{font-size:22px}
+
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-bottom:10px}
+  .card.lift{box-shadow:var(--shadow)}
+  .row{display:flex; align-items:center; gap:10px}
+  .between{justify-content:space-between}
+  .wrap-tags{display:flex; gap:5px; flex-wrap:wrap; margin-top:4px}
+  .tag{font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); background:var(--surface-2); border:1px solid var(--line); padding:2px 6px; border-radius:5px}
+  .tag.cst{color:var(--accent-ink); border-color:var(--accent-soft)}
+  .muted{color:var(--muted)}
+  .small{font-size:12.5px}
+  .xs{font-size:11px}
+
+  .btn{font:inherit; font-weight:600; font-family:"Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.05em; font-size:13px; padding:8px 15px; border-radius:9px; cursor:pointer; white-space:nowrap; background:var(--accent); color:var(--btnfg); border:1px solid var(--accent)}
+  .btn.sm{padding:5px 10px; font-size:12px}
+  .btn.ghost{background:transparent; color:var(--accent-ink); border-color:var(--line)}
+  .btn.ghost:hover{border-color:var(--accent)}
+  .btn.dim{background:transparent; color:var(--muted); border-color:var(--line)}
+  .btn:disabled{opacity:.4; cursor:default}
+  .iconbtn{font:inherit; font-size:15px; line-height:1; background:transparent; border:1px solid var(--line); color:var(--muted); width:30px; height:28px; border-radius:8px; cursor:pointer; padding:0; display:inline-flex; align-items:center; justify-content:center}
+
+  input,select,textarea{font:inherit; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:8px 10px}
+  input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,.chip:focus-visible{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent}
+  input::placeholder,textarea::placeholder{color:var(--muted)}
+  .field{width:100%; margin-top:4px}
+  label.lbl{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-top:10px; font-weight:600}
+
+  .search{width:100%; margin:2px 0 10px}
+  .chips{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto; font:inherit; font-size:12px; font-weight:600; font-family:"Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.05em; padding:5px 11px; border-radius:999px; cursor:pointer; background:var(--surface); color:var(--muted); border:1px solid var(--line)}
+  .chip[aria-pressed="true"]{background:var(--accent); color:var(--btnfg); border-color:var(--accent)}
+
+  .ex-row{display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer}
+  .ex-row:last-child{border-bottom:0}
+  .ex-row .nm{font-family:"Barlow Condensed",sans-serif; font-weight:600; font-size:17px; line-height:1.15}
+  .ex-row .last{font-size:11px; color:var(--muted); text-align:right; white-space:nowrap}
+  .ex-row .last b{color:var(--ink); font-weight:500}
+  .thumb{width:38px; height:38px; border-radius:8px; object-fit:cover; border:1px solid var(--line); flex:0 0 auto; background:var(--surface-2)}
+  .group-head{font-family:"Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.09em; font-size:12px; font-weight:600; color:var(--muted); margin:16px 2px 4px; display:flex; align-items:center; gap:8px}
+  .group-head::after{content:""; flex:1; height:1px; background:var(--line)}
+
+  .exphoto{width:100%; max-height:280px; object-fit:cover; border-radius:11px; border:1px solid var(--line); display:block; background:var(--surface-2)}
+  .ph-actions{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+
+  .cues{display:grid; gap:11px; margin-top:12px}
+  @media (min-width:520px){.cues{grid-template-columns:1fr 1fr 1fr}}
+  .cue h4{font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin-bottom:3px}
+  .cue.s h4{color:var(--ink)} .cue.e h4{color:var(--accent-ink)} .cue.a h4{color:var(--muted)}
+  .cue ul{margin:0; padding-left:15px; display:grid; gap:3px}
+  .cue li{font-size:12.5px; line-height:1.42; color:var(--ink)}
+  .cue.a li{color:var(--muted)}
+
+  .wk-ex{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:12px 12px 8px; margin-bottom:10px}
+  .set-table{width:100%; border-collapse:collapse; margin:6px 0 2px}
+  .set-table th{font:600 10px/1 "Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); text-align:left; padding:0 6px 5px}
+  .set-table td{padding:3px 6px}
+  .set-table td:first-child{width:26px; color:var(--muted); font-family:"IBM Plex Mono",monospace; font-size:12px}
+  .set-table input{width:100%; padding:6px 7px; font-family:"IBM Plex Mono",monospace; text-align:center}
+  .set-table .del{width:26px}
+  .set-table .del button{border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:15px; padding:2px 4px}
+  .set-table .del button:hover{color:var(--accent-ink)}
+  .wk-actions{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+  .pr-tag{font-family:"IBM Plex Mono",monospace; font-size:10px; color:var(--muted); border:1px solid var(--line); border-radius:5px; padding:1px 5px}
+  .pr-tag.hit{color:var(--good); border-color:var(--good); background:var(--good-soft)}
+
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; margin-bottom:12px}
+  .seg button{font:inherit; font-family:"Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.06em; font-size:12px; font-weight:600; padding:6px 14px; border:0; background:transparent; color:var(--muted); cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--accent); color:var(--btnfg)}
+  .sess{background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:11px 12px; margin-bottom:8px}
+  .sess summary{list-style:none; cursor:pointer; display:flex; align-items:baseline; justify-content:space-between; gap:8px}
+  .sess summary::-webkit-details-marker{display:none}
+  .sess .sd{font-family:"Barlow Condensed",sans-serif; font-weight:600; font-size:16px}
+  .sess .meta{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted)}
+  .line{display:grid; grid-template-columns:1fr auto; gap:10px; font-size:12.5px; padding:5px 0; border-top:1px solid var(--line)}
+  .line .sv{font-family:"IBM Plex Mono",monospace; color:var(--muted); text-align:right}
+  .spark{display:block; height:22px; width:70px; color:var(--accent-ink)}
+  .chart{width:100%; height:auto; color:var(--accent-ink); margin:8px 0}
+  .stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0}
+  .stat{background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:9px 10px}
+  .stat .k{font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); font-weight:600}
+  .stat .v{font-family:"IBM Plex Mono",monospace; font-size:18px; margin-top:2px}
+
+  .tabbar{position:fixed; left:0; right:0; bottom:0; z-index:15; background:var(--surface); border-top:1px solid var(--line); display:flex; max-width:640px; margin:0 auto; padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .tabbar button{flex:1; background:transparent; border:0; cursor:pointer; padding:5px 2px; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--muted); font:600 10px/1 "Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.05em}
+  .tabbar button svg{width:21px; height:21px; stroke:currentColor; fill:none; stroke-width:1.8}
+  .tabbar button[aria-current="true"]{color:var(--accent-ink)}
+
+  .modal{position:fixed; inset:0; z-index:40; display:none}
+  .modal.open{display:block}
+  .modal .veil{position:absolute; inset:0; background:rgba(0,0,0,.42)}
+  .sheet{position:absolute; left:0; right:0; bottom:0; max-width:640px; margin:0 auto; background:var(--ground); border-radius:16px 16px 0 0; border:1px solid var(--line); max-height:92vh; overflow:auto; padding:14px 14px calc(20px + env(safe-area-inset-bottom))}
+  .sheet-head{display:flex; align-items:center; justify-content:space-between; gap:10px; position:sticky; top:0; background:var(--ground); padding-bottom:8px; margin-bottom:4px}
+  .sheet-head h3{font-size:19px; font-weight:600}
+
+  .timer{position:fixed; left:0; right:0; bottom:calc(70px + env(safe-area-inset-bottom)); z-index:18; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); display:none; align-items:center; gap:10px; padding:9px 12px; max-width:612px; margin:0 auto}
+  .timer.show{display:flex}
+  .timer .clock{font-family:"IBM Plex Mono",monospace; font-size:23px; font-variant-numeric:tabular-nums; min-width:64px}
+  .timer.done .clock{color:var(--good)}
+  .timer .lbl{font:600 11px "Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
+  .timer .tb{font:inherit; font-family:"IBM Plex Mono",monospace; font-size:12px; background:var(--surface-2); border:1px solid var(--line); color:var(--ink); width:32px; height:30px; border-radius:8px; cursor:pointer; padding:0}
+  .timer .tb.skip{margin-left:auto; width:auto; padding:0 12px; color:var(--muted)}
+
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:130px; z-index:50; background:var(--ink); color:var(--ground); font-size:12.5px; padding:8px 14px; border-radius:8px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:88vw; text-align:center}
+  .toast.show{opacity:.96}
+  .empty{color:var(--muted); font-size:13px; font-style:italic; padding:6px 2px}
+  .sync{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--muted); margin-top:14px; display:flex; align-items:center; gap:6px}
+  .sync .dot{width:6px; height:6px; border-radius:50%; background:var(--muted)}
+  .sync.on .dot{background:var(--good)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+
+  .signin{position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--ground)}
+  .signin-card{max-width:340px; width:100%; text-align:center}
+  .signin-card h1{font-size:32px; margin-bottom:6px}
+  .signin-card p{color:var(--muted); font-size:13.5px; margin:0 0 22px}
+  .g-btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px; width:100%;
+    background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:10px;
+    padding:11px 16px; font:600 14px "Barlow",sans-serif; cursor:pointer;
+  }
+  .g-btn:hover{border-color:var(--accent)}
+  .signin-note{margin-top:16px; font-size:11.5px; color:var(--muted)}
+  .account-row{display:flex; align-items:center; gap:8px; margin-top:14px}
+  .account-row img{width:22px; height:22px; border-radius:50%}
+</style>
+</head>
+<body>
+
+<div class="signin" id="signin">
+  <div class="signin-card">
+    <h1><span class="mk" style="color:var(--accent-ink)">Iron</span> Log</h1>
+    <p>Sign in with Google to sync your workouts across every device.</p>
+    <button class="g-btn" id="googleSignIn" type="button">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      Continue with Google
+    </button>
+    <p class="signin-note">Your workout data is private to your Google account and stored in your own Firebase project.</p>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none">
+<div class="app">
+  <section class="screen" data-screen="home"></section>
+  <section class="screen" data-screen="exercises"></section>
+  <section class="screen" data-screen="workout"></section>
+  <section class="screen" data-screen="history"></section>
+  <div class="sync" id="sync"><span class="dot"></span><span id="syncText">Saved on this device</span></div>
+</div>
+
+<nav class="tabbar" id="tabbar">
+  <button data-act="nav" data-screen="home" aria-current="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</button>
+  <button data-act="nav" data-screen="exercises"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Exercises</button>
+  <button data-act="nav" data-screen="workout"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M4 9l2-2M9 4l-2 2M20 15l-2 2M15 20l2-2M2 12l3 3M12 2l3 3M19 9l3 3M9 19l3 3"/></svg>Workout</button>
+  <button data-act="nav" data-screen="history"><svg viewBox="0 0 24 24"><path d="M4 20V6M10 20V4M16 20v-8M22 20H2"/></svg>History</button>
+</nav>
+
+<div class="timer" id="timer">
+  <span class="lbl">Rest</span><span class="clock" id="clock">1:30</span>
+  <button class="tb" id="tMinus" aria-label="minus 15s">−15</button>
+  <button class="tb" id="tPlus" aria-label="plus 15s">+15</button>
+  <button class="tb skip" id="tSkip">Done</button>
+</div>
+
+<div class="modal" id="modal"><div class="veil" data-act="close"></div><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept="image/*" hidden>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+/* ============ EXERCISE LIBRARY ============ */
+/* weightType: barbell | dumbbell | machine | cable | bodyweight   (drives the weight field)
+   pattern: key into POSE for the form diagram
+   hold / bg (optional): override the pattern's default implement / backdrop for this exercise */
+const EX = [
+ // ---- CHEST ----
+ {id:"bench-press-bb",name:"Barbell Bench Press",group:"Chest",equip:"Barbell",weightType:"barbell",pattern:"pressFlat",
+  setup:["Eyes under the bar; shoulder blades pinched back and down.","Feet flat and driven into the floor; small natural arch.","Grip a little wider than shoulder width, wrists stacked over elbows."],
+  exec:["Unrack to over the shoulders; lower under control to the lower-chest / nipple line.","Keep elbows tucked ~45-75 degrees; touch lightly.","Press up and slightly back toward the face; keep the upper back tight."],
+  avoid:["Flaring elbows out to 90 degrees.","Bouncing the bar off the chest.","Hips lifting off the bench / losing upper-back tightness."]},
+ {id:"incline-barbell-press",name:"Incline Barbell Press",group:"Chest",equip:"Barbell",weightType:"barbell",pattern:"pressIncline",hold:"barbell",
+  setup:["Bench at about 30 degrees.","Grip just outside shoulder width, wrists stacked over elbows.","Shoulder blades retracted, feet planted."],
+  exec:["Unrack and lower under control to the upper chest / collarbone.","Press up and slightly back; don't let it drift toward the face."],
+  avoid:["Setting the bench too steep - it becomes a shoulder press.","Bouncing the bar off the chest.","Flaring the elbows out to 90 degrees."]},
+ {id:"incline-db-press",name:"Incline Dumbbell Press",group:"Chest",equip:"Dumbbell",weightType:"dumbbell",pattern:"pressIncline",
+  setup:["Bench at about 30 degrees.","Sit back with the dumbbells on your thighs, then kick them to shoulder level as you lie back.","Shoulder blades retracted, wrists over elbows."],
+  exec:["Press up and slightly together without clashing the bells.","Lower until the elbows are just below shoulder level; feel the upper-chest stretch."],
+  avoid:["Setting the bench too steep - it becomes a shoulder press.","Letting the wrists bend back.","Clanking the dumbbells together at the top."]},
+ {id:"flat-db-press",name:"Dumbbell Bench Press",group:"Chest",equip:"Dumbbell",weightType:"dumbbell",pattern:"pressFlat",
+  setup:["Lie flat, dumbbells over the lower chest.","Shoulder blades retracted and 'set', feet planted."],
+  exec:["Lower with elbows ~45 degrees until level with the torso.","Press up in a slight arc until the arms are nearly straight."],
+  avoid:["Over-lowering past a comfortable shoulder stretch.","Bridging the hips up.","Pushing the weights toward the head."]},
+ {id:"machine-chest-press",name:"Chest Press Machine",group:"Chest",equip:"Machine",weightType:"machine",pattern:"pressFlat",
+  setup:["Set the seat so the handles line up with mid-chest.","Back and head against the pad, blades pulled back."],
+  exec:["Press smoothly to near-lockout.","Return under control until the hands are level with the chest."],
+  avoid:["Seat too low (handles at the neck) or too high (at the belly).","Shrugging the shoulders up to press.","Letting the stack slam down."]},
+ {id:"pec-deck",name:"Pec Deck / Machine Fly",group:"Chest",equip:"Machine",weightType:"machine",pattern:"fly",
+  setup:["Seat height so the forearms meet the pads at mid-chest with a soft elbow bend.","Back flat on the pad, feet planted."],
+  exec:["Bring the pads together in a hugging arc; squeeze for a beat.","Return slowly to a comfortable chest stretch."],
+  avoid:["Yanking with straight, locked arms.","Overstretching the arms behind the torso.","Rounding the shoulders forward at the finish."]},
+ {id:"cable-fly",name:"Cable Chest Fly",group:"Chest",equip:"Cable",weightType:"cable",pattern:"fly",
+  setup:["Pulleys set high, staggered stance, slight forward lean from the hips.","Soft, fixed elbow bend held throughout."],
+  exec:["Sweep the handles down and together in front of the hips / navel.","Cross the hands slightly, squeeze, return slowly to a stretch."],
+  avoid:["Bending and extending the elbows (turns it into a press).","Standing bolt upright.","Using so much weight it pulls you backward."]},
+ {id:"push-up",name:"Push-Ups",group:"Chest",equip:"Bodyweight",weightType:"bodyweight",pattern:"plank",
+  setup:["Hands just outside the shoulders, wrists under shoulders.","Body in one straight line head to heels; glutes and abs braced."],
+  exec:["Lower until the chest is about a fist's height off the floor, elbows ~45 degrees.","Press away and think about pushing the floor down."],
+  avoid:["Hips sagging or piking up.","Head craning forward toward the floor.","Half-reps that never reach the bottom."]},
+
+ // ---- BACK ----
+ {id:"deadlift",name:"Conventional Deadlift",group:"Back",equip:"Barbell",weightType:"barbell",pattern:"hinge",
+  setup:["Bar over mid-foot, shins about 2 cm away, hip-width stance.","Hinge and grip just outside the knees; chest up, lats tight, flat back.","Take the slack out of the bar before you pull."],
+  exec:["Push the floor away; keep the bar dragging up the legs.","Hips and shoulders rise together; stand tall and lock the hips.","Hinge back down under control, bar close to the legs."],
+  avoid:["Rounding the lower back or jerking the bar off the floor.","Hips shooting up first (turns it into a stiff-leg pull).","Leaning back / hyperextending at the top."]},
+ {id:"bb-bent-row",name:"Barbell Bent-Over Row",group:"Back",equip:"Barbell",weightType:"barbell",pattern:"rowBent",
+  setup:["Hip-hinge to about 45 degrees or lower with a flat back.","Bar hanging under the shoulders, shins vertical, core braced."],
+  exec:["Pull the bar to the lower ribs / navel, elbows past the torso.","Squeeze the shoulder blades; lower fully under control."],
+  avoid:["Standing up more upright to heave the weight.","Rounding or over-arching the back.","Biceps-only tugs where the elbows barely move."]},
+ {id:"t-bar-row",name:"T-Bar Row",group:"Back",equip:"Machine",weightType:"machine",pattern:"rowBent",
+  setup:["Straddle the bar (or landmine handle), hip-hinge to about 45 degrees with a flat back, chest up."],
+  exec:["Pull the handle to the lower chest / upper belly, elbows driving back and up.","Squeeze the blades; lower under control."],
+  avoid:["Standing up to heave the weight.","Rounding the back.","Short, bouncing reps that never stretch out."]},
+ {id:"lat-pulldown",name:"Lat Pulldown",group:"Back",equip:"Machine",weightType:"machine",pattern:"pulldown",
+  setup:["Thighs locked under the pad, grip slightly wider than the shoulders.","Arms fully extended; hold a small constant backward lean of the torso."],
+  exec:["Drive the elbows down and back, bar to the upper chest.","Squeeze the lats, then return to a full overhead stretch."],
+  avoid:["Leaning way back and using momentum.","Pulling the bar behind the neck.","Shoulders shrugging up at the top of the stretch."]},
+ {id:"seated-cable-row",name:"Seated Cable Row",group:"Back",equip:"Cable",weightType:"cable",pattern:"rowBent",hold:"cable",
+  setup:["Knees soft, feet braced, sit tall with a natural spine.","Arms extended without letting the shoulders round forward."],
+  exec:["Pull the handle to the lower abdomen, elbows close to the body.","Squeeze the blades; return smoothly to a controlled stretch."],
+  avoid:["Big torso swing back and forth.","Rounding forward on the stretch.","Shrugging the shoulders toward the ears."]},
+ {id:"cable-row-close",name:"Cable Row - Close Grip",group:"Back",equip:"Cable",weightType:"cable",pattern:"rowBent",hold:"cable",
+  setup:["Close (V-bar) handle, seated tall with a natural spine, arms extended."],
+  exec:["Pull the handle to the belly, elbows brushing the sides.","Squeeze the mid-back; return to a controlled stretch."],
+  avoid:["Leaning far back to move more weight.","Shrugging up at the finish.","Letting the shoulders round forward on the stretch."]},
+ {id:"single-arm-cable-row",name:"Single-Arm Cable Row",group:"Back",equip:"Cable",weightType:"cable",pattern:"rowBent",hold:"cable",
+  setup:["One hand on the handle, tall seated or standing stance, brace against the machine if standing."],
+  exec:["Row the handle to the ribs, elbow close to the body, squeeze.","Return to a full stretch with no torso rotation."],
+  avoid:["Twisting the torso to help finish the rep.","Shrugging the working shoulder.","Using the free hand to cheat the pull."]},
+ {id:"one-arm-db-row",name:"Single-Arm Dumbbell Row",group:"Back",equip:"Dumbbell",weightType:"dumbbell",pattern:"rowBent",hold:"dumbbell",
+  setup:["One hand and knee on the bench, other foot planted.","Back flat and roughly parallel to the floor; dumbbell hanging straight down."],
+  exec:["Row the dumbbell to the hip / lower ribs, elbow tight to the side.","Squeeze, then lower to a full stretch with no torso rotation."],
+  avoid:["Twisting the torso open to lift more.","Shrugging the working shoulder up.","Jerking the weight off the bottom."]},
+ {id:"pull-up",name:"Assisted Pull-Up",group:"Back",equip:"Bodyweight / Machine",weightType:"bodyweight",pattern:"hangPull",
+  setup:["Grip shoulder-width or slightly wider.","On an assisted machine, kneel/stand on the platform with just enough support to complete clean reps.","Shoulders 'set' down and back before you pull; core braced."],
+  exec:["Pull the chest toward the bar, leading with the elbows.","Chin clears the bar, then lower all the way to straight arms."],
+  avoid:["Kipping or swinging the legs for momentum.","Stopping half-way up or not fully extending at the bottom.","Using so much assistance that the last few reps stop being hard."]},
+ {id:"chest-supported-row",name:"Chest-Supported Row",group:"Back",equip:"Dumbbell / Machine",weightType:"machine",pattern:"rowBent",
+  setup:["Chest on the pad, feet planted, grip the handles with arms extended.","Let the shoulders relax forward at the start."],
+  exec:["Row the handles back, elbows driving past the ribs.","Squeeze the blades together; return to a full controlled stretch."],
+  avoid:["Peeling the chest off the pad to cheat.","Using only the arms with no blade movement.","Slamming the stack on the return."]},
+ {id:"straight-arm-pulldown",name:"Straight-Arm Pulldown",group:"Back",equip:"Cable",weightType:"cable",pattern:"pulldown",hold:"cable",
+  setup:["High pulley; stand tall then hinge slightly forward.","Arms nearly straight (soft elbow), bar at about forehead height."],
+  exec:["Sweep the bar down to the thighs in an arc using the lats.","Keep the arms straight; return under control to the stretch."],
+  avoid:["Bending the elbows into a triceps pushdown.","Rounding the back as you pull.","Shrugging the shoulders."]},
+ {id:"db-shrug",name:"Dumbbell Shrug",group:"Back",equip:"Dumbbell",weightType:"dumbbell",pattern:"shrug",hold:"dumbbell",
+  setup:["Stand tall holding dumbbells at the sides, arms straight, shoulders relaxed."],
+  exec:["Shrug the shoulders straight up toward the ears, pause, then lower slowly under control."],
+  avoid:["Rolling the shoulders in a circle.","Using the biceps to help lift.","Bouncing at the bottom instead of a controlled stretch."]},
+ {id:"bb-shrug",name:"Barbell Shrug",group:"Back",equip:"Barbell",weightType:"barbell",pattern:"shrug",
+  setup:["Stand tall holding the bar in front of the thighs with a shoulder-width grip."],
+  exec:["Shrug straight up toward the ears, squeeze at the top, lower slowly."],
+  avoid:["Bending the elbows to help.","Rolling the shoulders.","Using leg drive / momentum to jerk the bar up."]},
+ {id:"back-extension",name:"Back Extension",group:"Back",equip:"Bodyweight",weightType:"bodyweight",pattern:"backExt",
+  setup:["Hips on the pad of a hyperextension bench, ankles locked under the rollers, body hinged forward at the hips."],
+  exec:["Raise the torso until it is in line with the legs - a slight extension, not a big backbend.","Lower back down under control."],
+  avoid:["Hyperextending past neutral at the top.","Rounding the back at the bottom.","Using momentum to whip up."]},
+
+ // ---- SHOULDERS ----
+ {id:"ohp-bb",name:"Barbell Overhead Press",group:"Shoulders",equip:"Barbell",weightType:"barbell",pattern:"pressVertical",
+  setup:["Bar resting on the front delts, hands just outside the shoulders.","Elbows slightly in front of the bar; glutes and abs braced, ribs down."],
+  exec:["Press straight up, moving the head back slightly to clear the chin.","Then push 'through' so the bar finishes over the mid-foot, biceps by the ears."],
+  avoid:["Leaning back into a standing incline press.","Flaring the ribs / over-arching the lower back.","Pressing around the face instead of clearing it."]},
+ {id:"seated-db-press",name:"Dumbbell Shoulder Press",group:"Shoulders",equip:"Dumbbell",weightType:"dumbbell",pattern:"pressVertical",hold:"dumbbell",
+  setup:["Upright bench with back support (or standing).","Dumbbells at shoulder height just outside the delts, wrists over elbows."],
+  exec:["Press up and slightly in until the bells nearly touch.","Lower under control to ear level."],
+  avoid:["Bouncing out of the bottom.","Clashing the dumbbells overhead.","Arching the back off the pad."]},
+ {id:"machine-shoulder-press",name:"Machine Shoulder Press",group:"Shoulders",equip:"Machine",weightType:"machine",pattern:"pressVertical",
+  setup:["Seat height so the handles start level with the shoulders, back flat against the pad."],
+  exec:["Press up until the arms are extended without locking out hard.","Lower under control back to shoulder level."],
+  avoid:["Seat too low or high, changing the pressing angle.","Shrugging up to press.","Bouncing the weight at the bottom."]},
+ {id:"lateral-raise",name:"Dumbbell Lateral Raise",group:"Shoulders",equip:"Dumbbell",weightType:"dumbbell",pattern:"raiseLateral",
+  setup:["Stand tall with a slight forward lean, soft elbows.","Dumbbells at the sides, thumbs tipped slightly down."],
+  exec:["Raise out to the sides to about shoulder height, leading with the elbows.","Pause, then lower slowly."],
+  avoid:["Swinging with the hips / using momentum.","Going well above shoulder height and shrugging.","Turning it into a front raise."]},
+ {id:"db-front-raise",name:"Dumbbell Front Raise",group:"Shoulders",equip:"Dumbbell",weightType:"dumbbell",pattern:"raiseFront",
+  setup:["Stand tall, dumbbells in front of the thighs, slight bend in the elbows held throughout."],
+  exec:["Raise one or both dumbbells forward to about shoulder height, leading with the hands.","Lower slowly."],
+  avoid:["Swinging the torso or using momentum.","Raising above shoulder height and shrugging.","Locking the elbows fully straight."]},
+ {id:"rear-delt-fly",name:"Reverse / Rear-Delt Fly",group:"Shoulders",equip:"Dumbbell",weightType:"dumbbell",pattern:"raiseBent",
+  setup:["Hinge forward with a flat back, or rest the chest on an incline pad.","Soft elbows, weights hanging down, traps relaxed."],
+  exec:["Open the arms out and back in a wide arc to shoulder level.","Squeeze the rear delts; lower slowly."],
+  avoid:["Rowing with sharply bent elbows.","Using the lower back to swing the weight up.","Shrugging the traps toward the ears."]},
+ {id:"face-pull",name:"Face Pull",group:"Shoulders",equip:"Cable",weightType:"cable",pattern:"facePull",
+  setup:["Rope set at upper-chest / face height; step back for tension.","Arms extended, thumbs pointing back."],
+  exec:["Pull the rope toward the forehead, elbows high and wide.","Let the hands separate; squeeze, return under control."],
+  avoid:["Dropping the elbows into a straight row.","Using so much weight the torso gets dragged forward.","Jerky, snatched reps."]},
+ {id:"upright-row",name:"Cable Upright Row",group:"Shoulders",equip:"Cable",weightType:"cable",pattern:"uprightRow",hold:"cable",
+  setup:["Grip about shoulder-width, arms straight, stand tall, core braced."],
+  exec:["Lead with the elbows, pulling the bar to about lower-chest height.","Keep the elbows no higher than the shoulders; lower under control."],
+  avoid:["Narrow grip pulled to the chin (shoulder pinch).","Shrugging and using body momentum.","Letting the wrists roll far forward."]},
+
+ // ---- LEGS ----
+ {id:"back-squat",name:"Barbell Back Squat",group:"Legs",equip:"Barbell",weightType:"barbell",pattern:"squat",
+  setup:["Bar on the upper traps or rear delts, hands snug.","Feet about shoulder-width, toes slightly out, whole foot planted.","Take a big breath and brace the trunk hard before you descend."],
+  exec:["Break at the hips and knees together, knees tracking over the toes.","Descend to at least parallel with a neutral spine.","Drive up through the mid-foot, hips and chest rising together."],
+  avoid:["Knees caving inward.","Heels lifting / weight shifting onto the toes.","Lower back rounding at the bottom ('butt wink')."]},
+ {id:"front-squat",name:"Front Squat",group:"Legs",equip:"Barbell",weightType:"barbell",pattern:"squat",
+  setup:["Bar on the front delts in a clean grip or crossed-arm rack.","Elbows high, torso tall, feet about shoulder-width."],
+  exec:["Descend straight down, keeping the elbows up and torso upright.","Hit depth, then drive up without the chest folding forward."],
+  avoid:["Elbows dropping so the bar rolls forward.","Heels rising off the floor.","Rounding the upper back."]},
+ {id:"goblet-squat",name:"Goblet Squat",group:"Legs",equip:"Dumbbell",weightType:"dumbbell",pattern:"squat",hold:"dumbbell",
+  setup:["Hold one dumbbell vertically at the chest, both hands cupping the top plate.","Feet shoulder-width, toes slightly out."],
+  exec:["Squat down between the knees, elbows brushing the inside of the knees near the bottom.","Drive up through the whole foot, keeping the chest tall."],
+  avoid:["Letting the dumbbell drift away from the chest.","Knees caving in.","Rounding the upper back to keep the weight close."]},
+ {id:"rdl",name:"Romanian Deadlift",group:"Legs",equip:"Barbell",weightType:"barbell",pattern:"hinge",
+  setup:["Stand tall holding the bar at the hips, knees softly bent and fixed.","Shoulder blades set, bar against the thighs."],
+  exec:["Push the hips back, sliding the bar down the thighs.","Go until you feel a strong hamstring stretch (~mid-shin), back flat.","Drive the hips forward to stand tall."],
+  avoid:["Bending the knees more (turns it into a deadlift).","Rounding the back / letting the bar drift away from the legs.","Over-arching and thrusting the hips at the top."]},
+ {id:"leg-press",name:"Leg Press",group:"Legs",equip:"Machine",weightType:"machine",pattern:"squat",hold:"none",
+  setup:["Feet mid-platform, about shoulder-width, whole foot in contact.","Hips and lower back flat against the pad."],
+  exec:["Lower the sled until the knees reach about 90 degrees, or just before the hips tuck.","Press through the mid-foot without hard-locking the knees."],
+  avoid:["Lower back rounding off the pad at the bottom.","Slamming into full lockout.","Knees caving inward under load."]},
+ {id:"bulgarian-split-squat",name:"Bulgarian Split Squat",group:"Legs",equip:"Dumbbell",weightType:"dumbbell",pattern:"lunge",
+  setup:["Rear foot up on a bench behind you, laces down.","Front foot far enough forward that the shin stays fairly vertical at the bottom."],
+  exec:["Lower straight down until the back knee nearly touches the floor.","Drive up through the front heel; most of the work is the front leg."],
+  avoid:["Front foot too close to the bench (steep shin, knee strain).","Pushing off the back leg.","Torso collapsing forward."]},
+ {id:"walking-lunge",name:"Walking Lunge",group:"Legs",equip:"Dumbbell",weightType:"dumbbell",pattern:"lunge",
+  setup:["Dumbbells at the sides, tall posture, core braced, eyes forward."],
+  exec:["Step forward into a lunge; front shin near-vertical, back knee toward the floor.","Push through the front heel to bring the back leg through into the next step."],
+  avoid:["Front knee collapsing inward or shooting far past the toes.","Torso pitching forward.","Tiny steps that crunch the front knee."]},
+ {id:"reverse-lunge",name:"Reverse Lunge",group:"Legs",equip:"Dumbbell",weightType:"dumbbell",pattern:"lunge",
+  setup:["Dumbbells at the sides, tall posture, feet hip-width."],
+  exec:["Step backward into a lunge, lowering the back knee toward the floor with the front shin near-vertical.","Push through the front heel to return to standing."],
+  avoid:["Letting the front knee drift past the toes and stay there under load.","Leaning the torso forward.","Rushing the step back off-balance."]},
+ {id:"step-up",name:"Step-Up",group:"Legs",equip:"Dumbbell",weightType:"dumbbell",pattern:"lunge",
+  setup:["Dumbbells at the sides, box or bench about knee height, whole foot planted on top."],
+  exec:["Drive through the top foot to stand fully on the box, hips finishing level.","Step down under control."],
+  avoid:["Pushing off the bottom foot to 'jump' up.","Box too high, forcing the knee to cave.","Leaning the torso forward for momentum."]},
+ {id:"leg-extension",name:"Leg Extension",group:"Legs",equip:"Machine",weightType:"machine",pattern:"legExt",
+  setup:["Back against the pad, knee joint aligned with the machine's pivot.","Shin pad on the lower shin, just above the ankle."],
+  exec:["Extend to nearly straight; pause and squeeze the quads.","Lower under control without letting the stack rest."],
+  avoid:["Kicking explosively and swinging.","Hips lifting off the seat.","So much weight that only the top few degrees move."]},
+ {id:"seated-leg-curl",name:"Seated Leg Curl",group:"Legs",equip:"Machine",weightType:"machine",pattern:"legCurl",
+  setup:["Sit with the back against the pad, the ankle pad resting just above the heels, knee aligned with the machine's pivot."],
+  exec:["Curl the heels back and down toward the seat, squeezing the hamstrings.","Return slowly to a full stretch."],
+  avoid:["Lower back rounding to muscle the weight.","Fast, bouncy reps.","Toes pointed hard through the whole set."]},
+ {id:"lying-leg-curl",name:"Lying Leg Curl",group:"Legs",equip:"Machine",weightType:"machine",pattern:"legCurl",
+  setup:["Knee aligned with the pivot, ankle pad just above the heel.","Hips pressed into the pad, light grip on the handles."],
+  exec:["Curl the heels toward the glutes as far as possible; squeeze.","Lower slowly to a full stretch."],
+  avoid:["Hips rising / lower back arching to yank the weight.","Fast, partial reps.","Pointing the toes hard and cramping - keep the feet neutral."]},
+ {id:"hip-thrust",name:"Barbell Hip Thrust",group:"Legs",equip:"Barbell",weightType:"barbell",pattern:"hipThrust",
+  setup:["Upper back on a bench, bar over the hips with a pad.","Feet flat, shins about vertical at the top; chin tucked."],
+  exec:["Drive through the heels to full hip extension - torso and thighs in a line.","Squeeze the glutes hard at the top; lower under control."],
+  avoid:["Over-arching the lower back instead of extending the hips.","Pushing through the toes.","Feet too far out or too close to the hips."]},
+ {id:"glute-bridge",name:"Glute Bridge",group:"Legs",equip:"Bodyweight",weightType:"bodyweight",pattern:"hipThrust",hold:"none",bg:"floor",
+  setup:["Lie on your back, knees bent, feet flat close to the glutes, arms at the sides."],
+  exec:["Drive through the heels to lift the hips until the torso and thighs form a line.","Squeeze the glutes at the top."],
+  avoid:["Over-arching the lower back.","Pushing through the toes.","Feet too far from the glutes, making it hamstring-only."]},
+ {id:"calf-raise",name:"Standing Calf Raise",group:"Legs",equip:"Machine",weightType:"machine",pattern:"calf",hold:"none",
+  setup:["Balls of the feet on the platform, heels free to drop.","Knees straight but not locked, torso tall."],
+  exec:["Rise onto the toes as high as possible; pause at the top.","Lower slowly to a deep stretch below the platform."],
+  avoid:["Bouncing through a tiny range.","Bending the knees to cheat the movement.","No pause at the top or stretch at the bottom."]},
+
+ // ---- ARMS ----
+ {id:"bb-curl",name:"Barbell Biceps Curl",group:"Arms",equip:"Barbell",weightType:"barbell",pattern:"curl",
+  setup:["Shoulder-width grip, elbows pinned to the sides.","Tall posture, core braced, shoulders back."],
+  exec:["Curl the bar up by flexing the elbows only.","Stop just short of the forearms going vertical; lower under control to straight arms."],
+  avoid:["Swinging the torso / using the hips.","Elbows drifting forward at the top.","Cutting the bottom range short."]},
+ {id:"ez-bar-curl",name:"EZ-Bar Curl",group:"Arms",equip:"Barbell",weightType:"barbell",pattern:"curl",
+  setup:["EZ-bar with an angled grip, elbows pinned to the sides, tall posture."],
+  exec:["Curl the bar up by flexing the elbows only; squeeze, lower under control to straight arms."],
+  avoid:["Swinging the torso.","Elbows drifting forward at the top.","Only doing the top half of the rep."]},
+ {id:"db-biceps-curl",name:"Dumbbell Biceps Curl",group:"Arms",equip:"Dumbbell",weightType:"dumbbell",pattern:"curl",hold:"dumbbell",
+  setup:["Stand tall, a dumbbell in each hand at the sides, elbows pinned close to the body."],
+  exec:["Curl both dumbbells up together, rotating the palms up as they rise; squeeze, lower under control."],
+  avoid:["Swinging the torso for momentum.","Elbows drifting forward.","Cutting the bottom stretch short."]},
+ {id:"alt-db-curl",name:"Alternating Dumbbell Curl",group:"Arms",equip:"Dumbbell",weightType:"dumbbell",pattern:"curl",hold:"dumbbell",
+  setup:["Stand tall, a dumbbell in each hand, elbows at the sides."],
+  exec:["Curl one arm up while the other stays extended; alternate sides with a controlled tempo."],
+  avoid:["Using the free arm's swing to help the working arm.","Twisting the torso side to side.","Rushing the alternation."]},
+ {id:"hammer-curl",name:"Dumbbell Hammer Curl",group:"Arms",equip:"Dumbbell",weightType:"dumbbell",pattern:"curl",hold:"dumbbell",
+  setup:["Neutral grip, palms facing in, elbows at the sides, tall posture."],
+  exec:["Curl straight up keeping the palms neutral; squeeze.","Lower slowly; alternate arms or both together."],
+  avoid:["Rocking the body for momentum.","Letting the elbows travel forward.","Rotating into a normal supinated curl."]},
+ {id:"incline-db-curl",name:"Incline Dumbbell Curl",group:"Arms",equip:"Dumbbell",weightType:"dumbbell",pattern:"curl",hold:"dumbbell",
+  setup:["Bench at about 45-60 degrees.","Sit back so the arms hang straight down behind the torso line; shoulders relaxed."],
+  exec:["Curl up without letting the elbows swing forward; squeeze at the top.","Lower to a full stretch with the arms hanging."],
+  avoid:["Shrugging the shoulders forward to start each rep.","Bouncing at the bottom.","Half-reps that skip the stretch."]},
+ {id:"cable-biceps-curl",name:"Cable Biceps Curl",group:"Arms",equip:"Cable",weightType:"cable",pattern:"curl",hold:"cable",
+  setup:["Low pulley, straight or EZ handle, stand tall with elbows pinned to the sides."],
+  exec:["Curl the handle up under constant tension; squeeze, then lower slowly."],
+  avoid:["Stepping back and leaning to add momentum.","Elbows drifting forward.","Letting the weight stack slam between reps."]},
+ {id:"preacher-curl",name:"Preacher Curl",group:"Arms",equip:"Barbell",weightType:"barbell",pattern:"curl",
+  setup:["Armpits over the top of the pad, upper arms flat on it, chest against it.","Feet planted."],
+  exec:["Curl up to just short of vertical forearms to keep tension; squeeze.","Lower slowly to nearly straight without slamming the elbows."],
+  avoid:["Fully relaxing / hyperextending at the bottom under load.","Lifting the elbows off the pad.","Using the shoulders to swing up."]},
+ {id:"triceps-pushdown",name:"Cable Triceps Pushdown",group:"Arms",equip:"Cable",weightType:"cable",pattern:"pushdown",
+  setup:["High pulley, bar attachment, elbows pinned to the sides, slight forward lean, core braced."],
+  exec:["Extend the arms fully down.","Squeeze the triceps; return under control to about 90 degrees."],
+  avoid:["Elbows drifting out or up.","Leaning over and using body weight to push.","Short reps that never lock out."]},
+ {id:"rope-pushdown",name:"Rope Triceps Pushdown",group:"Arms",equip:"Cable",weightType:"cable",pattern:"pushdown",
+  setup:["Rope attachment on a high pulley, elbows pinned to the sides, slight forward lean."],
+  exec:["Push down and apart, spreading the rope ends at the bottom and turning the palms in.","Squeeze, return under control."],
+  avoid:["Elbows drifting away from the body.","Leaning on the weight instead of the triceps.","Letting the rope snap back up."]},
+ {id:"overhead-triceps-ext",name:"Overhead Triceps Extension",group:"Arms",equip:"Cable / Dumbbell",weightType:"cable",pattern:"overheadExt",
+  setup:["Rope from a low pulley, or a single dumbbell in both hands, held behind the head.","Elbows pointing forward and close; upper arms fixed."],
+  exec:["Extend the elbows to straighten the arms overhead; squeeze.","Lower slowly to a deep stretch behind the head."],
+  avoid:["Elbows flaring wide.","Moving the upper arms / hinging at the shoulders.","Over-arching the lower back."]},
+ {id:"close-grip-bench",name:"Close-Grip Bench Press",group:"Arms",equip:"Barbell",weightType:"barbell",pattern:"pressFlat",
+  setup:["Grip about shoulder-width - not narrower.","Blades retracted, feet planted, wrists stacked."],
+  exec:["Lower the bar to the lower chest with the elbows tucked close.","Press up and slightly back, locking out with the triceps."],
+  avoid:["Gripping so narrow the wrists hurt.","Elbows flaring out wide.","Bouncing the bar off the chest."]},
+ {id:"ez-skull-crusher",name:"EZ-Bar Skull Crushers",group:"Arms",equip:"Barbell",weightType:"barbell",pattern:"skullCrusher",
+  setup:["Lie on a flat bench, EZ-bar held with a narrow grip, upper arms vertical and fixed over the shoulders."],
+  exec:["Lower the bar toward the forehead / just behind it by bending the elbows only.","Extend back up without moving the upper arms."],
+  avoid:["Letting the elbows flare or drift back over the face.","Moving the upper arms instead of just the forearms.","Using so much weight the elbows get hammered."]},
+ {id:"bench-dips",name:"Bench Dips",group:"Arms",equip:"Bodyweight",weightType:"bodyweight",pattern:"dips",
+  setup:["Hands on the edge of a bench behind you, fingers forward, legs extended out in front, hips close to the bench."],
+  exec:["Bend the elbows to lower the hips straight down, then press back up to straight arms."],
+  avoid:["Letting the hips drift forward away from the bench.","Shoulders rolling forward into a pinched position.","Flaring the elbows out wide."]},
+
+ // ---- CORE ----
+ {id:"plank",name:"Plank",group:"Core",equip:"Bodyweight",weightType:"bodyweight",metric:"secs",pattern:"plank",
+  setup:["Forearms under the shoulders, elbows about 90 degrees.","Feet together or hip-width; body in one straight line."],
+  exec:["Brace the abs as if about to be punched; squeeze the glutes.","Tuck the ribs down and breathe normally; hold for time."],
+  avoid:["Hips sagging toward the floor or piking up.","Head dropping / neck craning.","Holding your breath."]},
+ {id:"hanging-leg-raise",name:"Hanging Leg Raise",group:"Core",equip:"Bodyweight",weightType:"bodyweight",pattern:"hangRaise",
+  setup:["Dead hang from the bar, shoulders lightly 'set', legs together.","Start with a slight backward tilt of the pelvis."],
+  exec:["Curl the pelvis and lift the legs to at least parallel (or knees to chest).","Lower slowly with no swing."],
+  avoid:["Kipping / swinging to build momentum.","Only raising the knees with a flat pelvis (hip-flexor-only).","Dropping the legs fast at the end."]},
+ {id:"cable-crunch",name:"Cable Crunch",group:"Core",equip:"Cable",weightType:"cable",pattern:"crunchCable",
+  setup:["Kneel below a high pulley, rope beside the head / neck.","Hips fixed, slight forward hinge."],
+  exec:["Crunch by rounding the spine, bringing the ribs toward the pelvis.","Squeeze the abs hard; return under control."],
+  avoid:["Turning it into a hip hinge (bowing from the hips).","Pulling with the arms.","Letting the weight yank you back upright."]},
+ {id:"russian-twist",name:"Russian Twist",group:"Core",equip:"Bodyweight",weightType:"bodyweight",pattern:"rotation",hold:"none",
+  setup:["Sit with knees bent, heels down or feet raised.","Lean the torso back ~45 degrees with a flat, not rounded, back; hands or a plate at the chest."],
+  exec:["Rotate the shoulders and ribcage to one side, reach or tap.","Rotate to the other side; move from the trunk, not just the arms."],
+  avoid:["Rounding the lower back.","Only swinging the arms while the torso stays still.","Rushing until it becomes flailing."]},
+ {id:"dead-bug",name:"Dead Bug",group:"Core",equip:"Bodyweight",weightType:"bodyweight",pattern:"deadbug",
+  setup:["Lie on your back, arms straight up over the shoulders.","Hips and knees bent to 90 degrees; press the lower back gently into the floor."],
+  exec:["Slowly lower the opposite arm and leg toward the floor, back staying flat.","Return and switch sides."],
+  avoid:["Letting the lower back arch up off the floor.","Holding your breath.","Moving fast and losing control."]},
+ {id:"ab-wheel",name:"Ab Wheel Rollout",group:"Core",equip:"Wheel",weightType:"bodyweight",pattern:"plank",hold:"none",
+  setup:["Kneel with the wheel under the shoulders.","Hips slightly tucked, back flat, abs and glutes braced hard."],
+  exec:["Roll forward as far as you can keep a flat, braced spine.","Pull back with the abs - not the hips."],
+  avoid:["Letting the lower back sag as you extend.","Rolling out further than you can control.","Piking back with the hips instead of the abs."]}
+];
+const GROUPS=["Chest","Back","Shoulders","Legs","Arms","Core"];
+const WT_LABEL={barbell:"kg (total)",dumbbell:"kg / dumbbell",machine:"kg / load",cable:"kg / load",bodyweight:"+/- kg (optional)"};
+
+/* ============ STATE + STORAGE ============ */
+const LS_LOGS="ironlog.entries.v1", LS_CUSTOM="ironlog.custom.v1", LS_SESS="ironlog.sessions.v1", LS_PREFS="ironlog.prefs.v1", LS_IMG="ironlog.img.v1";
+const rd=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d;}catch(e){return d;}};
+const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
+let logs=rd(LS_LOGS,{}), custom=rd(LS_CUSTOM,{}), sess=rd(LS_SESS,{}), imgs=rd(LS_IMG,{});
+let prefs=rd(LS_PREFS,{screen:"home",group:"All",rest:90,theme:"auto",bw:0,histTab:"sessions",progressEx:""});
+let db=null, primed=false;
+let pendingPhotoId=null;
+
+function saveLogs(){wr(LS_LOGS,logs);} function saveCustom(){wr(LS_CUSTOM,custom);}
+function saveSess(){wr(LS_SESS,sess);} function savePrefs(){wr(LS_PREFS,prefs);} function saveImg(){wr(LS_IMG,imgs);}
+
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function fdate(iso){const p=iso.split("-");const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][(+p[1])-1];return String(+p[2]).padStart(2,"0")+" "+m;}
+function fdatefull(iso){const d=new Date(iso+"T00:00:00");return d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});}
+function daysAgo(iso){const ms=new Date(today()+"T00:00:00")-new Date(iso+"T00:00:00");return Math.round(ms/86400000);}
+function num(n){n=+n;if(!Number.isFinite(n))return "0";return String(Math.round(n*100)/100);}
+
+const exMap=()=>{const m={};EX.forEach(e=>m[e.id]=e);Object.values(custom).forEach(e=>m[e.id]=e);return m;};
+const allEx=()=>EX.concat(Object.values(custom));
+function getEx(id){return exMap()[id]||{id:id,name:id,group:"Other",equip:"",weightType:"barbell",pattern:"neutral",setup:[],exec:[],avoid:[]};}
+
+/* ---- Firebase auth + Firestore (replaces the Claude Artifact "db" capability) ---- */
+let unsubscribers=[];
+function teardownListeners(){ unsubscribers.forEach(function(u){ try{u();}catch(e){} }); unsubscribers=[]; }
+function showSignedIn(show,label){
+  document.getElementById("signin").style.display = show ? "none" : "flex";
+  document.getElementById("appRoot").style.display = show ? "" : "none";
+  if(show) setSync(true, label||"Synced");
+}
+
+if(window.firebase && firebase.apps.length){
+  const auth = firebase.auth();
+  const firestore = firebase.firestore();
+  firestore.enablePersistence({synchronizeTabs:true}).catch(function(){});
+
+  document.getElementById("googleSignIn").addEventListener("click", function(){
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){
+      toast("Sign-in failed: "+e.message);
+    });
+  });
+
+  auth.onAuthStateChanged(function(user){
+    teardownListeners();
+    if(!user){ db=null; primed=false; showSignedIn(false); return; }
+    db = firestore.collection("users").doc(user.uid);
+    primed=false;
+    showSignedIn(true, "Signed in as "+(user.displayName||user.email||"you"));
+    render();
+
+    unsubscribers.push(db.collection("exercises").onSnapshot(function(s){
+      const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.name) nx[doc.id]=Object.assign({id:doc.id},v);});
+      custom=nx; saveCustom(); render();
+    },function(){}));
+    unsubscribers.push(db.collection("sessions").onSnapshot(function(s){
+      const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.date) nx[doc.id]=v;});
+      sess=Object.assign(sess,nx); saveSess(); render();
+    },function(){}));
+    unsubscribers.push(db.collection("exImg").onSnapshot(function(s){
+      const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.img) nx[doc.id]=v;});
+      imgs=nx; saveImg(); render();
+    },function(){}));
+    unsubscribers.push(db.collection("logs").orderBy("date","desc").limit(1200).onSnapshot(function(s){
+      const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.exerciseId&&v.date&&Array.isArray(v.sets)) nx[doc.id]=v;});
+      if(!primed){primed=true;Object.keys(logs).forEach(function(id){if(!nx[id]){nx[id]=logs[id];db.collection("logs").doc(id).set(logs[id]).catch(function(){});}});}
+      logs=nx; saveLogs(); render();
+    },function(){setSync(false,"Sync error - saved on this device");}));
+  });
+} else {
+  document.getElementById("signin").innerHTML =
+    '<div class="signin-card"><h1><span class="mk" style="color:var(--accent-ink)">Iron</span> Log</h1>'+
+    '<p>Firebase isn\'t configured yet. Fill in <code>firebase-config.js</code> with your project\'s config (see README.md), then reload.</p></div>';
+}
+function putLog(id,e){logs[id]=e;saveLogs();if(db)db.collection("logs").doc(id).set(e).catch(function(){toast("Couldn't sync - saved on device");});}
+function dropLog(id){delete logs[id];saveLogs();if(db)db.collection("logs").doc(id).delete().catch(function(){});}
+function putSess(date,s){sess[date]=s;saveSess();if(db)db.collection("sessions").doc(date).set(s).catch(function(){});}
+function putCustom(e){custom[e.id]=e;saveCustom();if(db)db.collection("exercises").doc(e.id).set(e).catch(function(){});}
+function delCustom(id){delete custom[id];saveCustom();if(db)db.collection("exercises").doc(id).delete().catch(function(){});}
+function putImg(id,uri){imgs[id]={img:uri,ts:Date.now()};saveImg();if(db)db.collection("exImg").doc(id).set(imgs[id]).catch(function(){toast("Couldn't sync photo - saved on device");});}
+function delImg(id){delete imgs[id];saveImg();if(db)db.collection("exImg").doc(id).delete().catch(function(){});}
+
+/* ---- image capture: downscale to a small JPEG data URI so it fits a synced document ---- */
+function processImage(file,cb){
+  if(!file) return;
+  if(file.type==="image/gif"){
+    if(file.size>230000){toast("That GIF is too large (keep it under ~220 KB)");return;}
+    const r=new FileReader(); r.onload=function(){cb(r.result);}; r.readAsDataURL(file); return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(){
+    const img=new Image();
+    img.onload=function(){
+      const max=560; let w=img.width,h=img.height;
+      const sc=Math.min(1,max/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc);
+      const c=document.createElement("canvas"); c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      let q=0.75, out=c.toDataURL("image/jpeg",q);
+      while(out.length>230000 && q>0.35){ q-=0.1; out=c.toDataURL("image/jpeg",q); }
+      cb(out);
+    };
+    img.onerror=function(){toast("Couldn't read that image");};
+    img.src=reader.result;
+  };
+  reader.onerror=function(){toast("Couldn't read that file");};
+  reader.readAsDataURL(file);
+}
+document.getElementById("fileInput").addEventListener("change",function(ev){
+  const f=ev.target.files&&ev.target.files[0]; ev.target.value="";
+  if(!f||!pendingPhotoId) return;
+  processImage(f,function(uri){
+    putImg(pendingPhotoId,uri); toast("Photo added");
+    if(modalMode==="detail") openModal(detailHTML(pendingPhotoId));
+    render();
+  });
+});
+
+/* ============ QUERIES ============ */
+function sessionsOf(exId){return Object.keys(logs).map(k=>logs[k]).filter(e=>e.exerciseId===exId&&e.sets.length).sort((a,b)=>a.date<b.date?-1:1);}
+function lastSessionOf(exId,beforeDate){const s=sessionsOf(exId).filter(e=>!beforeDate||e.date<beforeDate);return s[s.length-1]||null;}
+function bestSet(sets){return sets.slice().sort((a,b)=>(b.w||0)-(a.w||0)||(b.r||0)-(a.r||0))[0];}
+function prOf(exId){let m=0;sessionsOf(exId).forEach(e=>e.sets.forEach(s=>{if((s.w||0)>m)m=s.w||0;}));return m;}
+function topLoad(e,ex){
+  const bw=prefs.bw||0;
+  return e.sets.reduce(function(m,s){
+    let v=s.w||0;
+    if(ex.weightType==="bodyweight") v=bw>0?bw+(s.w||0):(s.w||0);
+    return Math.max(m,v);
+  },0);
+}
+function volumeOf(e,ex){
+  const bw=prefs.bw||0;
+  return e.sets.reduce(function(t,s){
+    const r=s.r||0; let w=s.w||0;
+    if(ex.metric==="secs") return t;
+    if(ex.weightType==="bodyweight"){const base=bw>0?bw+w:w;return t+Math.max(0,base)*r;}
+    if(ex.weightType==="dumbbell") return t+w*r*2;
+    return t+w*r;
+  },0);
+}
+function fmtSet(s,ex){
+  const rep=ex.metric==="secs"?(s.r+"s"):s.r;
+  const w=s.w;
+  if(ex.weightType==="bodyweight"){
+    if(!w) return "BW×"+rep;
+    return "BW"+(w>0?"+":"")+num(w)+"×"+rep;
+  }
+  if(!w) return rep+(ex.metric==="secs"?"":" reps");
+  const u=ex.weightType==="dumbbell"?"/DB":"";
+  return num(w)+u+"×"+rep;
+}
+function dateRange(days){const out=[];const d=new Date(today()+"T00:00:00");for(let i=0;i<days;i++){out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));d.setDate(d.getDate()-1);}return out;}
+
+/* ============ small svg charts ============ */
+function sparkOf(exId){
+  const ex=getEx(exId);
+  const pts=sessionsOf(exId).map(e=>topLoad(e,ex)).filter(v=>v>0).slice(-12);
+  if(pts.length<2)return "";
+  const w=70,h=22,p=3,mn=Math.min.apply(0,pts),mx=Math.max.apply(0,pts),rg=(mx-mn)||1;
+  const c=pts.map((v,i)=>(p+i*(w-2*p)/(pts.length-1)).toFixed(1)+","+(h-p-(v-mn)/rg*(h-2*p)).toFixed(1));
+  const l=c[c.length-1].split(",");
+  return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" aria-hidden="true"><polyline points="'+c.join(" ")+'" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="'+l[0]+'" cy="'+l[1]+'" r="1.8" fill="currentColor"/></svg>';
+}
+function lineChart(series){
+  if(series.length<2) return '<p class="empty">Log this exercise at least twice to see a trend.</p>';
+  const W=300,H=118,pl=6,pr=26,pt2=10,pb=18;
+  const vals=series.map(s=>s.val),mn=Math.min.apply(0,vals),mx=Math.max.apply(0,vals);
+  const lo=mn-(mx-mn)*.15||mn*.9,hi=mx+(mx-mn)*.15||mx*1.1+1,rg=(hi-lo)||1;
+  const X=i=>pl+i*(W-pl-pr)/(series.length-1), Y=v=>pt2+(1-(v-lo)/rg)*(H-pt2-pb);
+  const pl2=series.map((s,i)=>X(i).toFixed(1)+","+Y(s.val).toFixed(1));
+  const area="M"+X(0).toFixed(1)+","+(H-pb)+" L"+pl2.join(" L ")+" L"+X(series.length-1).toFixed(1)+","+(H-pb)+" Z";
+  const dots=series.map((s,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(s.val).toFixed(1)+'" r="2.4" fill="currentColor"/>').join("");
+  const last=series[series.length-1];
+  return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="progress chart">'+
+    '<path d="'+area+'" fill="var(--accent-soft)" opacity=".55"/>'+
+    '<polyline points="'+pl2.join(" ")+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'+dots+
+    '<text x="'+(W-pr+3)+'" y="'+(Y(mx)+3).toFixed(1)+'" font-size="9" fill="var(--muted)">'+num(mx)+'</text>'+
+    '<text x="'+(W-pr+3)+'" y="'+(Y(mn)+3).toFixed(1)+'" font-size="9" fill="var(--muted)">'+num(mn)+'</text>'+
+    '<text x="'+pl+'" y="'+(H-4)+'" font-size="9" fill="var(--muted)">'+series[0].label+'</text>'+
+    '<text x="'+(W-pr)+'" y="'+(H-4)+'" font-size="9" fill="var(--muted)" text-anchor="end">'+last.label+'</text>'+
+    '</svg>';
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ============ SCREENS ============ */
+const screens={};
+
+/* ---- HOME ---- */
+screens.home=function(){
+  const iso=today();
+  const wk=dateRange(7);
+  let wkSess=0,wkSets=0,wkVol=0;
+  const seenDates={};
+  Object.keys(logs).forEach(k=>{
+    const e=logs[k]; if(wk.indexOf(e.date)<0||!e.sets.length)return;
+    if(!seenDates[e.date]){seenDates[e.date]=1;wkSess++;}
+    wkSets+=e.sets.length; wkVol+=volumeOf(e,getEx(e.exerciseId));
+  });
+  const todayEx=workoutExIds(iso);
+  const doneToday=todayEx.filter(id=>(logs[iso+"_"+id]||{sets:[]}).sets.length);
+  let todayCard;
+  if(doneToday.length||todayEx.length){
+    todayCard='<div class="card lift"><div class="row between"><h2>Today</h2><span class="mono xs muted">'+fdatefull(iso)+'</span></div>'+
+      todayEx.map(id=>{
+        const ex=getEx(id); const e=logs[iso+"_"+id]||{sets:[]};
+        const b=e.sets.length?bestSet(e.sets):null;
+        return '<div class="row between" style="padding:6px 0;border-top:1px solid var(--line)"><span><b style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px">'+esc(ex.name)+'</b></span>'+
+          '<span class="mono xs muted">'+(e.sets.length?e.sets.length+" set"+(e.sets.length>1?"s":"")+" · "+fmtSet(b,ex):"no sets")+'</span></div>';
+      }).join("")+
+      '<button class="btn" style="margin-top:10px;width:100%" data-act="go-workout">Open today’s workout</button></div>';
+  }else{
+    todayCard='<div class="card lift"><h2>Today</h2><p class="empty" style="margin:8px 0 12px">Nothing logged yet for '+fdatefull(iso)+'.</p>'+
+      '<button class="btn" style="width:100%" data-act="go-workout">Start today’s workout</button></div>';
+  }
+
+  const lastByEx={};
+  Object.keys(logs).forEach(k=>{const e=logs[k];if(!e.sets.length)return;if(!lastByEx[e.exerciseId]||e.date>lastByEx[e.exerciseId])lastByEx[e.exerciseId]=e.date;});
+  const recent=Object.keys(lastByEx).sort((a,b)=>lastByEx[b]<lastByEx[a]?-1:1).slice(0,6);
+  const recentCard=recent.length?
+    '<div class="card"><h2>Recently used</h2>'+recent.map(id=>{
+      const ex=getEx(id); const s=lastSessionOf(id); const b=s?bestSet(s.sets):null;
+      return '<div class="ex-row" data-act="open-detail" data-id="'+id+'"><div style="display:flex;gap:9px;align-items:center;min-width:0">'+
+        (imgs[id]?'<img class="thumb" src="'+imgs[id].img+'" alt="">':'')+
+        '<div style="min-width:0"><div class="nm">'+esc(ex.name)+'</div><div class="xs muted">'+esc(ex.group)+' · '+esc(ex.equip)+'</div></div></div>'+
+        '<div class="last">'+(s?fdate(s.date)+' · <b>'+fmtSet(b,ex)+'</b>':'—')+
+        '<br><button class="btn ghost sm" style="margin-top:4px" data-act="log-now" data-id="'+id+'">+ Log</button></div></div>';
+    }).join("")+'</div>':
+    '<div class="card"><h2>Recently used</h2><p class="empty">Your recent exercises will show up here once you start logging.</p></div>';
+
+  return '<div class="apphead"><h1><span class="mk">Iron</span> Log</h1>'+
+    '<span class="row" style="gap:6px"><button class="iconbtn" data-act="theme" title="Theme">◐</button>'+
+    '<button class="iconbtn" data-act="signout" title="Sign out">⏻</button></span></div>'+
+    '<div class="stat-grid">'+
+      '<div class="stat"><div class="k">This week</div><div class="v">'+wkSess+'<span class="xs muted"> sess</span></div></div>'+
+      '<div class="stat"><div class="k">Sets</div><div class="v">'+wkSets+'</div></div>'+
+      '<div class="stat"><div class="k">Volume</div><div class="v">'+(wkVol>=1000?num(wkVol/1000)+"t":num(wkVol))+'</div></div>'+
+    '</div>'+
+    todayCard+recentCard+
+    '<div class="card"><div class="row between"><span class="small muted">Bodyweight (for volume &amp; 1RM estimates)</span>'+
+    '<span><input id="bwInput" class="mono" style="width:78px;text-align:center" inputmode="decimal" value="'+(prefs.bw||"")+'" placeholder="kg"> <span class="xs muted">kg</span></span></div></div>';
+};
+
+/* ---- EXERCISES ---- */
+screens.exercises=function(){
+  const q=(prefs._exq||"").toLowerCase();
+  const g=prefs.group;
+  let items=allEx().slice();
+  if(g==="Custom") items=items.filter(e=>custom[e.id]);
+  else if(g!=="All") items=items.filter(e=>e.group===g);
+  if(q) items=items.filter(e=>e.name.toLowerCase().indexOf(q)>-1||(e.equip||"").toLowerCase().indexOf(q)>-1);
+  items.sort((a,b)=>a.name<b.name?-1:1);
+
+  const chips=["All"].concat(GROUPS).concat(Object.keys(custom).length?["Custom"]:[])
+    .map(c=>'<button class="chip" data-act="grp" data-g="'+c+'" aria-pressed="'+(g===c)+'">'+c+'</button>').join("");
+
+  let body;
+  if(!items.length) body='<p class="empty">No exercises match.</p>';
+  else if(q||g!=="All") body=items.map(exRow).join("");
+  else body=GROUPS.map(grp=>{
+    const inG=items.filter(e=>e.group===grp); if(!inG.length)return "";
+    return '<div class="group-head">'+grp+'</div>'+inG.map(exRow).join("");
+  }).join("")+ (Object.keys(custom).length?'<div class="group-head">Custom</div>'+items.filter(e=>custom[e.id]).map(exRow).join(""):"");
+
+  return '<div class="screen-title"><h1>Exercises</h1><button class="btn sm" data-act="open-add">+ Add exercise</button></div>'+
+    '<input class="search" id="exSearch" type="search" placeholder="Search '+allEx().length+' exercises…" autocomplete="off" value="'+esc(prefs._exq||"")+'">'+
+    '<div class="chips" style="margin-bottom:6px">'+chips+'</div>'+
+    '<div class="card" style="padding:4px 12px">'+body+'</div>';
+};
+function exRow(ex){
+  const s=lastSessionOf(ex.id); const b=s?bestSet(s.sets):null;
+  return '<div class="ex-row" data-act="open-detail" data-id="'+ex.id+'"><div style="display:flex;gap:9px;align-items:center;min-width:0">'+
+    (imgs[ex.id]?'<img class="thumb" src="'+imgs[ex.id].img+'" alt="">':'')+
+    '<div style="min-width:0"><div class="nm">'+esc(ex.name)+(custom[ex.id]?' <span class="tag cst">Custom</span>':'')+'</div>'+
+    '<div class="wrap-tags"><span class="tag">'+esc(ex.group)+'</span><span class="tag">'+esc(ex.equip||"—")+'</span></div></div></div>'+
+    '<div class="last">'+(s?fdate(s.date)+'<br><b>'+fmtSet(b,ex)+'</b>':'no log')+' '+sparkOf(ex.id)+'</div></div>';
+}
+
+/* ---- WORKOUT ---- */
+function workoutExIds(date){
+  const fromSess=(sess[date]&&sess[date].exerciseIds)||[];
+  const fromLogs=Object.keys(logs).filter(k=>logs[k].date===date&&logs[k].sets.length).map(k=>logs[k].exerciseId);
+  const set=[]; fromSess.concat(fromLogs).forEach(id=>{if(set.indexOf(id)<0)set.push(id);});
+  return set;
+}
+screens.workout=function(){
+  const iso=today();
+  const ids=workoutExIds(iso);
+  let vol=0,setct=0;
+  ids.forEach(id=>{const e=logs[iso+"_"+id];if(e){setct+=e.sets.length;vol+=volumeOf(e,getEx(id));}});
+  const head='<div class="screen-title"><h1>Workout</h1><span class="mono xs muted">'+fdatefull(iso)+'</span></div>'+
+    '<div class="row between" style="margin-bottom:10px"><span class="small muted">'+ids.length+' exercises · '+setct+' sets · '+num(vol)+' kg</span>'+
+    '<button class="btn sm" data-act="open-picker">+ Add exercise</button></div>';
+  if(!ids.length) return head+'<div class="card"><p class="empty">No exercises yet. Tap “+ Add exercise” to build today’s session, or start one from Home / Recently used.</p></div>';
+  return head+ids.map(id=>wkCard(id,iso)).join("");
+};
+function wkCard(id,iso){
+  const ex=getEx(id);
+  const docId=iso+"_"+id;
+  const e=logs[docId]||{exerciseId:id,date:iso,sets:[]};
+  const pr=prOf(id);
+  const todayMax=e.sets.reduce((m,s)=>Math.max(m,s.w||0),0);
+  const prHit=pr>0&&todayMax>=pr;
+  const wLabel=ex.weightType==="bodyweight"?"±kg":(ex.weightType==="dumbbell"?"kg/DB":"kg");
+  const rLabel=ex.metric==="secs"?"secs":"reps";
+  const rows=e.sets.map((s,i)=>
+    '<tr><td>'+(i+1)+'</td>'+
+    '<td><input inputmode="decimal" data-act="setw" data-id="'+id+'" data-i="'+i+'" value="'+(s.w?s.w:"")+'" aria-label="weight"></td>'+
+    '<td><input inputmode="numeric" data-act="setr" data-id="'+id+'" data-i="'+i+'" value="'+(s.r||"")+'" aria-label="'+rLabel+'"></td>'+
+    '<td class="del"><button data-act="delset" data-id="'+id+'" data-i="'+i+'" aria-label="delete set">×</button></td></tr>').join("");
+  const prev=lastSessionOf(id,iso);
+  return '<div class="wk-ex"><div class="row between"><div><b style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px">'+esc(ex.name)+'</b>'+
+    ' <span class="pr-tag'+(prHit?" hit":"")+'">'+(pr>0?"PR "+num(pr):"no PR")+'</span></div>'+
+    '<button class="iconbtn" data-act="rm-wk" data-id="'+id+'" aria-label="remove exercise">×</button></div>'+
+    '<div class="xs muted" style="margin-top:2px">'+esc(ex.equip||"")+' · enter '+WT_LABEL[ex.weightType]+
+      (prev?' · last: '+prev.sets.map(x=>fmtSet(x,ex)).join(", "):"")+'</div>'+
+    '<table class="set-table"><thead><tr><th></th><th>'+wLabel+'</th><th>'+rLabel+'</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="wk-actions"><button class="btn ghost sm" data-act="addset" data-id="'+id+'">+ Set</button>'+
+    (prev?'<button class="btn dim sm" data-act="repeat" data-id="'+id+'">Repeat last ('+prev.sets.length+')</button>':'')+
+    '<button class="btn dim sm" data-act="open-detail" data-id="'+id+'">Form</button></div></div>';
+}
+
+/* ---- HISTORY ---- */
+screens.history=function(){
+  const tab=prefs.histTab;
+  const seg='<div class="seg"><button data-act="htab" data-t="sessions" aria-pressed="'+(tab==="sessions")+'">Sessions</button>'+
+    '<button data-act="htab" data-t="progress" aria-pressed="'+(tab==="progress")+'">Progress</button></div>';
+  if(tab==="progress") return '<div class="screen-title"><h1>History</h1></div>'+seg+progressView();
+
+  const byDate={};
+  Object.keys(logs).forEach(k=>{const e=logs[k];if(!e.sets.length)return;(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  const dates=Object.keys(byDate).sort().reverse();
+  if(!dates.length) return '<div class="screen-title"><h1>History</h1></div>'+seg+'<div class="card"><p class="empty">No sessions logged yet.</p></div>';
+  return '<div class="screen-title"><h1>History</h1></div>'+seg+dates.map(d=>{
+    const es=byDate[d]; let vol=0,sets=0;
+    es.forEach(e=>{vol+=volumeOf(e,getEx(e.exerciseId));sets+=e.sets.length;});
+    return '<details class="sess"'+(d===today()?" open":"")+'><summary><span class="sd">'+fdatefull(d)+
+      ' <span class="xs muted mono">'+(daysAgo(d)===0?"today":daysAgo(d)+"d ago")+'</span></span>'+
+      '<span class="meta">'+es.length+" ex · "+sets+" sets · "+num(vol)+" kg</span></summary>"+
+      es.map(e=>{const ex=getEx(e.exerciseId);return '<div class="line"><span>'+esc(ex.name)+'</span><span class="sv">'+e.sets.map(s=>fmtSet(s,ex)).join("  ")+'</span></div>';}).join("")+
+      '</details>';
+  }).join("");
+};
+function progressView(){
+  const logged=Object.keys(logs).reduce((a,k)=>{const id=logs[k].exerciseId;if(logs[k].sets.length&&a.indexOf(id)<0)a.push(id);return a;},[]);
+  if(!logged.length) return '<div class="card"><p class="empty">Log a few sessions first, then pick an exercise here to see its progress.</p></div>';
+  let id=prefs.progressEx; if(logged.indexOf(id)<0) id=logged[0];
+  const ex=getEx(id);
+  const s=sessionsOf(id);
+  const series=s.map(e=>({label:fdate(e.date),val:topLoad(e,ex)})).filter(x=>x.val>0);
+  const pr=prOf(id);
+  let e1rm=0;
+  s.forEach(e=>e.sets.forEach(st=>{const base=ex.weightType==="bodyweight"?((prefs.bw||0)+(st.w||0)):(st.w||0);const est=base*(1+(st.r||0)/30);if(est>e1rm)e1rm=est;}));
+  const opts=logged.map(x=>{const g=getEx(x);return '<option value="'+x+'"'+(x===id?" selected":"")+'>'+esc(g.name)+'</option>';}).join("");
+  return '<div class="card"><select id="progSel" class="field" style="width:100%">'+opts+'</select>'+
+    '<div class="stat-grid">'+
+      '<div class="stat"><div class="k">Sessions</div><div class="v">'+s.length+'</div></div>'+
+      '<div class="stat"><div class="k">Best load</div><div class="v">'+num(pr)+'</div></div>'+
+      '<div class="stat"><div class="k">Est. 1RM</div><div class="v">'+num(e1rm)+'</div></div>'+
+    '</div>'+
+    lineChart(series)+
+    '<div class="xs muted" style="margin-bottom:6px">'+(ex.weightType==="dumbbell"?"Values are per-dumbbell. ":"")+
+      (ex.weightType==="bodyweight"?(prefs.bw?"Bodyweight "+num(prefs.bw)+" kg included.":"Set your bodyweight on Home for loaded estimates."):"")+
+      ' Est. 1RM uses the Epley formula.</div>'+
+    s.slice().reverse().slice(0,10).map(e=>'<div class="line"><span>'+fdatefull(e.date)+'</span><span class="sv">'+e.sets.map(x=>fmtSet(x,ex)).join("  ")+'</span></div>').join("")+
+    '</div>';
+}
+
+/* ============ MODALS ============ */
+const modal=document.getElementById("modal"), sheet=document.getElementById("sheet");
+let modalMode=null, pickerCtx=null, editId=null;
+function openModal(html){sheet.innerHTML=html;modal.classList.add("open");sheet.scrollTop=0;}
+function closeModal(){modal.classList.remove("open");modalMode=null;editId=null;}
+
+function detailHTML(id){
+  const ex=getEx(id);
+  const cue=(cls,t,items)=>'<div class="cue '+cls+'"><h4>'+t+'</h4><ul>'+(items||[]).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>';
+  const s=sessionsOf(id);
+  const photo=imgs[id];
+  const media = photo
+    ? '<img class="exphoto" src="'+photo.img+'" alt="'+esc(ex.name)+' reference photo">'+
+      '<div class="ph-actions"><button class="btn ghost sm" data-act="pick-photo" data-id="'+id+'">Replace photo</button>'+
+      '<button class="btn dim sm" data-act="del-photo" data-id="'+id+'">Remove</button></div>'
+    : '<div class="ph-actions"><button class="btn ghost sm" data-act="pick-photo" data-id="'+id+'">Add your own photo / GIF</button></div>';
+  return '<div class="sheet-head"><h3>'+esc(ex.name)+'</h3><button class="iconbtn" data-act="close">×</button></div>'+
+    '<div class="wrap-tags" style="margin-bottom:10px"><span class="tag">'+esc(ex.group)+'</span><span class="tag">'+esc(ex.equip||"—")+'</span><span class="tag">'+esc(WT_LABEL[ex.weightType]||ex.weightType)+'</span>'+(custom[id]?'<span class="tag cst">Custom</span>':'')+'</div>'+
+    media+
+    ((ex.setup&&ex.setup.length)||(ex.exec&&ex.exec.length)||(ex.avoid&&ex.avoid.length)?
+      '<div class="cues">'+cue("s","Set up",ex.setup)+cue("e","Execute",ex.exec)+cue("a","Avoid",ex.avoid)+'</div>':
+      '<p class="empty">No form notes for this one yet'+(custom[id]?' - tap Edit to add some.':'')+'</p>')+
+    '<div class="wk-actions" style="margin-top:14px"><button class="btn" data-act="add-to-workout" data-id="'+id+'">Add to today’s workout</button>'+
+    (custom[id]?'<button class="btn ghost" data-act="edit-ex" data-id="'+id+'">Edit</button><button class="btn dim" data-act="del-ex" data-id="'+id+'">Delete</button>':'')+'</div>'+
+    (s.length?'<h2 style="margin-top:16px">History</h2>'+s.slice().reverse().slice(0,10).map(e=>'<div class="line"><span>'+fdatefull(e.date)+'</span><span class="sv">'+e.sets.map(x=>fmtSet(x,ex)).join("  ")+'</span></div>').join(""):"");
+}
+function addExHTML(ed){
+  const e=ed||{name:"",group:"Chest",equip:"",weightType:"barbell",metric:"reps",setup:[],exec:[],avoid:[]};
+  const gsel=GROUPS.concat("Other").map(g=>'<option'+(e.group===g?" selected":"")+'>'+g+'</option>').join("");
+  const wsel=[["barbell","Barbell - total kg"],["dumbbell","Dumbbell - kg per hand"],["machine","Machine - kg / load"],["cable","Cable - kg / load"],["bodyweight","Bodyweight - +/- kg"]]
+    .map(o=>'<option value="'+o[0]+'"'+(e.weightType===o[0]?" selected":"")+'>'+o[1]+'</option>').join("");
+  return '<div class="sheet-head"><h3>'+(ed?"Edit exercise":"Add exercise")+'</h3><button class="iconbtn" data-act="close">×</button></div>'+
+    '<label class="lbl">Name</label><input id="axName" class="field" value="'+esc(e.name)+'" placeholder="e.g. Landmine Press">'+
+    '<label class="lbl">Muscle group</label><select id="axGroup" class="field">'+gsel+'</select>'+
+    '<label class="lbl">Equipment label</label><input id="axEquip" class="field" value="'+esc(e.equip)+'" placeholder="e.g. Landmine">'+
+    '<label class="lbl">How weight is recorded</label><select id="axWt" class="field">'+wsel+'</select>'+
+    '<label class="lbl">Rep unit</label><select id="axMetric" class="field"><option value="reps"'+(e.metric!=="secs"?" selected":"")+'>Reps</option><option value="secs"'+(e.metric==="secs"?" selected":"")+'>Seconds (holds)</option></select>'+
+    '<label class="lbl">Set up cues (one per line, optional)</label><textarea id="axSetup" class="field" rows="3">'+esc((e.setup||[]).join("\n"))+'</textarea>'+
+    '<label class="lbl">Execute cues</label><textarea id="axExec" class="field" rows="3">'+esc((e.exec||[]).join("\n"))+'</textarea>'+
+    '<label class="lbl">Avoid cues</label><textarea id="axAvoid" class="field" rows="3">'+esc((e.avoid||[]).join("\n"))+'</textarea>'+
+    '<p class="xs muted" style="margin-top:10px">You can add your own photo once the exercise is saved.</p>'+
+    '<button class="btn" style="width:100%;margin-top:8px" data-act="save-ex">'+(ed?"Save changes":"Add exercise")+'</button>';
+}
+function pickerHTML(){
+  const q=(pickerCtx&&pickerCtx.q||"").toLowerCase();
+  let items=allEx().filter(e=>!q||e.name.toLowerCase().indexOf(q)>-1||(e.equip||"").toLowerCase().indexOf(q)>-1);
+  items.sort((a,b)=>a.name<b.name?-1:1);
+  const inWk=workoutExIds(today());
+  return '<div class="sheet-head"><h3>Add to workout</h3><button class="iconbtn" data-act="close">×</button></div>'+
+    '<input id="pkSearch" class="search" type="search" placeholder="Search…" autocomplete="off" value="'+esc(pickerCtx&&pickerCtx.q||"")+'">'+
+    '<button class="btn ghost sm" data-act="open-add" style="margin-bottom:8px">+ New custom exercise</button>'+
+    '<div class="card" style="padding:2px 12px">'+items.slice(0,90).map(ex=>
+      '<div class="ex-row" data-act="pick" data-id="'+ex.id+'"><div><div class="nm">'+esc(ex.name)+'</div><div class="xs muted">'+esc(ex.group)+' · '+esc(ex.equip||"—")+'</div></div>'+
+      '<div class="last">'+(inWk.indexOf(ex.id)>-1?'<span class="tag">added</span>':'<span class="btn ghost sm">Add</span>')+'</div></div>').join("")+'</div>';
+}
+
+/* ============ ACTIONS ============ */
+function addToWorkout(id){
+  const iso=today();
+  const s=sess[iso]||{date:iso,exerciseIds:[],ts:Date.now()};
+  if(s.exerciseIds.indexOf(id)<0)s.exerciseIds.push(id);
+  s.ts=Date.now(); putSess(iso,s);
+}
+function removeFromWorkout(id){
+  const iso=today();
+  const s=sess[iso]||{date:iso,exerciseIds:[],ts:Date.now()};
+  s.exerciseIds=s.exerciseIds.filter(x=>x!==id); putSess(iso,s);
+  if(logs[iso+"_"+id]) dropLog(iso+"_"+id);
+}
+function addSet(id){
+  const iso=today(), docId=iso+"_"+id;
+  const e=logs[docId]||{exerciseId:id,date:iso,sets:[]};
+  const prev=e.sets[e.sets.length-1]||lastPrevSet(id);
+  e.sets=e.sets.concat([{w:prev?prev.w:0,r:prev?prev.r:0}]);
+  e.ts=Date.now(); putLog(docId,e); addToWorkout(id);
+}
+function lastPrevSet(id){const p=lastSessionOf(id,today());return p?p.sets[p.sets.length-1]:null;}
+function updateSet(id,i,field,raw){
+  const iso=today(), docId=iso+"_"+id;
+  const e=logs[docId]; if(!e||!e.sets[i])return;
+  const v=raw.trim();
+  if(field==="w") e.sets[i].w = v===""?0:parseFloat(v);
+  else e.sets[i].r = v===""?0:parseInt(v,10);
+  if(!Number.isFinite(e.sets[i].w)) e.sets[i].w=0;
+  if(!Number.isFinite(e.sets[i].r)) e.sets[i].r=0;
+  e.ts=Date.now(); putLog(docId,e);
+}
+function delSet(id,i){
+  const iso=today(), docId=iso+"_"+id;
+  const e=logs[docId]; if(!e)return;
+  e.sets.splice(i,1);
+  if(e.sets.length){e.ts=Date.now();putLog(docId,e);} else dropLog(docId);
+}
+function repeatLast(id){
+  const prev=lastSessionOf(id,today()); if(!prev)return;
+  const iso=today(), docId=iso+"_"+id;
+  const e=logs[docId]||{exerciseId:id,date:iso,sets:[]};
+  e.sets=e.sets.concat(prev.sets.map(s=>({w:s.w||0,r:s.r||0})));
+  e.ts=Date.now(); putLog(docId,e); addToWorkout(id);
+  toast("Copied "+prev.sets.length+" set"+(prev.sets.length>1?"s":"")+" from "+fdate(prev.date));
+}
+function saveExFromForm(){
+  const name=document.getElementById("axName").value.trim();
+  if(!name){toast("Give the exercise a name");return;}
+  const lines=v=>v.split("\n").map(x=>x.trim()).filter(Boolean);
+  const id=editId||("u_"+Date.now().toString(36));
+  const e={id:id,name:name,
+    group:document.getElementById("axGroup").value,
+    equip:document.getElementById("axEquip").value.trim()||"Other",
+    weightType:document.getElementById("axWt").value,
+    metric:document.getElementById("axMetric").value,
+    pattern:(editId&&custom[editId]&&custom[editId].pattern)||"neutral",
+    setup:lines(document.getElementById("axSetup").value),
+    exec:lines(document.getElementById("axExec").value),
+    avoid:lines(document.getElementById("axAvoid").value),
+    ts:Date.now()};
+  putCustom(e); closeModal(); prefs.group="Custom"; savePrefs(); go("exercises");
+  toast(editId?"Exercise updated":"Exercise added");
+}
+
+/* ============ EVENTS ============ */
+document.addEventListener("click",function(ev){
+  const t=ev.target.closest("[data-act]"); if(!t)return;
+  const a=t.getAttribute("data-act"), id=t.getAttribute("data-id");
+  switch(a){
+    case "nav": go(t.getAttribute("data-screen")); break;
+    case "go-workout": go("workout"); break;
+    case "theme":
+      prefs.theme = prefs.theme==="auto"?"light":prefs.theme==="light"?"dark":"auto";
+      savePrefs(); applyTheme(); toast("Theme: "+prefs.theme); break;
+    case "signout":
+      if(window.firebase && firebase.apps.length && confirm("Sign out of Iron Log?")) firebase.auth().signOut();
+      break;
+    case "grp": prefs.group=t.getAttribute("data-g"); savePrefs(); render(); break;
+    case "open-detail": modalMode="detail"; openModal(detailHTML(id)); break;
+    case "close": closeModal(); break;
+    case "open-add": editId=null; modalMode="add"; openModal(addExHTML(null)); break;
+    case "edit-ex": editId=id; modalMode="add"; openModal(addExHTML(custom[id])); break;
+    case "save-ex": saveExFromForm(); break;
+    case "del-ex":
+      if(confirm("Delete this custom exercise? Its logged history stays in History.")){ delCustom(id); closeModal(); render(); }
+      break;
+    case "add-to-workout": addToWorkout(id); closeModal(); go("workout"); toast("Added to today’s workout"); break;
+    case "log-now": addToWorkout(id); go("workout"); break;
+    case "open-picker": pickerCtx={q:""}; modalMode="picker"; openModal(pickerHTML()); break;
+    case "pick": addToWorkout(id); closeModal(); go("workout"); break;
+    case "rm-wk": if(confirm("Remove "+getEx(id).name+" from today?")){ removeFromWorkout(id); render(); } break;
+    case "addset": addSet(id); render(); focusLastWeight(id); break;
+    case "delset": delSet(id, +t.getAttribute("data-i")); render(); break;
+    case "repeat": repeatLast(id); render(); break;
+    case "htab": prefs.histTab=t.getAttribute("data-t"); savePrefs(); render(); break;
+    case "pick-photo": pendingPhotoId=id; document.getElementById("fileInput").click(); break;
+    case "del-photo": if(confirm("Remove this photo?")){ delImg(id); if(modalMode==="detail") openModal(detailHTML(id)); render(); } break;
+  }
+});
+document.addEventListener("change",function(ev){
+  const t=ev.target;
+  if(t.id==="bwInput"){ prefs.bw=parseFloat(t.value)||0; savePrefs(); render(); return; }
+  if(t.id==="progSel"){ prefs.progressEx=t.value; savePrefs(); render(); return; }
+  const act=t.getAttribute&&t.getAttribute("data-act");
+  if(act==="setw"||act==="setr"){
+    updateSet(t.getAttribute("data-id"), +t.getAttribute("data-i"), act==="setw"?"w":"r", t.value);
+  }
+});
+document.addEventListener("change",function(ev){
+  const act=ev.target.getAttribute&&ev.target.getAttribute("data-act");
+  if(act==="setr" && ev.target.value.trim()!=="") startTimer();
+},true);
+document.addEventListener("input",function(ev){
+  const t=ev.target;
+  if(t.id==="exSearch"){ prefs._exq=t.value; clearTimeout(t._d); t._d=setTimeout(()=>{const p=document.activeElement===t;render();if(p){const n=document.getElementById("exSearch");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}}},180); }
+  if(t.id==="pkSearch"){ pickerCtx.q=t.value; clearTimeout(t._d); t._d=setTimeout(()=>{openModal(pickerHTML());const n=document.getElementById("pkSearch");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}},180); }
+});
+document.addEventListener("keydown",function(ev){
+  if(ev.key==="Enter" && ev.target.getAttribute && ev.target.getAttribute("data-act")==="setr"){
+    ev.preventDefault();
+    const id=ev.target.getAttribute("data-id");
+    updateSet(id,+ev.target.getAttribute("data-i"),"r",ev.target.value);
+    addSet(id); render(); focusLastWeight(id);
+  }
+  if(ev.key==="Escape" && modal.classList.contains("open")) closeModal();
+});
+function focusLastWeight(id){
+  const rows=document.querySelectorAll('.wk-ex input[data-act="setw"][data-id="'+id+'"]');
+  if(rows.length){ const n=rows[rows.length-1]; n.focus(); }
+}
+
+/* ============ ROUTER / RENDER ============ */
+function go(name){ prefs.screen=name; savePrefs(); render(); window.scrollTo(0,0); }
+function render(){
+  const name=prefs.screen||"home";
+  document.querySelectorAll(".screen").forEach(s=>{
+    const on=s.getAttribute("data-screen")===name;
+    s.classList.toggle("active",on);
+    if(on) s.innerHTML=screens[name]();
+  });
+  document.querySelectorAll("#tabbar button").forEach(b=>b.setAttribute("aria-current", b.getAttribute("data-screen")===name?"true":"false"));
+}
+
+/* ============ THEME ============ */
+function applyTheme(){
+  if(prefs.theme==="auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme",prefs.theme);
+}
+
+/* ============ REST TIMER ============ */
+const timerEl=document.getElementById("timer"), clockEl=document.getElementById("clock");
+let tRem=0,tH=null;
+function fmtC(s){return s<=0?"0:00":Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function startTimer(){
+  if(!prefs.rest)return;
+  tRem=prefs.rest; timerEl.classList.add("show"); timerEl.classList.remove("done"); clockEl.textContent=fmtC(tRem);
+  clearInterval(tH);
+  tH=setInterval(function(){
+    tRem--; clockEl.textContent=fmtC(tRem);
+    if(tRem<=0){clearInterval(tH);timerEl.classList.add("done");if(navigator.vibrate){try{navigator.vibrate([120,60,120]);}catch(e){}}setTimeout(()=>timerEl.classList.remove("show"),4000);}
+  },1000);
+}
+document.getElementById("tMinus").onclick=()=>{tRem=Math.max(0,tRem-15);clockEl.textContent=fmtC(tRem);};
+document.getElementById("tPlus").onclick=()=>{tRem+=15;clockEl.textContent=fmtC(tRem);timerEl.classList.remove("done");};
+document.getElementById("tSkip").onclick=()=>{clearInterval(tH);timerEl.classList.remove("show");};
+
+/* ============ MISC ============ */
+function setSync(on,txt){const el=document.getElementById("sync");el.classList.toggle("on",!!on);document.getElementById("syncText").textContent=txt;}
+let toastH=null;
+function toast(m){const el=document.getElementById("toast");el.textContent=m;el.classList.add("show");clearTimeout(toastH);toastH=setTimeout(()=>el.classList.remove("show"),2400);}
+
+/* ============ BOOT ============ */
+applyTheme();
+if(["home","exercises","workout","history"].indexOf(prefs.screen)<0) prefs.screen="home";
+if("serviceWorker" in navigator){
+  window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+}
+</script>
+</body>
+</html>
