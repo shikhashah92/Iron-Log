@@ -735,6 +735,15 @@ function startTemplate(tid){
   go("workout");
   toast("Loaded \""+t.name+"\" ("+t.exerciseIds.length+" exercise"+(t.exerciseIds.length!==1?"s":"")+")");
 }
+function saveAsTemplate(exerciseIds,suggestedName){
+  if(!window.__ironlogTemplates){ toast("Sign in to save templates"); return; }
+  if(!exerciseIds.length){ toast("No exercises to save"); return; }
+  const nm=prompt("Name this template (e.g. Leg Day)",suggestedName||"");
+  if(!nm||!nm.trim()) return;
+  const tid=window.__ironlogTemplates.add(nm.trim());
+  window.__ironlogTemplates.put(tid,{exerciseIds:exerciseIds.slice()});
+  toast("Saved \""+nm.trim()+"\" as a template ("+exerciseIds.length+" exercise"+(exerciseIds.length!==1?"s":"")+")");
+}
 
 /* ---- image capture: downscale to a small JPEG data URI so it fits a synced document ---- */
 function processImage(file,cb){
@@ -976,9 +985,10 @@ screens.workout=function(){
   }
   const head='<div class="screen-title"><h1>Workout</h1><span class="mono xs muted">'+fdatefull(iso)+'</span></div>'+
     timerRow+
-    '<div class="row between" style="margin-bottom:10px"><span class="small muted">'+ids.length+' exercises · '+setct+' sets · '+num(vol)+' kg</span>'+
+    '<div class="row between" style="margin-bottom:'+(ids.length?"6px":"10px")+'"><span class="small muted">'+ids.length+' exercises · '+setct+' sets · '+num(vol)+' kg</span>'+
     '<span class="row" style="gap:6px"><button class="btn ghost sm" data-act="open-templates">Templates</button>'+
-    '<button class="btn sm" data-act="open-picker">+ Add exercise</button></span></div>';
+    '<button class="btn sm" data-act="open-picker">+ Add exercise</button></span></div>'+
+    (ids.length?'<button class="btn dim sm" style="width:100%;margin-bottom:10px" data-act="save-as-template">★ Save today\'s exercises as a template</button>':"");
   if(!ids.length){
     const tIds=Object.keys(templates);
     const tButtons=tIds.length?'<div class="wk-actions" style="margin-top:10px">'+tIds.map(tid=>
@@ -1033,6 +1043,7 @@ screens.history=function(){
       ' <span class="xs muted mono">'+(daysAgo(d)===0?"today":daysAgo(d)+"d ago")+'</span></span>'+
       '<span class="meta">'+es.length+" ex · "+sets+" sets · "+num(vol)+" kg"+durMeta+"</span></summary>"+
       es.map(e=>{const ex=getEx(e.exerciseId);return '<div class="line"><span>'+esc(ex.name)+'</span><span class="sv">'+e.sets.map(s=>fmtSet(s,ex)).join("  ")+'</span></div>';}).join("")+
+      '<button class="btn dim sm" style="margin-top:10px" data-act="save-day-as-template" data-date="'+d+'">★ Save this day\'s exercises as a template</button>'+
       '</details>';
   }).join("");
 };
@@ -1327,6 +1338,12 @@ document.addEventListener("click",function(ev){
       else { addToWorkout(id); closeModal(); go("workout"); }
       break;
     case "open-templates": modalMode="templates"; openModal(templatesHTML()); break;
+    case "save-as-template": saveAsTemplate(workoutExIds(today())); break;
+    case "save-day-as-template": {
+      const d=t.getAttribute("data-date");
+      const dIds=Object.keys(logs).filter(function(k){return logs[k].date===d&&logs[k].sets.length;}).map(function(k){return logs[k].exerciseId;});
+      saveAsTemplate(dIds);
+      break; }
     case "add-template": {
       const nm=prompt("Template name (e.g. Leg Day)");
       if(nm&&nm.trim()&&window.__ironlogTemplates){ const tid=window.__ironlogTemplates.add(nm.trim()); modalMode="template-edit"; openModal(templateEditHTML(tid)); }
