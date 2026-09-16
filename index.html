@@ -103,6 +103,8 @@
   .ex-row .last{font-size:11px; color:var(--muted); text-align:right; white-space:nowrap}
   .ex-row .last b{color:var(--ink); font-weight:500}
   .thumb{width:38px; height:38px; border-radius:8px; object-fit:cover; border:1px solid var(--line); flex:0 0 auto; background:var(--surface-2)}
+  .favstar{background:transparent; border:0; cursor:pointer; font-size:19px; line-height:1; padding:2px; color:var(--line); flex:0 0 auto}
+  .favstar.on{color:var(--accent)}
   .group-head{font-family:"Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.09em; font-size:12px; font-weight:600; color:var(--muted); margin:16px 2px 4px; display:flex; align-items:center; gap:8px}
   .group-head::after{content:""; flex:1; height:1px; background:var(--line)}
 
@@ -518,13 +520,14 @@ const GROUPS=["Chest","Back","Shoulders","Legs","Arms","Core"];
 const WT_LABEL={barbell:"kg (total)",dumbbell:"kg / dumbbell",machine:"kg / load",cable:"kg / load",bodyweight:"+/- kg (optional)"};
 
 /* ============ STATE + STORAGE ============ */
-const LS_LOGS="ironlog.entries.v1", LS_CUSTOM="ironlog.custom.v1", LS_SESS="ironlog.sessions.v1", LS_PREFS="ironlog.prefs.v1", LS_IMG="ironlog.img.v1";
-const LS_PROFILES="ironlog.profiles.v1", LS_CURPROF="ironlog.curprofile.v1";
+const LS_LOGS="ironlog.entries.v1", LS_CUSTOM="ironlog.custom.v1", LS_SESS="ironlog.sessions.v1", LS_PREFS="ironlog.prefs.v1", LS_IMG="ironlog.img.v1", LS_FAVS="ironlog.favs.v1";
+const LS_PROFILES="ironlog.profiles.v1", LS_CURPROF="ironlog.curprofile.v1", LS_TEMPLATES="ironlog.templates.v1";
 const rd=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d;}catch(e){return d;}};
 const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
 const getPlain=(k)=>{try{return localStorage.getItem(k);}catch(e){return null;}};
 const setPlain=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
-let logs=rd(LS_LOGS,{}), custom=rd(LS_CUSTOM,{}), sess=rd(LS_SESS,{}), imgs=rd(LS_IMG,{});
+let logs=rd(LS_LOGS,{}), custom=rd(LS_CUSTOM,{}), sess=rd(LS_SESS,{}), imgs=rd(LS_IMG,{}), favs=rd(LS_FAVS,{});
+let templates=rd(LS_TEMPLATES,{});
 let profiles=rd(LS_PROFILES,{});
 let prefs=rd(LS_PREFS,{screen:"home",group:"All",rest:90,theme:"auto",bw:0,histTab:"sessions",progressEx:""});
 let db=null, primed=false;
@@ -533,6 +536,8 @@ let pendingPhotoId=null;
 
 function saveLogs(){wr(LS_LOGS,logs);} function saveCustom(){wr(LS_CUSTOM,custom);}
 function saveSess(){wr(LS_SESS,sess);} function savePrefs(){wr(LS_PREFS,prefs);} function saveImg(){wr(LS_IMG,imgs);}
+function saveFavs(){wr(LS_FAVS,favs);}
+function saveTemplates(){wr(LS_TEMPLATES,templates);}
 function saveProfiles(){wr(LS_PROFILES,profiles);}
 function profileName(id){return (profiles[id]&&profiles[id].name)||"Profile";}
 
@@ -623,13 +628,38 @@ if(window.firebase && firebase.apps.length){
       if(!primed){primed=true;Object.keys(logs).forEach(function(id){if(!nx[id]){nx[id]=logs[id];db.collection("logs").doc(id).set(logs[id]).catch(function(){});}});}
       logs=nx; saveLogs(); render();
     },function(){setSync(false,"Sync error - saved on this device");}));
+    profUnsub.push(db.collection("favorites").onSnapshot(function(s){
+      const nx={}; s.docs.forEach(function(doc){nx[doc.id]=doc.data()||{};});
+      favs=nx; saveFavs(); render();
+    },function(){}));
+    profUnsub.push(db.collection("templates").onSnapshot(function(s){
+      const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.name) nx[doc.id]={name:v.name,exerciseIds:Array.isArray(v.exerciseIds)?v.exerciseIds:[],ts:v.ts};});
+      templates=nx; saveTemplates(); render();
+    },function(){}));
   }
+
+  function putTemplate(id,patch){
+    templates[id]=Object.assign({},templates[id],patch); saveTemplates();
+    db.collection("templates").doc(id).set(templates[id]).catch(function(){});
+  }
+  function addTemplate(name){
+    const id="t_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const rec={name:name,exerciseIds:[],ts:Date.now()};
+    templates[id]=rec; saveTemplates();
+    db.collection("templates").doc(id).set(rec).catch(function(){});
+    return id;
+  }
+  function delTemplate(id){
+    delete templates[id]; saveTemplates();
+    db.collection("templates").doc(id).delete().catch(function(){});
+  }
+  window.__ironlogTemplates = {put:putTemplate, add:addTemplate, del:delTemplate};
 
   function selectProfile(id){
     if(!profiles[id]) return;
     teardownProfile();
     currentProfileId=id; setPlain(LS_CURPROF,id);
-    logs={}; custom={}; sess={}; imgs={}; primed=false;
+    logs={}; custom={}; sess={}; imgs={}; favs={}; templates={}; primed=false;
     db = userRoot().collection("profiles").doc(id);
     attachProfileListeners();
     render();
@@ -672,6 +702,24 @@ function putCustom(e){custom[e.id]=e;saveCustom();if(db)db.collection("exercises
 function delCustom(id){delete custom[id];saveCustom();if(db)db.collection("exercises").doc(id).delete().catch(function(){});}
 function putImg(id,uri){imgs[id]={img:uri,ts:Date.now()};saveImg();if(db)db.collection("exImg").doc(id).set(imgs[id]).catch(function(){toast("Couldn't sync photo - saved on device");});}
 function delImg(id){delete imgs[id];saveImg();if(db)db.collection("exImg").doc(id).delete().catch(function(){});}
+function toggleFav(id){
+  if(favs[id]){ delete favs[id]; saveFavs(); if(db) db.collection("favorites").doc(id).delete().catch(function(){}); }
+  else { favs[id]={ts:Date.now()}; saveFavs(); if(db) db.collection("favorites").doc(id).set(favs[id]).catch(function(){}); }
+}
+function templateAddEx(tid,exid){
+  const t=templates[tid]; if(!t||!window.__ironlogTemplates) return;
+  if(t.exerciseIds.indexOf(exid)<0){ const ids=t.exerciseIds.concat([exid]); window.__ironlogTemplates.put(tid,{exerciseIds:ids}); }
+}
+function templateRemoveEx(tid,exid){
+  const t=templates[tid]; if(!t||!window.__ironlogTemplates) return;
+  window.__ironlogTemplates.put(tid,{exerciseIds:t.exerciseIds.filter(x=>x!==exid)});
+}
+function startTemplate(tid){
+  const t=templates[tid]; if(!t) return;
+  t.exerciseIds.forEach(function(id){ addToWorkout(id); });
+  go("workout");
+  toast("Loaded \""+t.name+"\" ("+t.exerciseIds.length+" exercise"+(t.exerciseIds.length!==1?"s":"")+")");
+}
 
 /* ---- image capture: downscale to a small JPEG data URI so it fits a synced document ---- */
 function processImage(file,cb){
@@ -806,6 +854,18 @@ screens.home=function(){
       '<button class="btn" style="width:100%" data-act="go-workout">Start today’s workout</button></div>';
   }
 
+  const favIds=Object.keys(favs).sort((a,b)=>(favs[b].ts||0)-(favs[a].ts||0));
+  const favCard=favIds.length?
+    '<div class="card"><h2>★ Favorites</h2>'+favIds.map(id=>{
+      const ex=getEx(id); const s=lastSessionOf(id); const b=s?bestSet(s.sets):null;
+      return '<div class="ex-row" data-act="open-detail" data-id="'+id+'"><div style="display:flex;gap:9px;align-items:center;min-width:0">'+
+        (imgs[id]?'<img class="thumb" src="'+imgs[id].img+'" alt="">':'')+
+        '<div style="min-width:0"><div class="nm">'+esc(ex.name)+'</div><div class="xs muted">'+esc(ex.group)+' · '+esc(ex.equip)+'</div></div></div>'+
+        '<div class="last">'+(s?fdate(s.date)+' · <b>'+fmtSet(b,ex)+'</b>':'no log')+
+        '<br><button class="btn ghost sm" style="margin-top:4px" data-act="log-now" data-id="'+id+'">+ Log</button></div></div>';
+    }).join("")+'</div>':
+    '<div class="card"><h2>★ Favorites</h2><p class="empty">Tap the star (☆) on any exercise in the Exercises tab to pin the ones you use regularly here.</p></div>';
+
   const lastByEx={};
   Object.keys(logs).forEach(k=>{const e=logs[k];if(!e.sets.length)return;if(!lastByEx[e.exerciseId]||e.date>lastByEx[e.exerciseId])lastByEx[e.exerciseId]=e.date;});
   const recent=Object.keys(lastByEx).sort((a,b)=>lastByEx[b]<lastByEx[a]?-1:1).slice(0,6);
@@ -829,7 +889,7 @@ screens.home=function(){
       '<div class="stat"><div class="k">Sets</div><div class="v">'+wkSets+'</div></div>'+
       '<div class="stat"><div class="k">Volume</div><div class="v">'+(wkVol>=1000?num(wkVol/1000)+"t":num(wkVol))+'</div></div>'+
     '</div>'+
-    todayCard+recentCard+
+    todayCard+favCard+recentCard+
     '<div class="card"><div class="row between"><span class="small muted">Bodyweight (for volume &amp; 1RM estimates)</span>'+
     '<span><input id="bwInput" class="mono" style="width:78px;text-align:center" inputmode="decimal" value="'+(prefs.bw||"")+'" placeholder="kg"> <span class="xs muted">kg</span></span></div></div>';
 };
@@ -840,12 +900,13 @@ screens.exercises=function(){
   const g=prefs.group;
   let items=allEx().slice();
   if(g==="Custom") items=items.filter(e=>custom[e.id]);
+  else if(g==="Favorites") items=items.filter(e=>favs[e.id]);
   else if(g!=="All") items=items.filter(e=>e.group===g);
   if(q) items=items.filter(e=>e.name.toLowerCase().indexOf(q)>-1||(e.equip||"").toLowerCase().indexOf(q)>-1);
   items.sort((a,b)=>a.name<b.name?-1:1);
 
-  const chips=["All"].concat(GROUPS).concat(Object.keys(custom).length?["Custom"]:[])
-    .map(c=>'<button class="chip" data-act="grp" data-g="'+c+'" aria-pressed="'+(g===c)+'">'+c+'</button>').join("");
+  const chips=["All"].concat(Object.keys(favs).length?["Favorites"]:[]).concat(GROUPS).concat(Object.keys(custom).length?["Custom"]:[])
+    .map(c=>'<button class="chip" data-act="grp" data-g="'+c+'" aria-pressed="'+(g===c)+'">'+(c==="Favorites"?"★ Favorites":c)+'</button>').join("");
 
   let body;
   if(!items.length) body='<p class="empty">No exercises match.</p>';
@@ -862,7 +923,9 @@ screens.exercises=function(){
 };
 function exRow(ex){
   const s=lastSessionOf(ex.id); const b=s?bestSet(s.sets):null;
-  return '<div class="ex-row" data-act="open-detail" data-id="'+ex.id+'"><div style="display:flex;gap:9px;align-items:center;min-width:0">'+
+  const on=!!favs[ex.id];
+  return '<div class="ex-row" data-act="open-detail" data-id="'+ex.id+'"><div style="display:flex;gap:7px;align-items:center;min-width:0">'+
+    '<button class="favstar'+(on?" on":"")+'" data-act="toggle-fav" data-id="'+ex.id+'" aria-label="'+(on?"Remove from":"Add to")+' favorites" aria-pressed="'+on+'">'+(on?"★":"☆")+'</button>'+
     (imgs[ex.id]?'<img class="thumb" src="'+imgs[ex.id].img+'" alt="">':'')+
     '<div style="min-width:0"><div class="nm">'+esc(ex.name)+(custom[ex.id]?' <span class="tag cst">Custom</span>':'')+'</div>'+
     '<div class="wrap-tags"><span class="tag">'+esc(ex.group)+'</span><span class="tag">'+esc(ex.equip||"—")+'</span></div></div></div>'+
@@ -883,8 +946,14 @@ screens.workout=function(){
   ids.forEach(id=>{const e=logs[iso+"_"+id];if(e){setct+=e.sets.length;vol+=volumeOf(e,getEx(id));}});
   const head='<div class="screen-title"><h1>Workout</h1><span class="mono xs muted">'+fdatefull(iso)+'</span></div>'+
     '<div class="row between" style="margin-bottom:10px"><span class="small muted">'+ids.length+' exercises · '+setct+' sets · '+num(vol)+' kg</span>'+
-    '<button class="btn sm" data-act="open-picker">+ Add exercise</button></div>';
-  if(!ids.length) return head+'<div class="card"><p class="empty">No exercises yet. Tap “+ Add exercise” to build today’s session, or start one from Home / Recently used.</p></div>';
+    '<span class="row" style="gap:6px"><button class="btn ghost sm" data-act="open-templates">Templates</button>'+
+    '<button class="btn sm" data-act="open-picker">+ Add exercise</button></span></div>';
+  if(!ids.length){
+    const tIds=Object.keys(templates);
+    const tButtons=tIds.length?'<div class="wk-actions" style="margin-top:10px">'+tIds.map(tid=>
+      '<button class="btn ghost sm" data-act="start-template" data-id="'+tid+'">▶ '+esc(templates[tid].name)+'</button>').join("")+'</div>':"";
+    return head+'<div class="card"><p class="empty">No exercises yet. Tap “+ Add exercise” to build today’s session'+(tIds.length?", or start a template below:":", or start one from Home / Recently used.")+'</p>'+tButtons+'</div>';
+  }
   return head+ids.map(id=>wkCard(id,iso)).join("");
 };
 function wkCard(id,iso){
@@ -975,7 +1044,10 @@ function detailHTML(id){
       '<div class="ph-actions"><button class="btn ghost sm" data-act="pick-photo" data-id="'+id+'">Replace photo</button>'+
       '<button class="btn dim sm" data-act="del-photo" data-id="'+id+'">Remove</button></div>'
     : '<div class="ph-actions"><button class="btn ghost sm" data-act="pick-photo" data-id="'+id+'">Add your own photo / GIF</button></div>';
-  return '<div class="sheet-head"><h3>'+esc(ex.name)+'</h3><button class="iconbtn" data-act="close">×</button></div>'+
+  const favOn=!!favs[id];
+  return '<div class="sheet-head"><h3>'+esc(ex.name)+'</h3><span class="row" style="gap:4px">'+
+    '<button class="favstar'+(favOn?" on":"")+'" data-act="toggle-fav" data-id="'+id+'" aria-label="'+(favOn?"Remove from":"Add to")+' favorites" aria-pressed="'+favOn+'">'+(favOn?"★":"☆")+'</button>'+
+    '<button class="iconbtn" data-act="close">×</button></span></div>'+
     '<div class="wrap-tags" style="margin-bottom:10px"><span class="tag">'+esc(ex.group)+'</span><span class="tag">'+esc(ex.equip||"—")+'</span><span class="tag">'+esc(WT_LABEL[ex.weightType]||ex.weightType)+'</span>'+(custom[id]?'<span class="tag cst">Custom</span>':'')+'</div>'+
     media+
     ((ex.setup&&ex.setup.length)||(ex.exec&&ex.exec.length)||(ex.avoid&&ex.avoid.length)?
@@ -1005,14 +1077,44 @@ function addExHTML(ed){
 function pickerHTML(){
   const q=(pickerCtx&&pickerCtx.q||"").toLowerCase();
   let items=allEx().filter(e=>!q||e.name.toLowerCase().indexOf(q)>-1||(e.equip||"").toLowerCase().indexOf(q)>-1);
-  items.sort((a,b)=>a.name<b.name?-1:1);
-  const inWk=workoutExIds(today());
-  return '<div class="sheet-head"><h3>Add to workout</h3><button class="iconbtn" data-act="close">×</button></div>'+
+  items.sort((a,b)=>(!!favs[b.id]-!!favs[a.id])||(a.name<b.name?-1:1));
+  const mode=(pickerCtx&&pickerCtx.mode)||"workout";
+  const tid=pickerCtx&&pickerCtx.templateId;
+  const already = mode==="template" ? ((templates[tid]&&templates[tid].exerciseIds)||[]) : workoutExIds(today());
+  const title = mode==="template" ? "Add to template" : "Add to workout";
+  return '<div class="sheet-head"><h3>'+title+'</h3><button class="iconbtn" data-act="close">×</button></div>'+
     '<input id="pkSearch" class="search" type="search" placeholder="Search…" autocomplete="off" value="'+esc(pickerCtx&&pickerCtx.q||"")+'">'+
     '<button class="btn ghost sm" data-act="open-add" style="margin-bottom:8px">+ New custom exercise</button>'+
     '<div class="card" style="padding:2px 12px">'+items.slice(0,90).map(ex=>
-      '<div class="ex-row" data-act="pick" data-id="'+ex.id+'"><div><div class="nm">'+esc(ex.name)+'</div><div class="xs muted">'+esc(ex.group)+' · '+esc(ex.equip||"—")+'</div></div>'+
-      '<div class="last">'+(inWk.indexOf(ex.id)>-1?'<span class="tag">added</span>':'<span class="btn ghost sm">Add</span>')+'</div></div>').join("")+'</div>';
+      '<div class="ex-row" data-act="pick" data-id="'+ex.id+'"><div><div class="nm">'+(favs[ex.id]?'★ ':'')+esc(ex.name)+'</div><div class="xs muted">'+esc(ex.group)+' · '+esc(ex.equip||"—")+'</div></div>'+
+      '<div class="last">'+(already.indexOf(ex.id)>-1?'<span class="tag">added</span>':'<span class="btn ghost sm">Add</span>')+'</div></div>').join("")+'</div>';
+}
+function templatesHTML(){
+  const ids=Object.keys(templates);
+  const rows = ids.length ? ids.map(id=>{
+    const t=templates[id];
+    return '<div class="ex-row"><div><div class="nm">'+esc(t.name)+'</div><div class="xs muted">'+t.exerciseIds.length+' exercise'+(t.exerciseIds.length!==1?"s":"")+'</div></div>'+
+      '<div class="last" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+
+      '<button class="btn ghost sm" data-act="start-template" data-id="'+id+'">Start</button>'+
+      '<button class="btn dim sm" data-act="edit-template" data-id="'+id+'">Edit</button>'+
+      '<button class="btn dim sm" data-act="del-template" data-id="'+id+'">Delete</button></div></div>';
+  }).join("") : '<p class="empty">No templates yet. Build one once - e.g. "Leg Day" with your usual 7 exercises - then start it with one tap on workout day.</p>';
+  return '<div class="sheet-head"><h3>Templates</h3><button class="iconbtn" data-act="close">×</button></div>'+
+    '<div class="card" style="padding:2px 12px">'+rows+'</div>'+
+    '<button class="btn" style="width:100%;margin-top:10px" data-act="add-template">+ New template</button>';
+}
+function templateEditHTML(id){
+  const t=templates[id]; if(!t) return '<p class="empty">Template not found.</p>';
+  const rows = t.exerciseIds.length ? t.exerciseIds.map(exid=>{
+    const ex=getEx(exid);
+    return '<div class="ex-row"><div><div class="nm">'+esc(ex.name)+'</div><div class="xs muted">'+esc(ex.group)+' · '+esc(ex.equip||"—")+'</div></div>'+
+      '<div class="last"><button class="btn dim sm" data-act="tmpl-rm-ex" data-tid="'+id+'" data-id="'+exid+'">Remove</button></div></div>';
+  }).join("") : '<p class="empty">No exercises yet - tap "+ Add exercise" below to build this template.</p>';
+  return '<div class="sheet-head"><h3>'+esc(t.name)+'</h3><button class="iconbtn" data-act="close">×</button></div>'+
+    '<div class="wk-actions" style="margin-bottom:10px"><button class="btn ghost sm" data-act="rename-template" data-id="'+id+'">Rename</button>'+
+    '<button class="btn dim sm" data-act="open-templates">All templates</button></div>'+
+    '<div class="card" style="padding:2px 12px">'+rows+'</div>'+
+    '<button class="btn" style="width:100%;margin-top:10px" data-act="tmpl-add-ex" data-id="'+id+'">+ Add exercise</button>';
 }
 function profilesHTML(){
   const ids=Object.keys(profiles);
@@ -1143,8 +1245,35 @@ document.addEventListener("click",function(ev){
       break;
     case "add-to-workout": addToWorkout(id); closeModal(); go("workout"); toast("Added to today’s workout"); break;
     case "log-now": addToWorkout(id); go("workout"); break;
-    case "open-picker": pickerCtx={q:""}; modalMode="picker"; openModal(pickerHTML()); break;
-    case "pick": addToWorkout(id); closeModal(); go("workout"); break;
+    case "open-picker": pickerCtx={q:"",mode:"workout"}; modalMode="picker"; openModal(pickerHTML()); break;
+    case "pick":
+      if(pickerCtx && pickerCtx.mode==="template"){ templateAddEx(pickerCtx.templateId,id); openModal(pickerHTML()); }
+      else { addToWorkout(id); closeModal(); go("workout"); }
+      break;
+    case "open-templates": modalMode="templates"; openModal(templatesHTML()); break;
+    case "add-template": {
+      const nm=prompt("Template name (e.g. Leg Day)");
+      if(nm&&nm.trim()&&window.__ironlogTemplates){ const tid=window.__ironlogTemplates.add(nm.trim()); modalMode="template-edit"; openModal(templateEditHTML(tid)); }
+      break; }
+    case "edit-template": modalMode="template-edit"; openModal(templateEditHTML(id)); break;
+    case "rename-template": {
+      if(!window.__ironlogTemplates) break;
+      const nm=prompt("Rename template",(templates[id]&&templates[id].name)||"");
+      if(nm&&nm.trim()){ window.__ironlogTemplates.put(id,{name:nm.trim()}); openModal(templateEditHTML(id)); }
+      break; }
+    case "del-template":
+      if(!window.__ironlogTemplates) break;
+      if(confirm("Delete the template \""+((templates[id]&&templates[id].name)||"")+"\"? This won't affect any workouts you've already logged.")){
+        window.__ironlogTemplates.del(id); openModal(templatesHTML());
+      }
+      break;
+    case "start-template": startTemplate(id); closeModal(); break;
+    case "tmpl-add-ex": pickerCtx={q:"",mode:"template",templateId:id}; modalMode="picker"; openModal(pickerHTML()); break;
+    case "tmpl-rm-ex": {
+      const tid=t.getAttribute("data-tid");
+      templateRemoveEx(tid,id);
+      openModal(templateEditHTML(tid));
+      break; }
     case "rm-wk": if(confirm("Remove "+getEx(id).name+" from today?")){ removeFromWorkout(id); render(); } break;
     case "addset": addSet(id); render(); focusLastWeight(id); break;
     case "delset": delSet(id, +t.getAttribute("data-i")); render(); break;
@@ -1152,6 +1281,11 @@ document.addEventListener("click",function(ev){
     case "htab": prefs.histTab=t.getAttribute("data-t"); savePrefs(); render(); break;
     case "pick-photo": pendingPhotoId=id; document.getElementById("fileInput").click(); break;
     case "del-photo": if(confirm("Remove this photo?")){ delImg(id); if(modalMode==="detail") openModal(detailHTML(id)); render(); } break;
+    case "toggle-fav":
+      toggleFav(id);
+      if(modalMode==="detail") openModal(detailHTML(id));
+      render();
+      break;
   }
 });
 document.addEventListener("change",function(ev){
