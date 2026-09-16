@@ -615,31 +615,41 @@ if(window.firebase && firebase.apps.length){
     delete profiles[id]; saveProfiles();
   }
 
+  /* A write we just made echoes straight back through its own onSnapshot
+     (once from local cache, again on server ack) - if we blindly render()
+     on every delivery, an input the user is actively typing into gets torn
+     down and rebuilt mid-keystroke, which is what made the app feel
+     "clunky" on a real connected phone. Comparing against what's already
+     in memory and skipping the render when nothing actually changed fixes
+     that, while still updating the UI promptly when a change is real
+     (another device, another tab, a genuinely new value). */
+  function sameJSON(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return false; } }
+
   function attachProfileListeners(){
     profUnsub.push(db.collection("exercises").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.name) nx[doc.id]=Object.assign({id:doc.id},v);});
-      custom=nx; saveCustom(); render();
+      const changed=!sameJSON(nx,custom); custom=nx; saveCustom(); if(changed) render();
     },function(){}));
     profUnsub.push(db.collection("sessions").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.date) nx[doc.id]=v;});
-      sess=Object.assign(sess,nx); saveSess(); render();
+      const merged=Object.assign({},sess,nx); const changed=!sameJSON(merged,sess); sess=merged; saveSess(); if(changed) render();
     },function(){}));
     profUnsub.push(db.collection("exImg").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.img) nx[doc.id]=v;});
-      imgs=nx; saveImg(); render();
+      const changed=!sameJSON(nx,imgs); imgs=nx; saveImg(); if(changed) render();
     },function(){}));
     profUnsub.push(db.collection("logs").orderBy("date","desc").limit(1200).onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.exerciseId&&v.date&&Array.isArray(v.sets)) nx[doc.id]=v;});
       if(!primed){primed=true;Object.keys(logs).forEach(function(id){if(!nx[id]){nx[id]=logs[id];db.collection("logs").doc(id).set(logs[id]).catch(function(){});}});}
-      logs=nx; saveLogs(); render();
+      const changed=!sameJSON(nx,logs); logs=nx; saveLogs(); if(changed) render();
     },function(){setSync(false,"Sync error - saved on this device");}));
     profUnsub.push(db.collection("favorites").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){nx[doc.id]=doc.data()||{};});
-      favs=nx; saveFavs(); render();
+      const changed=!sameJSON(nx,favs); favs=nx; saveFavs(); if(changed) render();
     },function(){}));
     profUnsub.push(db.collection("templates").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.name) nx[doc.id]={name:v.name,exerciseIds:Array.isArray(v.exerciseIds)?v.exerciseIds:[],ts:v.ts};});
-      templates=nx; saveTemplates(); render();
+      const changed=!sameJSON(nx,templates); templates=nx; saveTemplates(); if(changed) render();
     },function(){}));
   }
 
@@ -1388,6 +1398,20 @@ function focusLastWeight(id){
   const rows=document.querySelectorAll('.wk-ex input[data-act="setw"][data-id="'+id+'"]');
   if(rows.length){ const n=rows[rows.length-1]; n.focus(); }
 }
+/* A new set's weight/reps are pre-filled from the previous set (handy - most
+   sets in a row share a weight), but focusing a pre-filled field leaves the
+   cursor sitting inside the old digits: typing a new value then interleaves
+   with them instead of replacing them (e.g. typing "47.5" over a "45" prefill
+   silently became "47.545"). Selecting the text on focus makes typing
+   overwrite it, like every spreadsheet/calculator app does. The 0ms delay
+   is needed because some mobile browsers reset the selection right after
+   a tap-triggered focus if select() runs in that same tick. */
+document.addEventListener("focusin",function(ev){
+  const t=ev.target;
+  if(t.tagName==="INPUT" && (t.getAttribute("data-act")==="setw"||t.getAttribute("data-act")==="setr")){
+    setTimeout(function(){ try{ t.select(); }catch(e){} },0);
+  }
+});
 
 /* ============ ROUTER / RENDER ============ */
 function go(name){ prefs.screen=name; savePrefs(); render(); window.scrollTo(0,0); }
