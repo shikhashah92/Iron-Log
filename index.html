@@ -519,15 +519,22 @@ const WT_LABEL={barbell:"kg (total)",dumbbell:"kg / dumbbell",machine:"kg / load
 
 /* ============ STATE + STORAGE ============ */
 const LS_LOGS="ironlog.entries.v1", LS_CUSTOM="ironlog.custom.v1", LS_SESS="ironlog.sessions.v1", LS_PREFS="ironlog.prefs.v1", LS_IMG="ironlog.img.v1";
+const LS_PROFILES="ironlog.profiles.v1", LS_CURPROF="ironlog.curprofile.v1";
 const rd=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d;}catch(e){return d;}};
 const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
+const getPlain=(k)=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const setPlain=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 let logs=rd(LS_LOGS,{}), custom=rd(LS_CUSTOM,{}), sess=rd(LS_SESS,{}), imgs=rd(LS_IMG,{});
+let profiles=rd(LS_PROFILES,{});
 let prefs=rd(LS_PREFS,{screen:"home",group:"All",rest:90,theme:"auto",bw:0,histTab:"sessions",progressEx:""});
 let db=null, primed=false;
+let currentUid=null, currentUser=null, currentProfileId=null;
 let pendingPhotoId=null;
 
 function saveLogs(){wr(LS_LOGS,logs);} function saveCustom(){wr(LS_CUSTOM,custom);}
 function saveSess(){wr(LS_SESS,sess);} function savePrefs(){wr(LS_PREFS,prefs);} function saveImg(){wr(LS_IMG,imgs);}
+function saveProfiles(){wr(LS_PROFILES,profiles);}
+function profileName(id){return (profiles[id]&&profiles[id].name)||"Profile";}
 
 function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function fdate(iso){const p=iso.split("-");const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][(+p[1])-1];return String(+p[2]).padStart(2,"0")+" "+m;}
@@ -539,9 +546,14 @@ const exMap=()=>{const m={};EX.forEach(e=>m[e.id]=e);Object.values(custom).forEa
 const allEx=()=>EX.concat(Object.values(custom));
 function getEx(id){return exMap()[id]||{id:id,name:id,group:"Other",equip:"",weightType:"barbell",pattern:"neutral",setup:[],exec:[],avoid:[]};}
 
-/* ---- Firebase auth + Firestore (replaces the Claude Artifact "db" capability) ---- */
-let unsubscribers=[];
-function teardownListeners(){ unsubscribers.forEach(function(u){ try{u();}catch(e){} }); unsubscribers=[]; }
+/* ---- Firebase auth + Firestore (replaces the Claude Artifact "db" capability) ----
+   Data lives at users/{uid}/profiles/{profileId}/{logs,sessions,exercises,exImg} so
+   one Google account can hold several independent people's logs (a "family plan"),
+   while Firestore's rules (only request.auth.uid === uid may touch users/{uid}/**)
+   keep every account's whole profile tree private with no extra rule changes. */
+let acctUnsub=[], profUnsub=[];
+function teardownAcct(){ acctUnsub.forEach(function(u){ try{u();}catch(e){} }); acctUnsub=[]; }
+function teardownProfile(){ profUnsub.forEach(function(u){ try{u();}catch(e){} }); profUnsub=[]; }
 function showSignedIn(show,label){
   document.getElementById("signin").style.display = show ? "none" : "flex";
   document.getElementById("appRoot").style.display = show ? "" : "none";
@@ -559,31 +571,94 @@ if(window.firebase && firebase.apps.length){
     });
   });
 
-  auth.onAuthStateChanged(function(user){
-    teardownListeners();
-    if(!user){ db=null; primed=false; showSignedIn(false); return; }
-    db = firestore.collection("users").doc(user.uid);
-    primed=false;
-    showSignedIn(true, "Signed in as "+(user.displayName||user.email||"you"));
-    render();
+  function userRoot(){ return firestore.collection("users").doc(currentUid); }
 
-    unsubscribers.push(db.collection("exercises").onSnapshot(function(s){
+  function migrateLegacyIfAny(newProfileId){
+    // one-time: carry over any pre-profiles data that was written straight under users/{uid}
+    var root = userRoot(), dest = root.collection("profiles").doc(newProfileId);
+    ["logs","sessions","exercises","exImg"].forEach(function(col){
+      root.collection(col).get().then(function(snap){
+        snap.docs.forEach(function(d){ dest.collection(col).doc(d.id).set(d.data()).catch(function(){}); });
+      }).catch(function(){});
+    });
+  }
+
+  function addProfile(name){
+    var id = "p_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    var rec = {name:name, ts:Date.now()};
+    profiles[id]=rec; saveProfiles();
+    userRoot().collection("profiles").doc(id).set(rec).catch(function(){});
+    return id;
+  }
+  function putProfile(id,patch){
+    profiles[id]=Object.assign({},profiles[id],patch); saveProfiles();
+    userRoot().collection("profiles").doc(id).set(profiles[id]).catch(function(){});
+  }
+  function delProfile(id){
+    var ref = userRoot().collection("profiles").doc(id);
+    ["logs","sessions","exercises","exImg"].forEach(function(col){
+      ref.collection(col).get().then(function(snap){
+        snap.docs.forEach(function(d){ d.ref.delete().catch(function(){}); });
+      }).catch(function(){});
+    });
+    ref.delete().catch(function(){});
+    delete profiles[id]; saveProfiles();
+  }
+
+  function attachProfileListeners(){
+    profUnsub.push(db.collection("exercises").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.name) nx[doc.id]=Object.assign({id:doc.id},v);});
       custom=nx; saveCustom(); render();
     },function(){}));
-    unsubscribers.push(db.collection("sessions").onSnapshot(function(s){
+    profUnsub.push(db.collection("sessions").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.date) nx[doc.id]=v;});
       sess=Object.assign(sess,nx); saveSess(); render();
     },function(){}));
-    unsubscribers.push(db.collection("exImg").onSnapshot(function(s){
+    profUnsub.push(db.collection("exImg").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.img) nx[doc.id]=v;});
       imgs=nx; saveImg(); render();
     },function(){}));
-    unsubscribers.push(db.collection("logs").orderBy("date","desc").limit(1200).onSnapshot(function(s){
+    profUnsub.push(db.collection("logs").orderBy("date","desc").limit(1200).onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.exerciseId&&v.date&&Array.isArray(v.sets)) nx[doc.id]=v;});
       if(!primed){primed=true;Object.keys(logs).forEach(function(id){if(!nx[id]){nx[id]=logs[id];db.collection("logs").doc(id).set(logs[id]).catch(function(){});}});}
       logs=nx; saveLogs(); render();
     },function(){setSync(false,"Sync error - saved on this device");}));
+  }
+
+  function selectProfile(id){
+    if(!profiles[id]) return;
+    teardownProfile();
+    currentProfileId=id; setPlain(LS_CURPROF,id);
+    logs={}; custom={}; sess={}; imgs={}; primed=false;
+    db = userRoot().collection("profiles").doc(id);
+    attachProfileListeners();
+    render();
+  }
+  window.__ironlogProfiles = {select:selectProfile, add:addProfile, put:putProfile, del:delProfile};
+
+  auth.onAuthStateChanged(function(user){
+    teardownAcct(); teardownProfile();
+    if(!user){ db=null; currentUid=null; currentUser=null; currentProfileId=null; profiles={}; primed=false; showSignedIn(false); return; }
+    currentUser=user; currentUid=user.uid;
+    showSignedIn(true, "Signed in as "+(user.displayName||user.email||"you"));
+
+    acctUnsub.push(userRoot().collection("profiles").onSnapshot(function(s){
+      const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.name) nx[doc.id]={name:v.name,ts:v.ts};});
+      profiles=nx; saveProfiles();
+      if(!Object.keys(profiles).length){
+        const defaultName = (user.displayName ? user.displayName.split(" ")[0] : "Me");
+        const id = addProfile(defaultName);
+        migrateLegacyIfAny(id);
+        selectProfile(id);
+        return;
+      }
+      if(!currentProfileId || !profiles[currentProfileId]){
+        const saved = getPlain(LS_CURPROF);
+        selectProfile((saved && profiles[saved]) ? saved : Object.keys(profiles)[0]);
+      } else {
+        render();
+      }
+    },function(){}));
   });
 } else {
   document.getElementById("signin").innerHTML =
@@ -746,7 +821,8 @@ screens.home=function(){
     '<div class="card"><h2>Recently used</h2><p class="empty">Your recent exercises will show up here once you start logging.</p></div>';
 
   return '<div class="apphead"><h1><span class="mk">Iron</span> Log</h1>'+
-    '<span class="row" style="gap:6px"><button class="iconbtn" data-act="theme" title="Theme">◐</button>'+
+    '<span class="row" style="gap:6px"><button class="btn ghost sm" data-act="open-profiles" title="Switch profile">'+esc(profileName(currentProfileId))+'</button>'+
+    '<button class="iconbtn" data-act="theme" title="Theme">◐</button>'+
     '<button class="iconbtn" data-act="signout" title="Sign out">⏻</button></span></div>'+
     '<div class="stat-grid">'+
       '<div class="stat"><div class="k">This week</div><div class="v">'+wkSess+'<span class="xs muted"> sess</span></div></div>'+
@@ -938,6 +1014,22 @@ function pickerHTML(){
       '<div class="ex-row" data-act="pick" data-id="'+ex.id+'"><div><div class="nm">'+esc(ex.name)+'</div><div class="xs muted">'+esc(ex.group)+' · '+esc(ex.equip||"—")+'</div></div>'+
       '<div class="last">'+(inWk.indexOf(ex.id)>-1?'<span class="tag">added</span>':'<span class="btn ghost sm">Add</span>')+'</div></div>').join("")+'</div>';
 }
+function profilesHTML(){
+  const ids=Object.keys(profiles);
+  const rows=ids.map(id=>{
+    const active=id===currentProfileId;
+    return '<div class="ex-row"><div><div class="nm">'+esc(profileName(id))+(active?' <span class="tag cst">Current</span>':'')+'</div></div>'+
+      '<div class="last" style="display:flex;gap:6px">'+
+      (active?'':'<button class="btn ghost sm" data-act="switch-profile" data-id="'+id+'">Switch</button>')+
+      '<button class="btn dim sm" data-act="rename-profile" data-id="'+id+'">Rename</button>'+
+      (ids.length>1?'<button class="btn dim sm" data-act="del-profile" data-id="'+id+'">Delete</button>':'')+
+      '</div></div>';
+  }).join("");
+  return '<div class="sheet-head"><h3>Profiles</h3><button class="iconbtn" data-act="close">×</button></div>'+
+    '<p class="xs muted" style="margin-bottom:10px">Switch between people sharing this account - each profile has its own separate exercises, workouts and history.</p>'+
+    '<div class="card" style="padding:2px 12px">'+rows+'</div>'+
+    '<button class="btn" style="width:100%;margin-top:10px" data-act="add-profile">+ New profile</button>';
+}
 
 /* ============ ACTIONS ============ */
 function addToWorkout(id){
@@ -1016,6 +1108,30 @@ document.addEventListener("click",function(ev){
     case "signout":
       if(window.firebase && firebase.apps.length && confirm("Sign out of Iron Log?")) firebase.auth().signOut();
       break;
+    case "open-profiles": modalMode="profiles"; openModal(profilesHTML()); break;
+    case "switch-profile":
+      if(window.__ironlogProfiles){ window.__ironlogProfiles.select(id); closeModal(); }
+      break;
+    case "rename-profile": {
+      if(!window.__ironlogProfiles) break;
+      const nm=prompt("Rename profile",profileName(id));
+      if(nm&&nm.trim()){ window.__ironlogProfiles.put(id,{name:nm.trim()}); openModal(profilesHTML()); }
+      break; }
+    case "del-profile":
+      if(!window.__ironlogProfiles) break;
+      if(Object.keys(profiles).length<=1){ toast("You need at least one profile"); break; }
+      if(confirm("Delete the profile \""+profileName(id)+"\"? This removes its logged history too.")){
+        const wasCurrent=id===currentProfileId;
+        window.__ironlogProfiles.del(id);
+        if(wasCurrent){ const rest=Object.keys(profiles).filter(x=>x!==id); if(rest.length) window.__ironlogProfiles.select(rest[0]); }
+        openModal(profilesHTML());
+      }
+      break;
+    case "add-profile": {
+      if(!window.__ironlogProfiles) break;
+      const nm=prompt("New profile name (e.g. a family member's name)");
+      if(nm&&nm.trim()){ const nid=window.__ironlogProfiles.add(nm.trim()); window.__ironlogProfiles.select(nid); closeModal(); }
+      break; }
     case "grp": prefs.group=t.getAttribute("data-g"); savePrefs(); render(); break;
     case "open-detail": modalMode="detail"; openModal(detailHTML(id)); break;
     case "close": closeModal(); break;
