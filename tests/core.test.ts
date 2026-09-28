@@ -561,3 +561,23 @@ test('finishing with "mark all done" keeps Surya Namaskar logged as rounds only'
   const { workout } = finishWorkout(l, viewOf(l).active!.id, true, at(D1) + 600_000);
   assert.deepEqual(workout?.exercises[0].sets, [{ w: 12, r: 0 }]);
 });
+
+test('the on-phone reminder (service worker) matches the app’s own calendar file', async () => {
+  const { runInNewContext } = await import('node:vm');
+  const b = await import('../src/body.ts');
+  const ctx: { self: { reminderICS?: (every: string, day: string) => string | null } } = { self: {} };
+  runInNewContext(readFileSync('public/reminder-ics.js', 'utf8'), ctx);
+  const day = new Date(2026, 9, 1);
+  for (const e of ['daily', '3x', 'weekly'] as const) assert.equal(ctx.self.reminderICS!(e, '20261001'), b.reminderICS(e, day, '07:30', day), e);
+  assert.equal(ctx.self.reminderICS!('hourly', '20261001'), null);
+  assert.equal(ctx.self.reminderICS!('3x', 'x'), null);
+});
+
+test('reminders start on a day the repeat includes', async () => {
+  const b = await import('../src/body.ts');
+  const thu = new Date(2026, 9, 1); // Thursday
+  assert.equal(b.reminderStart('3x', thu).getDate(), 2, 'Friday');
+  assert.equal(b.reminderStart('weekly', thu).getDate(), 5, 'Monday');
+  assert.equal(b.reminderStart('daily', thu).getDate(), 1);
+  assert.equal(b.reminderStart('3x', new Date(2026, 9, 5)).getDate(), 5, 'already a Monday');
+});

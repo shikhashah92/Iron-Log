@@ -119,8 +119,9 @@ export function Segmented<K extends string>({ value, options, onChange }: { valu
         const on = o.id === value;
         return (
           <Pressable key={o.id} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(o.id)}
-            style={[s.segItem, on && { backgroundColor: c.card, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }]}>
-            <Text style={{ color: on ? c.text : c.muted, fontSize: 16, fontWeight: on ? '700' : '500' }}>{o.label}</Text>
+            style={[s.segItem, on && { backgroundColor: c.accent }]}>
+            {/* One line, whatever the width: the choice reads as a single chip, and the chosen one is in the accent colour. */}
+            <Text numberOfLines={1} style={{ color: on ? c.onAccent : c.text, fontSize: 15, fontWeight: on ? '700' : '500' }}>{o.label}</Text>
           </Pressable>
         );
       })}
@@ -203,7 +204,7 @@ const s = StyleSheet.create({
   field: { minHeight: 52, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.lg, fontSize: font.body },
   chip: { minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6 },
   seg: { flexDirection: 'row', borderRadius: radius.md, padding: 4 },
-  segItem: { flex: 1, minHeight: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  segItem: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 4, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   rowWrap: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm },
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: space.lg, paddingBottom: space.md, gap: space.sm, minHeight: 64 },

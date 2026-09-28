@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useStore, useTheme } from '../store';
 import { useBackup } from '../backupActions';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { GENDERS, newLog, putProfile, type Gender } from '../model';
+import { addDays, GENDERS, newLog, putProfile, today, type Gender } from '../model';
 import { DateField } from '../DateField';
 import { BASE, hadOldApp, isIOS, isStandalone } from '../pwa';
 import { InstallSteps } from '../components';
@@ -66,7 +66,7 @@ export default function Welcome() {
         <T v="label">Date of birth</T>
         <Gap h={space.xs} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-          <DateField value={dob} onChange={setDob} min="1900-01-01" label="Date of birth" />
+          <DateField value={dob} onChange={setDob} min="1900-01-01" max={addDays(today(), -3652)} label="Date of birth" />
           {dob ? <Button title="Clear" kind="ghost" onPress={() => setDob('')} style={{ minHeight: 40, paddingHorizontal: space.sm }} /> : null}
         </View>
         <Gap h={space.md} />

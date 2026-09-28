@@ -2,6 +2,7 @@
 // Everything is relative to the worker's scope, so it works from a sub-folder (GitHub Pages: /Iron-Log/).
 // ponytail: old hashed bundles are dropped only when CACHE is bumped; fine for a few-MB app.
 const CACHE = 'ironlog-v2';
+importScripts('reminder-ics.js'); // self.reminderICS
 const ROOT = new URL(self.registration.scope).pathname; // e.g. "/Iron-Log/"
 const at = (p) => ROOT + p;
 const SHELL = ['', 'manifest.webmanifest', 'icon-192.png', 'apple-touch-icon.png',
@@ -33,8 +34,15 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   // The old app (kept for moving data over) talks to Firebase: leave it and everything cross-origin alone.
-  // Calendar reminders (reminders/*.ics) are opened as pages but aren't the app: straight to the network too.
-  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith(at('legacy/')) || url.pathname.startsWith(at('reminders/'))) return;
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith(at('legacy/'))) return;
+  // "Add to calendar": the event is made right here, starting on the day asked for, so nothing goes over the network.
+  // (Without this worker the request reaches the static fallback in reminders/, which starts in January 2026.)
+  if (url.pathname.startsWith(at('reminders/'))) {
+    const every = /weigh-in-(daily|3x|weekly)\.ics$/.exec(url.pathname)?.[1];
+    const ics = every && self.reminderICS(every, url.searchParams.get('day') ?? '');
+    if (ics) e.respondWith(new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8' } }));
+    return;
+  }
   if (req.mode === 'navigate') {
     // Network first so deploys show up; the cached shell when offline. Every route uses the same shell
     // (GitHub Pages serves deep links as 404.html, a copy of the shell: use it, but only cache real 200s).
