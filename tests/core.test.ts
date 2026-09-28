@@ -239,7 +239,7 @@ test('built app: served from the domain root, no third-party requests', { skip: 
   const html = readFileSync('dist/index.html', 'utf8');
   assert.match(html, /src="\/_expo\/static\/js\/web\/[^"]+\.js"/);
   assert.ok(!/https?:\/\/(?!www\.w3\.org)/.test(html.replace(/<meta[^>]*>/g, '')), 'no external URLs in the shell');
-  assert.ok(existsSync('dist/sw.js') && existsSync('dist/fonts/IBMPlexMono-400.woff2'));
+  assert.ok(existsSync('dist/sw.js') && existsSync('dist/fonts/Archivo-latin.woff2') && existsSync('dist/brand/mark.svg'));
   assert.ok(!existsSync('dist/legacy'), 'no leftover Firebase page');
 });
 

@@ -8,7 +8,7 @@ import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
 import { Empty, ProgressBlock, SetLines, useSaveAsTemplate } from '../../components';
 import { Button, Card, Field, Gap, Header, Row, Screen, Segmented, T } from '../../ui';
-import { condensed, radius, space } from '../../theme';
+import { sans, radius, space } from '../../theme';
 
 export default function History() {
   const [tab, setTab] = useState<'sessions' | 'progress'>('sessions');
@@ -60,7 +60,7 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
     <Card style={{ marginBottom: space.sm }}>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={onToggle} style={{ gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.sm }}>
-          <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '700', fontSize: 19, flex: 1 }}>{w.name}</T>
+          <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '700', fontSize: 19, flex: 1 }}>{w.name}</T>
           <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
         </View>
         <T v="small">{longDate(w.date)}, {time} · {ago === 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago}d ago`}</T>
@@ -114,7 +114,7 @@ function Progress() {
         style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 52, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: open ? c.accent : c.fieldBorder, backgroundColor: c.field, marginBottom: space.sm }}>
         <View style={{ flex: 1 }}>
           <T v="small" style={{ fontSize: 12 }}>Exercise · {logged.length} logged</T>
-          <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 20 }}>{ex.name}</T>
+          <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '600', fontSize: 20 }}>{ex.name}</T>
         </View>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={22} color={c.muted} />
       </Pressable>

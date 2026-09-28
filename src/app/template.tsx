@@ -8,7 +8,7 @@ import { ask, confirm } from '../io';
 import { Empty, ExArt, goBack } from '../components';
 import { useWorkoutFlow } from '../workout';
 import { Button, Card, Gap, Header, IconButton, Screen, T } from '../ui';
-import { condensed, mono, space } from '../theme';
+import { sans, space } from '../theme';
 
 const ago = (day: string) => { const d = daysAgo(day, today()); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 60 ? `${d} days ago` : `on ${new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`; };
 
@@ -57,7 +57,7 @@ export default function TemplateScreen() {
               borderBottomWidth: i === t.exercises.length - 1 ? 0 : 1, borderBottomColor: c.border }}>
               <ExArt id={e.exerciseId} size={40} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18 }}>{editing ? ex.name : `${count(i)} × ${ex.name}`}</T>
+                <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{editing ? ex.name : `${count(i)} × ${ex.name}`}</T>
                 <T v="small" numberOfLines={1}>{ex.group}{e.sets ? '' : ' · sets as last time'}</T>
               </View>
               {editing && (
@@ -65,7 +65,7 @@ export default function TemplateScreen() {
                   <Pressable accessibilityRole="button" accessibilityLabel={`Fewer sets of ${ex.name}`} onPress={() => setCount(i, count(i) - 1)} hitSlop={4}>
                     <Ionicons name="remove-circle-outline" size={26} color={c.muted} />
                   </Pressable>
-                  <T style={{ fontFamily: mono, minWidth: 22, textAlign: 'center' }}>{count(i)}</T>
+                  <T style={{ fontFamily: sans, minWidth: 22, textAlign: 'center' }}>{count(i)}</T>
                   <Pressable accessibilityRole="button" accessibilityLabel={`More sets of ${ex.name}`} onPress={() => setCount(i, count(i) + 1)} hitSlop={4}>
                     <Ionicons name="add-circle-outline" size={26} color={c.accent} />
                   </Pressable>

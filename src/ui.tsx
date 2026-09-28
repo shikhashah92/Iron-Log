@@ -1,10 +1,10 @@
 // Small shared UI kit. Big type, 48pt targets, one accent colour.
 import { useState, type ReactNode, type Ref } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from './store';
-import { condensed, font, mono, radius, space } from './theme';
+import { sans, font, radius, space } from './theme';
 
 export const MAX_WIDTH = 560;
 
@@ -40,16 +40,16 @@ export function T({ children, v = 'body', color, style, numberOfLines, center }:
 }) {
   const { c } = useTheme();
   const base: Record<TVariant, TextStyle> = {
-    h1: { fontSize: font.h1, fontWeight: '700', fontFamily: condensed, textTransform: 'uppercase', letterSpacing: 0.5 },
-    title: { fontSize: font.title, fontWeight: '600', fontFamily: condensed, letterSpacing: 0.3 },
+    h1: { fontSize: font.h1, fontWeight: '800', letterSpacing: -0.02 * font.h1 },
+    title: { fontSize: font.title, fontWeight: '700', letterSpacing: -0.02 * font.title },
     body: { fontSize: font.body },
-    label: { fontSize: font.small, fontWeight: '600', color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
+    label: { fontSize: font.small, fontWeight: '600', color: c.muted },
     small: { fontSize: font.small, color: c.muted },
-    big: { fontSize: font.big, fontFamily: mono, fontVariant: ['tabular-nums'] },
-    mono: { fontSize: font.small, fontFamily: mono, color: c.muted, fontVariant: ['tabular-nums'] },
+    big: { fontSize: font.big, fontWeight: '800', letterSpacing: -0.035 * font.big },
+    mono: { fontSize: font.small, color: c.muted },
   };
   return (
-    <Text numberOfLines={numberOfLines} style={[{ color: c.text }, base[v], color ? { color } : null, center ? { textAlign: 'center' } : null, style]}>
+    <Text numberOfLines={numberOfLines} style={[{ color: c.text, fontFamily: sans, fontVariant: ['tabular-nums'] }, base[v], color ? { color } : null, center ? { textAlign: 'center' } : null, style]}>
       {children}
     </Text>
   );
@@ -64,15 +64,14 @@ export function Button({ title, onPress, kind = 'primary', icon, disabled, style
   title: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger' | 'ghost'; icon?: keyof typeof Ionicons.glyphMap; disabled?: boolean; style?: ViewStyle;
 }) {
   const { c } = useTheme();
-  const bg = { primary: c.accent, secondary: c.chip, danger: 'transparent', ghost: 'transparent' }[kind];
+  const bg = { primary: c.brand, secondary: c.chip, danger: 'transparent', ghost: 'transparent' }[kind];
   const fg = { primary: c.onAccent, secondary: c.text, danger: c.danger, ghost: c.accent }[kind];
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress}
       style={({ pressed }) => [s.btn, { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.8 : 1 },
         kind === 'danger' && { borderWidth: 1, borderColor: c.danger }, style]}>
       {icon && <Ionicons name={icon} size={20} color={fg} />}
-      <Text style={[{ color: fg, fontSize: font.body, fontWeight: '600' },
-        kind === 'primary' && { fontFamily: condensed, fontSize: 18, textTransform: 'uppercase', letterSpacing: 0.6 }]}>{title}</Text>
+      <Text style={{ color: fg, fontSize: font.body, fontWeight: '600', fontFamily: sans }}>{title}</Text>
     </Pressable>
   );
 }
@@ -95,7 +94,7 @@ export function Field({ label, style, onFocus, onBlur, ...props }: TextInputProp
       {label && <T v="label">{label}</T>}
       <TextInput placeholderTextColor={c.muted} accessibilityLabel={label} {...props}
         onFocus={(e) => { setFocused(true); onFocus?.(e); }} onBlur={(e) => { setFocused(false); onBlur?.(e); }}
-        style={[s.field, { color: c.text, backgroundColor: c.field, borderColor: focused ? c.accent : c.fieldBorder, outlineWidth: 0 }, style]} />
+        style={[s.field, { fontFamily: sans, color: c.text, backgroundColor: c.field, borderColor: focused ? c.accent : c.fieldBorder, outlineWidth: 0 }, style]} />
     </View>
   );
 }
@@ -104,9 +103,9 @@ export function Chip({ label, selected, onPress, icon }: { label: string; select
   const { c } = useTheme();
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={label} onPress={onPress}
-      style={({ pressed }) => [s.chip, { backgroundColor: selected ? c.accent : c.chip, opacity: pressed ? 0.8 : 1 }]}>
+      style={({ pressed }) => [s.chip, { backgroundColor: selected ? c.brand : c.chip, opacity: pressed ? 0.8 : 1 }]}>
       {icon ? <Ionicons name={icon as IconName} size={18} color={selected ? c.onAccent : c.accent} /> : null}
-      <Text style={{ color: selected ? c.onAccent : c.text, fontSize: 16, fontWeight: selected ? '600' : '500' }}>{label}</Text>
+      <Text style={{ fontFamily: sans, color: selected ? c.onAccent : c.text, fontSize: 16, fontWeight: selected ? '600' : '500' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -119,9 +118,9 @@ export function Segmented<K extends string>({ value, options, onChange }: { valu
         const on = o.id === value;
         return (
           <Pressable key={o.id} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(o.id)}
-            style={[s.segItem, on && { backgroundColor: c.accent }]}>
+            style={[s.segItem, on && { backgroundColor: c.brand }]}>
             {/* One line, whatever the width: the choice reads as a single chip, and the chosen one is in the accent colour. */}
-            <Text numberOfLines={1} style={{ color: on ? c.onAccent : c.text, fontSize: 15, fontWeight: on ? '700' : '500' }}>{o.label}</Text>
+            <Text numberOfLines={1} style={{ fontFamily: sans, color: on ? c.onAccent : c.text, fontSize: 15, fontWeight: on ? '700' : '500' }}>{o.label}</Text>
           </Pressable>
         );
       })}
@@ -165,13 +164,19 @@ export function Badge({ icon, size = 40 }: { icon: string; size?: number }) {
   );
 }
 
-/** The Uplift wordmark (a stand-in until the logo is in): "UP" in the accent colour, "LIFT" in ink. */
+/**
+ * The Uplift logo: the mark (a U holding the bar) and the wordmark, "up" in ink and "lift" in mint (Archivo 800,
+ * tracking -0.035em). The reversed mark on dark. Image paths are relative: every route is one level deep.
+ */
 export function BrandMark({ size = 28 }: { size?: number }) {
-  const { c } = useTheme();
+  const { c, dark } = useTheme();
   return (
-    <Text accessibilityRole="header" style={{ fontFamily: condensed, fontWeight: '700', fontSize: size, textTransform: 'uppercase', letterSpacing: 0.5, color: c.text }}>
-      <Text style={{ color: c.accent }}>Up</Text>lift
-    </Text>
+    <View accessible accessibilityRole="header" accessibilityLabel="Uplift" style={{ flexDirection: 'row', alignItems: 'center', gap: size * 0.3 }}>
+      <Image source={{ uri: dark ? 'brand/mark-reversed.svg' : 'brand/mark.svg' }} style={{ width: size * 1.35, height: size * 1.35 }} />
+      <Text style={{ fontFamily: sans, fontWeight: '800', fontSize: size, letterSpacing: -0.035 * size, color: c.text }}>
+        up<Text style={{ color: c.accent }}>lift</Text>
+      </Text>
+    </View>
   );
 }
 
@@ -199,7 +204,7 @@ export function Gap({ h = space.lg }: { h?: number }) { return <View style={{ he
 
 const s = StyleSheet.create({
   inner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: space.lg },
-  btn: { minHeight: 52, borderRadius: radius.md, paddingHorizontal: space.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
+  btn: { minHeight: 52, borderRadius: radius.pill, paddingHorizontal: space.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   iconBtn: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   field: { minHeight: 52, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.lg, fontSize: font.body },
   chip: { minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6 },

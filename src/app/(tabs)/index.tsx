@@ -8,7 +8,7 @@ import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
 import { AddButton, Empty, ExRow, InstallNudge, Section, Stat } from '../../components';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
-import { condensed, space } from '../../theme';
+import { sans, space } from '../../theme';
 import { useNow } from '../../timer';
 
 export default function Home() {
@@ -32,7 +32,7 @@ export default function Home() {
           <Pressable accessibilityRole="button" accessibilityLabel={`Profile: ${v.profile.name}. Switch`} onPress={() => router.push('/profiles')}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: space.md, borderRadius: 999, borderWidth: 1, borderColor: c.border, opacity: pressed ? 0.7 : 1 })}>
             <Ionicons name="person-circle-outline" size={20} color={c.accent} />
-            <T style={{ fontFamily: condensed, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }} numberOfLines={1}>{v.profile.name}</T>
+            <T style={{ fontWeight: '600' }} numberOfLines={1}>{v.profile.name}</T>
           </Pressable>
         </View>
 
@@ -42,7 +42,7 @@ export default function Home() {
           {live && (
             <Pressable accessibilityRole="button" accessibilityLabel={`Resume ${live.name}`} onPress={openWorkout}
               style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 6 }}>
-              <T style={{ flex: 1, fontFamily: condensed, fontWeight: '600', fontSize: 17 }} color={c.accent}>● {live.name}</T>
+              <T style={{ flex: 1, fontFamily: sans, fontWeight: '600', fontSize: 17 }} color={c.accent}>● {live.name}</T>
               <T v="mono" style={{ fontSize: 12 }}>in progress · {duration(now - live.startedAt)}</T>
             </Pressable>
           )}
@@ -50,7 +50,7 @@ export default function Home() {
             const { sets, volume } = workoutStats(v, w);
             return (
               <View key={w.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: c.border }}>
-                <T numberOfLines={1} style={{ flex: 1, fontFamily: condensed, fontWeight: '600', fontSize: 17 }}>{w.name}</T>
+                <T numberOfLines={1} style={{ flex: 1, fontFamily: sans, fontWeight: '600', fontSize: 17 }}>{w.name}</T>
                 <T v="mono" style={{ fontSize: 12 }}>{[w.endedAt ? duration(w.endedAt - w.startedAt) : '', plural(sets, 'set'), volume ? `${num(volume)} kg` : '', (() => { const k = workoutCalories(v, w); return k ? `≈${k} kcal` : ''; })()].filter(Boolean).join(' · ')}</T>
               </View>
             );

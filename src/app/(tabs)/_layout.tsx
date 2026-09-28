@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../../store';
 import { RestBar, WorkoutBar } from '../../components';
 import { TourOverlay } from '../../tour';
-import { condensed } from '../../theme';
+import { sans } from '../../theme';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const TABS: { name: string; title: string; icon: Icon; on: Icon }[] = [
@@ -33,7 +33,7 @@ export default function TabsLayout() {
       tabBarInactiveTintColor: c.muted,
       tabBarStyle: { backgroundColor: c.card, borderTopColor: c.border, height: 70 + bottom, paddingBottom: bottom },
       tabBarItemStyle: { paddingTop: 6, paddingBottom: 8 },
-      tabBarLabelStyle: { fontSize: 13, lineHeight: 18, fontWeight: '600', fontFamily: condensed, textTransform: 'uppercase', letterSpacing: 0.5 },
+      tabBarLabelStyle: { fontSize: 13, lineHeight: 18, fontWeight: '600', fontFamily: sans },
       sceneStyle: { backgroundColor: c.bg },
     }}>
       {TABS.map((t) => (

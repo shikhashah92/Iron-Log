@@ -1,18 +1,20 @@
 import { useColorScheme } from 'react-native';
 import type { Theme } from './model';
 
-// Uplift's chalk-and-rust palette, carried over from the original app.
+// Uplift: mint and graphite (brand kit v1.0). Two mints on purpose: `brand` (Mint 500) is for fills (primary
+// buttons, selected chips, ticks) with graphite on top, never white; `accent` is mint that reads as text or an icon
+// (Mint 700 on light surfaces, Mint 500 on dark).
 const light = {
-  bg: '#e7e4de', card: '#f6f4ef', text: '#1c1a16', muted: '#6c675d', border: '#d3cec3', chip: '#efece5',
-  accent: '#a23b23', onAccent: '#FFFFFF', accentSoft: '#f0e0d8',
-  good: '#3f7a34', goodSoft: '#e2ecdc', danger: '#a23b23',
-  field: '#ffffff', fieldBorder: '#bfb8aa', hint: '#b3ac9f', warnBg: '#f4e7c9', warnText: '#6e4b00',
+  bg: '#F7F7F5', card: '#FFFFFF', text: '#1D2125', muted: '#6B7278', border: '#EEEEEB', chip: '#EEEEEB',
+  brand: '#16E29A', accent: '#087F56', onAccent: '#1D2125', accentSoft: '#E8FCF4',
+  good: '#087F56', goodSoft: '#E8FCF4', danger: '#E5484D',
+  field: '#FFFFFF', fieldBorder: '#C4C8CC', hint: '#A9AEB3', warnBg: '#FDF3DD', warnText: '#7A5200',
 };
 const dark: typeof light = {
-  bg: '#151719', card: '#1f2224', text: '#ece9e2', muted: '#948f84', border: '#343a3d', chip: '#26292c',
-  accent: '#e2724f', onAccent: '#151719', accentSoft: '#3a2620',
-  good: '#83c069', goodSoft: '#28311f', danger: '#e88a6c',
-  field: '#2b2f32', fieldBorder: '#4b5256', hint: '#6d6a63', warnBg: '#3a2a0e', warnText: '#f5c26b',
+  bg: '#1D2125', card: '#262B30', text: '#F7F7F5', muted: '#9AA0A6', border: '#3A4046', chip: '#30363C',
+  brand: '#16E29A', accent: '#16E29A', onAccent: '#1D2125', accentSoft: '#15372B',
+  good: '#16E29A', goodSoft: '#15372B', danger: '#FF6B6F',
+  field: '#2A3036', fieldBorder: '#4A5158', hint: '#6F767C', warnBg: '#3A2E12', warnText: '#F2B233',
 };
 export type Colors = typeof light;
 
@@ -23,8 +25,7 @@ export function useColors(pref: Theme): { c: Colors; dark: boolean } {
 }
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
-export const radius = { sm: 9, md: 13, lg: 16, pill: 999 };
-/** Headings: condensed and uppercase, like a gym whiteboard. Numbers: monospace so columns line up. */
-export const condensed = '"Barlow Condensed", "Arial Narrow", system-ui, sans-serif';
-export const mono = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+export const radius = { sm: 8, md: 12, lg: 20, pill: 999 };
+/** One family, Archivo (self-hosted), for everything; numbers use tabular figures so columns line up. */
+export const sans = '"Archivo", system-ui, -apple-system, sans-serif';
 export const font = { small: 14, body: 17, title: 22, h1: 28, big: 40 };

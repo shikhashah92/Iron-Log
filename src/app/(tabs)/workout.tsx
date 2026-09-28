@@ -8,7 +8,7 @@ import { ask } from '../../io';
 import { Empty } from '../../components';
 import { useWorkoutFlow } from '../../workout';
 import { Button, Card, Gap, Header, Screen, T } from '../../ui';
-import { condensed, mono, radius, space } from '../../theme';
+import { sans, radius, space } from '../../theme';
 
 const ago = (day: string) => { const d = daysAgo(day, today()); return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 60 ? `${d} days ago` : new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); };
 
@@ -35,8 +35,8 @@ export default function StartWorkout() {
           <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderColor: c.accent, marginBottom: space.md }}>
             <Ionicons name="pulse" size={22} color={c.accent} />
             <View style={{ flex: 1 }}>
-              <T style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18 }}>{v.active.name}</T>
-              <T v="small">In progress · <T v="small" style={{ fontFamily: mono }}>{duration(now - v.active.startedAt)}</T></T>
+              <T style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{v.active.name}</T>
+              <T v="small">In progress · <T v="small" style={{ fontFamily: sans }}>{duration(now - v.active.startedAt)}</T></T>
             </View>
             <T style={{ fontWeight: '700' }} color={c.accent}>Resume</T>
           </Card>
@@ -64,7 +64,7 @@ export default function StartWorkout() {
                 onPress={() => router.push({ pathname: '/template', params: { id: t.id } })}
                 style={({ pressed }) => ({ flexBasis: '47%', flexGrow: 1, minHeight: 124, padding: space.md, borderRadius: radius.md,
                   backgroundColor: c.card, borderWidth: 1, borderColor: c.border, opacity: pressed ? 0.7 : 1, gap: 4 })}>
-                <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '700', fontSize: 18 }}>{t.name}</T>
+                <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '700', fontSize: 18 }}>{t.name}</T>
                 <T v="small" numberOfLines={3} style={{ fontSize: 13, lineHeight: 18, flex: 1 }}>
                   {t.exercises.map((e) => getEx(v, e.exerciseId).name).join(', ') || 'No exercises yet'}
                 </T>

@@ -10,7 +10,7 @@
       "favicon": "./assets/favicon.png",
       "name": "Uplift",
       "shortName": "Uplift",
-      "backgroundColor": "#e7e4de"
+      "backgroundColor": "#F7F7F5"
     },
     "plugins": ["expo-router", "expo-font"]
   }

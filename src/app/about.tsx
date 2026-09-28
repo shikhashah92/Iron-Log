@@ -117,7 +117,7 @@ export default function About() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingTop: space.lg, minHeight: 56 }}>
           {i > 0 ? <IconButton icon="chevron-back" label="Back" onPress={() => setI(i - 1)} /> : <View style={{ width: 24 }} />}
           <View accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: steps.length, now: i + 1 }} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: c.chip, overflow: 'hidden' }}>
-            <View style={{ width: `${((i + 1) / steps.length) * 100}%`, height: 6, backgroundColor: c.accent }} />
+            <View style={{ width: `${((i + 1) / steps.length) * 100}%`, height: 6, backgroundColor: c.brand }} />
           </View>
           <Button title="Skip all" kind="ghost" onPress={done} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
         </View>

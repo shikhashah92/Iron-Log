@@ -35,7 +35,7 @@ export default function Welcome() {
       <View style={{ minHeight: 520, justifyContent: 'center', paddingVertical: space.xxl }}>
         <BrandMark size={44} />
         <Gap h={space.sm} />
-        <T style={{ color: c.muted }}>Your strength log. Exercises, sets, and progress.</T>
+        <T style={{ color: c.muted }}>Your training log: lifts, yoga, runs and your progress.</T>
         <Gap h={space.xl} />
         {iosBrowser && (
           <>
