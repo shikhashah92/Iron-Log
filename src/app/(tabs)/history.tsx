@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { bestSet, isTimed, daysAgo, delWorkout, duration, fmtSet, getEx, longDate, num, plural, templateFrom, workoutStats, type Workout } from '../../model';
+import { bestSet, isTimed, daysAgo, delWorkout, duration, fmtSet, getEx, longDate, matches, num, plural, templateFrom, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
 import { Empty, ProgressBlock, SetLines, useSaveAsTemplate } from '../../components';
-import { Button, Card, Chip, Gap, Header, Screen, Segmented, T } from '../../ui';
-import { condensed, space } from '../../theme';
+import { Button, Card, Field, Gap, Header, Row, Screen, Segmented, T } from '../../ui';
+import { condensed, radius, space } from '../../theme';
 
 export default function History() {
   const [tab, setTab] = useState<'sessions' | 'progress'>('sessions');
@@ -95,19 +95,44 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
 
 function Progress() {
   const { v } = useLog();
+  const { c } = useTheme();
   const logged = [...new Set([...v.entries].reverse().map((e) => e.exerciseId))]; // most recent first
   const [pick, setPick] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
   if (!logged.length) return <Card><Empty>Log a few workouts first, then pick an exercise here to see its progress.</Empty></Card>;
   const id = pick && logged.includes(pick) ? pick : logged[0];
+  const ex = getEx(v, id);
+  const query = q.trim().toLowerCase();
+  const found = logged.filter((x) => matches(getEx(v, x), query));
+  const last = (x: string) => v.entries.findLast((e) => e.exerciseId === x)?.date;
   return (
     <>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }} style={{ marginBottom: space.md }}>
-        {logged.map((x) => <Chip key={x} label={getEx(v, x).name} selected={x === id} onPress={() => setPick(x)} />)}
-      </ScrollView>
-      <Card>
-        <T style={{ fontFamily: condensed, fontWeight: '600', fontSize: 20 }}>{getEx(v, id).name}</T>
-        <ProgressBlock v={v} id={id} />
-      </Card>
+      {/* A dropdown: the exercise you're looking at; tap to search the ones you've logged (most recent first). */}
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`Exercise: ${ex.name}. Change`}
+        onPress={() => { setOpen(!open); setQ(''); }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 52, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: open ? c.accent : c.fieldBorder, backgroundColor: c.field, marginBottom: space.sm }}>
+        <View style={{ flex: 1 }}>
+          <T v="small" style={{ fontSize: 12 }}>Exercise · {logged.length} logged</T>
+          <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 20 }}>{ex.name}</T>
+        </View>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={22} color={c.muted} />
+      </Pressable>
+      {open ? (
+        <Card pad={false} style={{ paddingHorizontal: space.md, paddingTop: space.md, marginBottom: space.md }}>
+          <Field placeholder={`Search ${logged.length} exercises`} value={q} onChangeText={setQ} autoFocus autoCorrect={false} inputMode="search" accessibilityLabel="Search your exercises" />
+          {found.slice(0, 40).map((x, i, all) => (
+            <Row key={x} title={getEx(v, x).name} subtitle={`${getEx(v, x).group} · last ${longDate(last(x)!)}`} last={i === all.length - 1}
+              right={x === id ? <Ionicons name="checkmark" size={20} color={c.accent} /> : undefined}
+              onPress={() => { setPick(x); setOpen(false); }} />
+          ))}
+          {!found.length && <T v="small" style={{ paddingVertical: space.md }}>None of your logged exercises match.</T>}
+        </Card>
+      ) : (
+        <Card>
+          <ProgressBlock v={v} id={id} />
+        </Card>
+      )}
     </>
   );
 }

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  addSetTo, clock, pace, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
+  addSetTo, fmtDur, pace, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
   putWorkout, removeExercise, setKind, setLabels, setTime, setValue, startWorkout, templateFrom, toggleDone, unfinished,
   type Log, type SetRow, type Workout,
 } from './model';
@@ -129,9 +129,13 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   const e = workout.exercises[i];
   const ex = getEx(v, e.exerciseId);
   const labels = setLabels(e.sets);
+  const yoga = ex.kind === 'yoga';
   const unit = ex.kind === 'cardio' ? 'km' : ex.kind === 'activity' ? 'Effort' : ex.weightType === 'bodyweight' ? '+kg' : ex.weightType === 'dumbbell' ? 'kg/DB' : 'kg';
-  const reps = isTimed(ex) ? 'Time' : ex.metric === 'secs' ? 'Secs' : 'Reps';
-  const cols = isTimed(ex) ? [reps, unit] : [unit, reps]; // time first for cardio and activities
+  // A plain number means seconds in a hold and minutes in other times: the header says which.
+  const reps = ex.yoga === 'hold' ? 'Hold (sec)' : isTimed(ex) ? 'Time (min)' : ex.metric === 'secs' ? 'Secs' : 'Reps';
+  // Time first for cardio and activities; yoga reads "3 rounds, 30 s hold".
+  const cols = yoga ? ['Rounds', reps] : isTimed(ex) ? [reps, unit] : [unit, reps];
+  const roundsCount = ex.yoga === 'rounds'; // Surya Namaskar: rounds alone can be ticked
   let working = -1; // index into last time's sets, matching by position
 
   async function setMenu(j: number) {
@@ -143,8 +147,8 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   }
   function tick(j: number) {
     const s = e.sets[j];
-    if (s.done === false && s.r <= 0) return notify(`Enter ${isTimed(ex) ? 'the time' : reps.toLowerCase()} first`);
-    edit((w) => toggleDone(w, i, j).workout);
+    if (s.done === false && s.r <= 0 && !(roundsCount && s.w > 0)) return notify(`Enter ${roundsCount ? 'the rounds' : yoga && ex.yoga === 'hold' ? 'how long you held it' : isTimed(ex) ? 'the time' : reps.toLowerCase()} first`);
+    edit((w) => toggleDone(w, i, j, roundsCount).workout);
     if (s.done === false && !isTimed(ex)) startRest(restSecs); // ticked a lifting set (not unticked, not a run or class): rest starts
   }
 
@@ -167,9 +171,14 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               <T style={{ fontFamily: mono, fontWeight: '600', textAlign: 'center', color: s.kind === 'W' ? c.warnText : s.kind === 'D' ? c.accent : c.text }}>{labels[j]}</T>
             </Pressable>
             <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex)}</T>
-            {isTimed(ex) ? (
+            {yoga ? (
               <>
-                <SetInput value={s.r} hint={hint} fmt={clock} label={`Set ${labels[j]} time`} onCommit={(t) => edit((w) => setTime(w, i, j, t))} />
+                <SetInput value={s.w} hint={hint} label={`Set ${labels[j]} rounds`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', String(Math.round(Number(t.replace(',', '.')) || 0))))} />
+                <SetInput value={s.r} hint={hint} fmt={fmtDur} unit={ex.yoga === 'hold' ? 'sec' : 'min'} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setTime(w, i, j, t, ex.yoga === 'hold'))} />
+              </>
+            ) : isTimed(ex) ? (
+              <>
+                <SetInput value={s.r} hint={hint} fmt={fmtDur} unit="min" label={`Set ${labels[j]} time`} onCommit={(t) => edit((w) => setTime(w, i, j, t))} />
                 {ex.kind === 'cardio'
                   ? <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} distance in km`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', t))} />
                   : <Pressable accessibilityRole="button" accessibilityLabel={`Set ${labels[j]} intensity: ${INTENSITIES[s.w] || 'Moderate'}. Change`}
@@ -201,8 +210,8 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
  * A number field that keeps what's being typed and saves on blur / enter. Planned sets show last time's number as a
  * grey hint (tick to accept it, or type to change it). The text is selected on focus, so typing replaces it.
  */
-function SetInput({ value, hint, decimal, label, onCommit, fmt = num }: {
-  value: number; hint: boolean; decimal?: boolean; label: string; onCommit: (text: string) => void; fmt?: (n: number) => string;
+function SetInput({ value, hint, decimal, label, onCommit, fmt = num, unit }: {
+  value: number; hint: boolean; decimal?: boolean; label: string; onCommit: (text: string) => void; fmt?: (n: number) => string; unit?: string;
 }) {
   const { c } = useTheme();
   const shown = value ? fmt(value) : '';
@@ -210,10 +219,10 @@ function SetInput({ value, hint, decimal, label, onCommit, fmt = num }: {
   const [focused, setFocused] = useState(false);
   const commit = () => { if (text !== null && text !== (hint ? '' : shown)) onCommit(text); setText(null); };
   return (
-    <TextInput value={text ?? (hint ? '' : shown)} placeholder={hint ? shown || '0' : ''} placeholderTextColor={c.hint}
+    <TextInput value={text ?? (hint ? '' : shown)} placeholder={hint ? shown || unit || '0' : unit ?? ''} placeholderTextColor={c.hint}
       onChangeText={setText} inputMode={decimal ? 'decimal' : fmt === num ? 'numeric' : 'text'} accessibilityLabel={label}
       onFocus={(e) => { setFocused(true); selectAll(e); }} onBlur={() => { setFocused(false); commit(); }} onSubmitEditing={commit}
-      style={[st.cell, st.input, { color: c.text, backgroundColor: c.field, borderColor: focused ? c.accent : c.fieldBorder, outlineWidth: 0 }]} />
+      style={[st.cell, st.input, fmt === fmtDur && { fontSize: 15 }, { color: c.text, backgroundColor: c.field, borderColor: focused ? c.accent : c.fieldBorder, outlineWidth: 0 }]} />
   );
 }
 

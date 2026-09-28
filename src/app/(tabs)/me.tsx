@@ -3,12 +3,13 @@ import { Image, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  bmi, bmiLabel, fmtHeight, fmtLength, fmtWeight, fromKg, healthyRange, parseHeight, planCurve, planRate, planStatus, reminderICS,
+  bmi, bmiLabel, fmtHeight, fmtLength, fmtWeight, fromKg, healthyRange, googleCalendarURL, planCurve, planRate, planStatus, reminderFile, reminderICS,
   trendChange, trendOf, weighInDue, type WeighEvery,
 } from '../../body';
 import { ageOn, dateWithYear, GENDERS, GOALS, imgKey, MEASURES, putProfile, today } from '../../model';
 import { useLog, useTheme } from '../../store';
-import { ask, notify, saveFile } from '../../io';
+import { notify, saveFile } from '../../io';
+import { BASE, isAndroid, isIOS, isStandalone } from '../../pwa';
 import { Empty, RANGES, rangeLabel, rangeStart, Section, Stat, TimeChart, type Range } from '../../components';
 import { Button, Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { font, mono, space } from '../../theme';
@@ -37,15 +38,11 @@ export default function Me() {
   const photos = latest.filter((x) => x.photo && images[imgKey(p.id, `weigh-${x.id}`)]);
   const setUnits = (patch: Partial<typeof units>) => update((l) => ({ ...l, settings: { ...l.settings, units: { ...units, ...patch } } }));
 
-  async function setHeight() {
-    const t = await ask(units.length === 'cm' ? 'Height (cm)' : 'Height (e.g. 5\'11")', p.height ? fmtHeight(p.height, units.length).replace(' cm', '') : '');
-    if (t === null) return;
-    const cm = parseHeight(t, units.length);
-    if (!cm) return notify('That doesn’t look like a height', units.length === 'cm' ? 'Try something like 175.' : 'Try something like 5\'11" or 71 (inches).');
-    update((l) => putProfile(l, p.id, { height: cm }));
-  }
   async function addReminder() {
     if (every === 'off') return notify('Reminders are off', 'Pick how often first.');
+    // iPhone: Safari opens a hosted .ics as "Add to Calendar". Android: Google Calendar, pre-filled. Elsewhere: a file.
+    if (isIOS()) { const url = new URL(`${BASE}${reminderFile(every)}`, location.origin).href; return isStandalone() ? void window.open(url) : void (location.href = url); }
+    if (isAndroid()) return void window.open(googleCalendarURL(every, new Date()), '_blank');
     try { await saveFile('iron-log-weigh-in.ics', reminderICS(every, new Date()), 'text/calendar'); }
     catch (e) { notify('Could not create the reminder', (e as Error).message); }
   }
@@ -124,7 +121,7 @@ export default function Me() {
       <Gap h={space.sm} />
       <Card pad={false} style={{ paddingHorizontal: space.lg }}>
         <Row left={<Ionicons name="resize-outline" size={22} color={c.accent} />} title="Height" subtitle={p.height ? fmtHeight(p.height, units.length) : 'Used for BMI'}
-          right={<Ionicons name="chevron-forward" size={20} color={c.muted} />} onPress={setHeight} />
+          right={<Ionicons name="chevron-forward" size={20} color={c.muted} />} onPress={() => router.push('/about')} />
         <View style={{ paddingVertical: space.sm, gap: space.sm }}>
           <T v="small">Units for body weight and measurements (lifts stay in kg)</T>
           <View style={{ flexDirection: 'row', gap: space.sm }}>

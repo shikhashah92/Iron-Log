@@ -1,5 +1,6 @@
 // The built-in exercise library (ships with the app, never stored). Custom exercises live in the log.
 import type { Exercise } from "./model";
+import { YOGA } from "./yoga.ts";
 
 export const GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core"] as const;
 
@@ -1301,7 +1302,6 @@ const ACTIVITIES: readonly Exercise[] = [
    9.8,
    11.5
   ],
-  "icon": "walk",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1318,7 +1318,6 @@ const ACTIVITIES: readonly Exercise[] = [
    9.8,
    11.5
   ],
-  "icon": "walk",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1335,7 +1334,6 @@ const ACTIVITIES: readonly Exercise[] = [
    3.5,
    5
   ],
-  "icon": "walk",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1352,7 +1350,6 @@ const ACTIVITIES: readonly Exercise[] = [
    6,
    8
   ],
-  "icon": "trending-up",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1369,7 +1366,6 @@ const ACTIVITIES: readonly Exercise[] = [
    6,
    7.8
   ],
-  "icon": "trail-sign",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1386,7 +1382,6 @@ const ACTIVITIES: readonly Exercise[] = [
    8,
    10
   ],
-  "icon": "bicycle",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1403,7 +1398,6 @@ const ACTIVITIES: readonly Exercise[] = [
    6.8,
    8.8
   ],
-  "icon": "bicycle",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1420,7 +1414,6 @@ const ACTIVITIES: readonly Exercise[] = [
    7,
    9.8
   ],
-  "icon": "water",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1437,7 +1430,6 @@ const ACTIVITIES: readonly Exercise[] = [
    7,
    8.5
   ],
-  "icon": "boat",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1454,7 +1446,6 @@ const ACTIVITIES: readonly Exercise[] = [
    5,
    7
   ],
-  "icon": "infinite",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1471,7 +1462,6 @@ const ACTIVITIES: readonly Exercise[] = [
    9,
    9.5
   ],
-  "icon": "stats-chart",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1488,86 +1478,31 @@ const ACTIVITIES: readonly Exercise[] = [
    11.8,
    12.3
   ],
-  "icon": "pulse",
   "setup": [],
   "exec": [],
   "avoid": []
  },
  {
-  "id": "hatha-yoga",
-  "name": "Hatha yoga",
-  "group": "Yoga & mobility",
+  "id": "yoga-class",
+  "name": "Yoga class",
+  "group": "Yoga",
   "equip": "Mat",
   "weightType": "bodyweight",
   "kind": "activity",
   "met": [
-   2,
    2.5,
-   3
-  ],
-  "icon": "leaf",
-  "setup": [],
-  "exec": [],
-  "avoid": [],
-  "art": false
- },
- {
-  "id": "vinyasa-yoga",
-  "name": "Vinyasa yoga",
-  "group": "Yoga & mobility",
-  "equip": "Mat",
-  "weightType": "bodyweight",
-  "kind": "activity",
-  "met": [
    3,
-   4,
-   5
+   4
   ],
-  "icon": "leaf",
   "setup": [],
   "exec": [],
   "avoid": [],
   "art": false
- },
- {
-  "id": "power-yoga",
-  "name": "Power yoga",
-  "group": "Yoga & mobility",
-  "equip": "Mat",
-  "weightType": "bodyweight",
-  "kind": "activity",
-  "met": [
-   3.5,
-   4,
-   5.5
-  ],
-  "icon": "leaf",
-  "setup": [],
-  "exec": [],
-  "avoid": [],
-  "art": false
- },
- {
-  "id": "yin-yoga",
-  "name": "Yin / restorative yoga",
-  "group": "Yoga & mobility",
-  "equip": "Mat",
-  "weightType": "bodyweight",
-  "kind": "activity",
-  "met": [
-   1.8,
-   2.3,
-   2.5
-  ],
-  "icon": "leaf",
-  "setup": [],
-  "exec": [],
-  "avoid": []
  },
  {
   "id": "pilates",
   "name": "Pilates",
-  "group": "Yoga & mobility",
+  "group": "Mobility",
   "equip": "Mat",
   "weightType": "bodyweight",
   "kind": "activity",
@@ -1576,7 +1511,6 @@ const ACTIVITIES: readonly Exercise[] = [
    3,
    4
   ],
-  "icon": "body",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1585,7 +1519,7 @@ const ACTIVITIES: readonly Exercise[] = [
  {
   "id": "stretching",
   "name": "Stretching & mobility",
-  "group": "Yoga & mobility",
+  "group": "Mobility",
   "equip": "Mat",
   "weightType": "bodyweight",
   "kind": "activity",
@@ -1594,7 +1528,6 @@ const ACTIVITIES: readonly Exercise[] = [
    2.3,
    2.8
   ],
-  "icon": "body",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1602,7 +1535,7 @@ const ACTIVITIES: readonly Exercise[] = [
  {
   "id": "breathwork",
   "name": "Meditation & breathwork",
-  "group": "Yoga & mobility",
+  "group": "Pranayama",
   "equip": "None",
   "weightType": "bodyweight",
   "kind": "activity",
@@ -1611,7 +1544,6 @@ const ACTIVITIES: readonly Exercise[] = [
    1.3,
    1.5
   ],
-  "icon": "cloud",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1629,7 +1561,6 @@ const ACTIVITIES: readonly Exercise[] = [
    7,
    10
   ],
-  "icon": "football",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1647,7 +1578,6 @@ const ACTIVITIES: readonly Exercise[] = [
    4.8,
    6
   ],
-  "icon": "baseball",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1665,7 +1595,6 @@ const ACTIVITIES: readonly Exercise[] = [
    5.5,
    7
   ],
-  "icon": "tennisball",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1683,7 +1612,6 @@ const ACTIVITIES: readonly Exercise[] = [
    7.3,
    8
   ],
-  "icon": "tennisball",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1701,7 +1629,6 @@ const ACTIVITIES: readonly Exercise[] = [
    9,
    12
   ],
-  "icon": "tennisball",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1719,7 +1646,6 @@ const ACTIVITIES: readonly Exercise[] = [
    6.5,
    8
   ],
-  "icon": "basketball",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1737,7 +1663,6 @@ const ACTIVITIES: readonly Exercise[] = [
    4,
    5
   ],
-  "icon": "tennisball",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1755,7 +1680,6 @@ const ACTIVITIES: readonly Exercise[] = [
    6,
    7.5
   ],
-  "icon": "tennisball",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1773,7 +1697,6 @@ const ACTIVITIES: readonly Exercise[] = [
    8,
    10
   ],
-  "icon": "flash",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1790,7 +1713,6 @@ const ACTIVITIES: readonly Exercise[] = [
    6,
    8
   ],
-  "icon": "repeat",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1807,7 +1729,6 @@ const ACTIVITIES: readonly Exercise[] = [
    8,
    10
   ],
-  "icon": "barbell",
   "setup": [],
   "exec": [],
   "avoid": []
@@ -1824,7 +1745,6 @@ const ACTIVITIES: readonly Exercise[] = [
    7.8,
    12.8
   ],
-  "icon": "hand-left",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1842,7 +1762,6 @@ const ACTIVITIES: readonly Exercise[] = [
    7.8,
    10.3
   ],
-  "icon": "hand-right",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1860,7 +1779,6 @@ const ACTIVITIES: readonly Exercise[] = [
    5.5,
    7.8
   ],
-  "icon": "musical-notes",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1878,7 +1796,6 @@ const ACTIVITIES: readonly Exercise[] = [
    6.5,
    7.8
   ],
-  "icon": "musical-notes",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1896,7 +1813,6 @@ const ACTIVITIES: readonly Exercise[] = [
    7.3,
    8
   ],
-  "icon": "trending-up",
   "setup": [],
   "exec": [],
   "avoid": [],
@@ -1914,11 +1830,10 @@ const ACTIVITIES: readonly Exercise[] = [
    8.5,
    11
   ],
-  "icon": "bicycle",
   "setup": [],
   "exec": [],
   "avoid": []
  }
 ];
 
-export const BUILT_IN: readonly Exercise[] = [...STRENGTH, ...ACTIVITIES];
+export const BUILT_IN: readonly Exercise[] = [...STRENGTH, ...ACTIVITIES, ...YOGA];

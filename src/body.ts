@@ -85,16 +85,31 @@ export const weighInDue = (weighIns: WeighIn[], every: WeighEvery, today: string
 };
 
 /** A repeating calendar event (iCalendar) so the phone itself reminds you: no server involved. */
-export function reminderICS(every: Exclude<WeighEvery, 'off'>, start: Date, time = '07:30'): string {
+export function reminderICS(every: Exclude<WeighEvery, 'off'>, start: Date, time = '07:30', now = new Date()): string {
   const [h, m] = time.split(':').map(Number);
   const d = new Date(start.getFullYear(), start.getMonth(), start.getDate(), h, m);
   const stamp = (x: Date) => `${dayKey(x).replace(/-/g, '')}T${String(x.getHours()).padStart(2, '0')}${String(x.getMinutes()).padStart(2, '0')}00`;
-  const rule = every === 'daily' ? 'FREQ=DAILY' : every === '3x' ? 'FREQ=WEEKLY;BYDAY=MO,WE,FR' : 'FREQ=WEEKLY;BYDAY=MO';
+  const rule = RULE[every];
   const end = new Date(d.getTime() + 5 * 60_000);
   return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Iron Log//Weigh-in//EN', 'BEGIN:VEVENT',
-    `UID:ironlog-weigh-in-${every}@ironlog`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(d)}`, `DTEND:${stamp(end)}`, `RRULE:${rule}`,
+    `UID:ironlog-weigh-in-${every}@ironlog`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(d)}`, `DTEND:${stamp(end)}`, `RRULE:${rule}`,
     'SUMMARY:Weigh in (Iron Log)', 'DESCRIPTION:Before breakfast: Iron Log > Me > Log weigh-in', // under 75 bytes per line (RFC 5545)
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Weigh in', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
+}
+
+const RULE: Record<Exclude<WeighEvery, 'off'>, string> = { daily: 'FREQ=DAILY', '3x': 'FREQ=WEEKLY;BYDAY=MO,WE,FR', weekly: 'FREQ=WEEKLY;BYDAY=MO' };
+/**
+ * iPhones: the same event as a file the app hosts (public/reminders/, fixed start in January 2026): Safari opens a
+ * hosted .ics straight into "Add to Calendar", where a downloaded one only lands in Files.
+ */
+export const REMINDER_START = new Date(2026, 0, 5); // a Monday
+export const reminderFile = (every: Exclude<WeighEvery, 'off'>) => `reminders/weigh-in-${every}.ics`;
+/** Android: Google Calendar's "new event" page, pre-filled and repeating (the phone's calendar app syncs it). */
+export function googleCalendarURL(every: Exclude<WeighEvery, 'off'>, start: Date): string {
+  const day = dayKey(start).replace(/-/g, '');
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: 'Weigh in (Iron Log)', details: 'Before breakfast: Iron Log > Me > Log weigh-in',
+    dates: `${day}T073000/${day}T073500`, recur: `RRULE:${RULE[every]}` });
+  return `https://calendar.google.com/calendar/render?${q}`;
 }
 
 // ---- units (body measurements only; lifts stay in kg) ----
@@ -120,6 +135,17 @@ export function parseHeight(text: string, u: LengthUnit): number | null {
   const ft = /^(\d)\s*(?:'|′|ft|\s)\s*(\d{1,2})?\s*(?:"|″|in)?$/.exec(t);
   const cm = u === 'in' && ft ? (Number(ft[1]) * 12 + Number(ft[2] ?? 0)) * IN : toCm(parseFloat(t.replace(',', '.')), u);
   return Number.isFinite(cm) && cm >= 50 && cm <= 272 ? Math.round(cm * 10) / 10 : null;
+}
+/** Height split into whole feet and inches, for two boxes. */
+export function ftIn(cm: number): [number, number] {
+  const total = Math.round(cm / IN);
+  return [Math.floor(total / 12), total % 12];
+}
+/** Feet and inches boxes → centimetres (inches may run past 11); null if it isn't a plausible height. */
+export function fromFtIn(ft: string, inch: string): number | null {
+  const f = ft.trim() ? Number(ft) : 0, i = inch.trim() ? Number(inch.replace(',', '.')) : 0;
+  const cm = (f * 12 + i) * IN;
+  return Number.isFinite(cm) && f >= 0 && i >= 0 && cm >= 50 && cm <= 272 ? Math.round(cm * 10) / 10 : null;
 }
 /** Today, or the given day if it's a real past day (weigh-ins can be backdated, never future-dated). */
 export const clampDay = (day: string, today: string) => (day > today ? today : day);

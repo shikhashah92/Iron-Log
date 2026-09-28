@@ -21,7 +21,7 @@ export default function EditExercise() {
   const [equip, setEquip] = useState(ed?.equip ?? '');
   const [weightType, setWeightType] = useState<WeightType>(ed?.weightType ?? 'barbell');
   const [metric, setMetric] = useState<'reps' | 'secs'>(ed?.metric ?? 'reps');
-  const [kind, setKind] = useState<'strength' | 'cardio' | 'activity'>(ed?.kind ?? 'strength');
+  const [kind, setKind] = useState<'strength' | 'cardio' | 'activity' | 'yoga'>(ed?.kind ?? 'strength');
   const [setup, setSetup] = useState(ed?.setup.join('\n') ?? '');
   const [exec, setExec] = useState(ed?.exec.join('\n') ?? '');
   const [avoid, setAvoid] = useState(ed?.avoid.join('\n') ?? '');
@@ -30,7 +30,7 @@ export default function EditExercise() {
     if (!name.trim()) return notify('Give the exercise a name');
     update((l) => putExercise(l, {
       id: ed?.id ?? newId('u'), name: name.trim().slice(0, 80), group, equip: equip.trim().slice(0, 60) || 'Other', weightType,
-      ...(kind === 'strength' && metric === 'secs' ? { metric: 'secs' as const } : {}), ...(kind !== 'strength' ? { kind } : {}),
+      ...(kind === 'strength' && metric === 'secs' ? { metric: 'secs' as const } : {}), ...(kind !== 'strength' ? { kind } : {}), ...(kind === 'yoga' ? { yoga: 'hold' as const } : {}),
       setup: lines(setup), exec: lines(exec), avoid: lines(avoid),
     }));
     goBack();
@@ -44,9 +44,9 @@ export default function EditExercise() {
         <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. Landmine Press" autoFocus={!ed} />
         <View style={{ gap: space.xs }}>
           <T v="label">Type</T>
-          <Segmented value={kind} onChange={(k) => { setKind(k); if (k !== 'strength' && !(ACTIVITY_GROUPS as readonly string[]).includes(group)) setGroup(k === 'cardio' ? 'Cardio' : 'Classes'); }}
-            options={[{ id: 'strength', label: 'Strength' }, { id: 'cardio', label: 'Cardio' }, { id: 'activity', label: 'Activity' }]} />
-          <T v="small" style={{ fontSize: 12 }}>{kind === 'strength' ? 'Weight and reps.' : kind === 'cardio' ? 'Time and distance (pace and calories worked out).' : 'Time and intensity: yoga, a class, a match.'}</T>
+          <Segmented value={kind} onChange={(k) => { setKind(k); if (k !== 'strength' && !(ACTIVITY_GROUPS as readonly string[]).includes(group)) setGroup(k === 'cardio' ? 'Cardio' : k === 'yoga' ? 'Yoga' : 'Classes'); }}
+            options={[{ id: 'strength', label: 'Strength' }, { id: 'cardio', label: 'Cardio' }, { id: 'activity', label: 'Activity' }, { id: 'yoga', label: 'Yoga pose' }]} />
+          <T v="small" style={{ fontSize: 12 }}>{kind === 'strength' ? 'Weight and reps.' : kind === 'cardio' ? 'Time and distance (pace and calories worked out).' : kind === 'yoga' ? 'Rounds and how long each is held.' : 'Time and intensity: a class, a match.'}</T>
         </View>
         <View style={{ gap: space.xs }}>
           <T v="label">{kind === 'strength' ? 'Muscle group' : 'Group'}</T>

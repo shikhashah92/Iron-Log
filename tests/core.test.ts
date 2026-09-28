@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
-  addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
+  ACTIVITY_GROUPS, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
   setValue, startWorkout, templateFrom, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
@@ -180,7 +180,7 @@ test('version 1 data (one session per day) becomes one finished workout per day'
       { profileId: 'p1', date: D1, exerciseId: 'squat', sets: [{ w: 60, r: 5 }], updatedAt: 6 }],
     settings: { theme: 'dark', restSecs: 60, currentProfileId: 'p1' } };
   const { log } = parseBackup(JSON.stringify(v1));
-  assert.equal(log.schemaVersion, 3);
+  assert.equal(log.schemaVersion, 4);
   assert.equal(log.workouts.length, 1, 'a planned-only day is dropped');
   const w = log.workouts[0];
   assert.deepEqual([w.date, w.name, w.feeling, w.endedAt! - w.startedAt], [D1, 'Evening Workout', 'Hard', 3600_000]);
@@ -257,14 +257,15 @@ test('CSV: one row per logged set, formula injection neutralised', () => {
   assert.equal(csv[2], `${D1},Morning Workout,Asha,Barbell Bench Press,2,60,8,`);
 });
 
-test('built-in library: unique ids; strength has cues and drawings; activities have MET values and a drawing or an icon', () => {
+test('built-in library: unique ids; strength has cues and drawings; activities have MET values; yoga has how-to steps', () => {
   assert.equal(new Set(BUILT_IN.map((e) => e.id)).size, BUILT_IN.length);
   const frames = (id: string) => [1, 2, 3].every((n) => existsSync(`public/illustrations/${id}/${n}.svg`));
   for (const e of BUILT_IN) {
     if (!e.kind) { assert.ok(e.setup.length && e.exec.length && e.avoid.length, e.id); assert.ok(frames(e.id), `${e.id} frames`); continue; }
-    assert.ok(['Cardio', 'Yoga & mobility', 'Sports', 'Classes'].includes(e.group), `${e.id} group`);
+    assert.ok((ACTIVITY_GROUPS as readonly string[]).includes(e.group), `${e.id} group`);
+    if (e.kind === 'yoga') assert.ok(e.yoga && e.setup.length && e.exec.length && e.avoid.length, `${e.id} how-to`);
     assert.ok(e.met && e.met.length === 3 && e.met[0] <= e.met[1] && e.met[1] <= e.met[2] && e.met[0] >= 1, `${e.id} MET`);
-    assert.ok(e.art === false ? !!e.icon : frames(e.id), `${e.id}: a drawing, or an icon`);
+    assert.ok(e.art === false ? !existsSync(`public/illustrations/${e.id}`) : frames(e.id), `${e.id}: its drawing, or marked as having none`);
   }
   assert.ok(BUILT_IN.filter((e) => e.kind).length >= 30);
   assert.ok(existsSync('public/illustrations/LICENSE.md'), 'the CC BY-SA credit ships with the images');
@@ -403,7 +404,7 @@ test('activities: time entry, one-row plans, intensity, pace, and what charts an
   assert.equal(clock(3900), '1:05:00');
   assert.equal(pace(5, 1650), '5:30 /km');
   let l = startWorkout(newLog(), undefined, at(D1));
-  let w = addExercises(active(l), viewOf(l), ['run', 'vinyasa-yoga', bench]);
+  let w = addExercises(active(l), viewOf(l), ['run', 'yoga-class', bench]);
   assert.deepEqual(w.exercises[0].sets, [{ w: 0, r: 0, done: false }], 'a run: one row');
   assert.deepEqual(w.exercises[1].sets, [{ w: 2, r: 0, done: false }], 'a class: one row, moderate');
   assert.equal(w.exercises[2].sets.length, 3);
@@ -413,20 +414,20 @@ test('activities: time entry, one-row plans, intensity, pace, and what charts an
   w = toggleDone(setValue(setTime(w, 1, 0, '60'), 1, 0, 'w', '3'), 1, 0).workout;
   l = finishWorkout(putWorkout(l, w), w.id, false, at(D1) + 5400_000).log;
   const v = viewOf(l);
-  const run = getEx(v, 'run'), yoga = getEx(v, 'vinyasa-yoga');
-  assert.equal(fmtSet({ w: 5, r: 1650 }, run), '5 km · 27:30');
+  const run = getEx(v, 'run'), yoga = getEx(v, 'yoga-class');
+  assert.equal(fmtSet({ w: 5, r: 1650 }, run), '5 km · 27m 30s');
   assert.equal(fmtSet({ w: 3, r: 3600 }, yoga), '60 min · Vigorous');
   const runEntry = v.entries.find((e) => e.exerciseId === 'run')!;
   assert.equal(topLoad(runEntry, run, 70), 5, 'cardio charts distance');
-  assert.equal(topLoad(v.entries.find((e) => e.exerciseId === 'vinyasa-yoga')!, yoga, 70), 60, 'activities chart minutes');
+  assert.equal(topLoad(v.entries.find((e) => e.exerciseId === 'yoga-class')!, yoga, 70), 60, 'activities chart minutes');
   assert.equal(prOf(v, 'run'), 0, 'no weight records for cardio');
   assert.equal(volumeOf(runEntry, run, 70), 0);
   assert.equal(estOneRM([runEntry], run, 70), 0);
   const wk = v.workouts[0];
-  assert.deepEqual(wk.exercises.map((e) => e.exerciseId), ['run', 'vinyasa-yoga'], 'the unticked bench press is dropped');
+  assert.deepEqual(wk.exercises.map((e) => e.exerciseId), ['run', 'yoga-class'], 'the unticked bench press is dropped');
   // Logged in a minute, but 87.5 minutes of activity: the workout lasted as long as its activities.
   let q = startWorkout(newLog(), undefined, at(D2));
-  q = putWorkout(q, toggleDone(setTime(addExercises(active(q), viewOf(q), ['hatha-yoga']), 0, 0, '45'), 0, 0).workout);
+  q = putWorkout(q, toggleDone(setTime(addExercises(active(q), viewOf(q), ['yoga-class']), 0, 0, '45'), 0, 0).workout);
   const y = finishWorkout(q, active(q).id, false, at(D2) + 60_000).workout!;
   assert.equal(y.endedAt! - y.startedAt, 45 * 60_000);
 });
@@ -434,11 +435,11 @@ test('activities: time entry, one-row plans, intensity, pace, and what charts an
 test('calories: MET × kg × hours; speed decides running; strength fills the rest of the clock; none without a weight', async () => {
   const { metOf, kcal, workoutCalories, STRENGTH_MET } = await import('../src/calories.ts');
   const v0 = viewOf(newLog());
-  const run = getEx(v0, 'run'), yoga = getEx(v0, 'hatha-yoga'), swim = getEx(v0, 'swim');
+  const run = getEx(v0, 'run'), yoga = getEx(v0, 'yoga-class'), swim = getEx(v0, 'swim');
   assert.equal(metOf(run, { w: 10, r: 3600 }), 9.8 + (10 - 9.7) / (11.3 - 9.7) * (11 - 9.8), '10 km/h');
   assert.equal(metOf(run, { w: 0, r: 1800 }), 9.8, 'no distance: moderate');
-  assert.equal(metOf(yoga, { w: 1, r: 1800 }), 2);
-  assert.equal(metOf(yoga, { w: 3, r: 1800 }), 3);
+  assert.equal(metOf(yoga, { w: 1, r: 1800 }), 2.5);
+  assert.equal(metOf(yoga, { w: 3, r: 1800 }), 4);
   assert.equal(metOf(swim, { w: 1.5, r: 2700 }), 7, 'no speed table: moderate');
   assert.equal(Math.round(kcal(8, 70, 3600)), 560);
   let l = putWeighIn(newLog(), { id: 'b', date: D1, weight: 80, at: 1 });
@@ -455,7 +456,7 @@ test('Strong cardio: built-in activities with distance, and version 2 custom car
     '2026-09-01 07:00:00,Cardio,40m,"Yoga",1,0,0.0,0,600.0,,,'].join('\n');
   const { log } = importStrong(newLog(), csv, 'kg', 5);
   const ex = viewOf(log).workouts[0].exercises;
-  assert.deepEqual(ex.map((e) => [e.exerciseId, e.sets]), [['treadmill', [{ w: 5.2, r: 1800 }]], ['hatha-yoga', [{ w: 2, r: 600 }]]]);
+  assert.deepEqual(ex.map((e) => [e.exerciseId, e.sets]), [['treadmill', [{ w: 5.2, r: 1800 }]], ['yoga-class', [{ w: 2, r: 600 }]]]);
   assert.equal(viewOf(log).exercises.length, 0, 'no custom copies');
   assert.equal(importStrong(newLog(), csv, 'lb', 5).log.workouts[0].exercises[0].sets[0].w, 8.37, 'miles when the export is imperial');
 
@@ -487,4 +488,76 @@ test('onboarding details: kept through a backup, junk dropped, age by birthday',
   assert.equal(putProfile(on, pid, { gender: undefined }).profiles[0].gender, undefined);
   assert.equal(ageOn('1992-10-05', '2026-10-04'), 33);
   assert.equal(ageOn('1992-10-05', '2026-10-05'), 34);
+});
+
+test('yoga: rounds × hold, Surya Namaskar by rounds, pranayama by time; charts, calories, and a workout of only yoga', async () => {
+  const { workoutCalories, kcal } = await import('../src/calories.ts');
+  let l = putWeighIn(newLog(), { id: 'b', date: D1, weight: 60, at: 1 });
+  const v0 = viewOf(l);
+  const pose = getEx(v0, 'pavanmuktasana'), surya = getEx(v0, 'surya-namaskar'), breath = getEx(v0, 'anulom-vilom');
+  assert.equal(fmtSet({ w: 3, r: 30 }, pose), '3×30s');
+  assert.equal(fmtSet({ w: 12, r: 0 }, surya), '12 rounds');
+  assert.equal(fmtSet({ w: 0, r: 300 }, breath), '5m');
+  l = startWorkout(l, undefined, at(D1));
+  let w = addExercises(viewOf(l).active!, viewOf(l), ['pavanmuktasana', 'surya-namaskar', 'anulom-vilom']);
+  assert.deepEqual(w.exercises[0].sets, [{ w: 1, r: 0, done: false }], 'a pose starts as one round');
+  w = setTime(setValue(w, 0, 0, 'w', '3'), 0, 0, '30', true);
+  assert.equal(w.exercises[0].sets[0].r, 30, 'a hold: "30" is seconds');
+  assert.equal(setTime(w, 2, 0, '5').exercises[2].sets[0].r, 300, 'pranayama: "5" is minutes');
+  w = setValue(w, 1, 0, 'w', '12');
+  assert.equal(toggleDone(w, 1, 0).ticked, false, 'strength rule: no time, no tick');
+  w = toggleDone(w, 1, 0, true).workout; // Surya Namaskar: rounds alone
+  w = toggleDone(toggleDone(setTime(w, 2, 0, '5'), 2, 0).workout, 0, 0).workout;
+  l = putWorkout(l, w);
+  const done = finishWorkout(l, w.id, false, at(D1) + 60_000);
+  assert.equal(done.workout!.endedAt! - done.workout!.startedAt, (90 + 300) * 1000, 'only yoga: it lasted as long as the holds and the breathing');
+  const v = viewOf(done.log);
+  assert.equal(topLoad(v.entries.find((e) => e.exerciseId === 'pavanmuktasana')!, pose, 60), 30, 'chart: longest hold');
+  assert.equal(topLoad(v.entries.find((e) => e.exerciseId === 'surya-namaskar')!, surya, 60), 12, 'chart: rounds');
+  assert.equal(prOf(v, 'pavanmuktasana'), 0);
+  assert.equal(workoutCalories(v, done.workout!), Math.round(kcal(2.5, 60, 90) + kcal(2.0, 60, 300)), 'rounds without time: no calories for those');
+});
+
+test('version 3 data: the four yoga styles become one Yoga class, merged in a workout', () => {
+  const v3 = JSON.parse(serialize(newLog('Rohan'))); v3.schemaVersion = 3;
+  const pid = v3.profiles[0].id;
+  v3.workouts = [{ id: 'w1', profileId: pid, date: D1, name: 'Yoga', startedAt: 1, endedAt: 2, updatedAt: 1, planned: [{ exerciseId: 'hatha-yoga', sets: 1 }],
+    exercises: [{ exerciseId: 'hatha-yoga', sets: [{ w: 2, r: 1800 }] }, { exerciseId: 'yin-yoga', sets: [{ w: 1, r: 600 }] }] }];
+  v3.templates = [{ id: 't1', profileId: pid, name: 'Yoga', exercises: [{ exerciseId: 'power-yoga' }, { exerciseId: 'vinyasa-yoga' }], updatedAt: 1 }];
+  v3.favorites = [{ profileId: pid, exerciseId: 'hatha-yoga', at: 1 }, { profileId: pid, exerciseId: 'yin-yoga', at: 2 }];
+  const { log } = parseBackup(JSON.stringify(v3));
+  assert.deepEqual(log.workouts[0].exercises, [{ exerciseId: 'yoga-class', sets: [{ w: 2, r: 1800 }, { w: 1, r: 600 }] }]);
+  assert.deepEqual(log.workouts[0].planned, [{ exerciseId: 'yoga-class', sets: 1 }]);
+  assert.deepEqual(log.templates[0].exercises, [{ exerciseId: 'yoga-class' }]);
+  assert.deepEqual(log.favorites.map((f) => f.exerciseId), ['yoga-class']);
+});
+
+test('height in feet and inches, and calendar reminders for iPhone (hosted file) and Android (Google Calendar)', async () => {
+  const b = await import('../src/body.ts');
+  assert.equal(b.fromFtIn('5', '11'), 180.3);
+  assert.equal(b.fromFtIn('6', ''), 182.9);
+  assert.equal(b.fromFtIn('', '71'), 180.3, 'inches alone');
+  assert.equal(b.fromFtIn('0', '10'), null, 'too short to be a person');
+  assert.equal(b.fromFtIn('x', '2'), null);
+  assert.deepEqual(b.ftIn(180.3), [5, 11]);
+  for (const e of ['daily', '3x', 'weekly'] as const)
+    assert.equal(readFileSync(`public/${b.reminderFile(e)}`, 'utf8'), b.reminderICS(e, b.REMINDER_START, '07:30', b.REMINDER_START), `${e}: the hosted file is current`);
+  const g = new URL(b.googleCalendarURL('3x', new Date(2026, 8, 29)));
+  assert.equal(g.searchParams.get('recur'), 'RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR');
+  assert.equal(g.searchParams.get('dates'), '20260929T073000/20260929T073500');
+  assert.equal(g.searchParams.get('action'), 'TEMPLATE');
+});
+
+test('durations say their unit, and can be typed with one', () => {
+  assert.deepEqual([30, 300, 330, 3600, 3900].map(fmtDur), ['30s', '5m', '5m 30s', '1h', '1h 5m']);
+  assert.deepEqual(['90s', '5m', '5m 30s', '1h 15m', '1.5h', '2 min', '45 sec', '30', '1:30'].map(parseClock), [90, 300, 330, 4500, 5400, 120, 45, 1800, 90]);
+  assert.equal(parseClock('5 apples'), null);
+  assert.equal(parseClock('m'), null);
+});
+
+test('finishing with "mark all done" keeps Surya Namaskar logged as rounds only', () => {
+  let l = startWorkout(newLog(), undefined, at(D1));
+  l = putWorkout(l, setValue(addExercises(viewOf(l).active!, viewOf(l), ['surya-namaskar']), 0, 0, 'w', '12'));
+  const { workout } = finishWorkout(l, viewOf(l).active!.id, true, at(D1) + 600_000);
+  assert.deepEqual(workout?.exercises[0].sets, [{ w: 12, r: 0 }]);
 });

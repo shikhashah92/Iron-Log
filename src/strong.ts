@@ -37,7 +37,7 @@ export const STRONG_BUILT_IN: Record<string, string> = {
   'running': 'run', 'running (outdoor)': 'run', 'running (treadmill)': 'treadmill', 'walking': 'walk', 'hiking': 'hike',
   'cycling': 'cycle', 'cycling (outdoor)': 'cycle', 'cycling (indoor)': 'indoor-cycle', 'swimming': 'swim', 'rowing (machine)': 'row-erg',
   'elliptical machine': 'elliptical', 'stair climber': 'stair-climber', 'stair machine': 'stair-climber', 'jump rope': 'jump-rope',
-  'yoga': 'hatha-yoga', 'stretching': 'stretching', 'hiit': 'hiit', 'boxing': 'boxing', 'climbing': 'climbing',
+  'yoga': 'yoga-class', 'stretching': 'stretching', 'hiit': 'hiit', 'boxing': 'boxing', 'climbing': 'climbing',
 };
 
 /** RFC 4180 CSV: quoted fields, doubled quotes, commas and newlines inside quotes, CRLF. */

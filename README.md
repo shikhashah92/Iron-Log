@@ -52,6 +52,8 @@ Once everyone has moved, delete `public/legacy/` and the Firebase project (`iron
 - `src/strong.ts`: import from a Strong CSV export
 - `src/body.ts`: weight trend (smoothed), the target plan (steady % per week), BMI, units, weigh-in reminders (.ics)
 - `src/calories.ts`: calorie estimates (MET × kg × hours, Compendium of Physical Activities)
+- `src/yoga.ts`: yoga asanas and pranayama (rounds × hold, or time), with how-to steps
+- `public/reminders/`: the weigh-in reminders as calendar files (iPhone opens these straight into Calendar)
 - `src/exercises.ts`: the built-in library (65 exercises)
 - `public/illustrations/`: 3-frame drawings for each built-in exercise, from
   [Workout Guide](https://github.com/bryllim/workout-guide) / Everkinetic, **CC BY-SA 4.0** (credit in `LICENSE.md` there

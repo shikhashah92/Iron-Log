@@ -6,7 +6,7 @@ import { useBackup } from '../../backupActions';
 import { duration, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekStats, workoutStats } from '../../model';
 import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
-import { AddButton, Empty, ExRow, Section, Stat } from '../../components';
+import { AddButton, Empty, ExRow, InstallNudge, Section, Stat } from '../../components';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
 import { condensed, space } from '../../theme';
 import { useNow } from '../../timer';
@@ -36,6 +36,7 @@ export default function Home() {
           </Pressable>
         </View>
 
+        <InstallNudge />
         {saveError ? <><Banner tone="error" text={saveError} action="Back up" onPress={backup.exportPlain} /><Gap h={space.md} /></> : null}
         <Section title="Today" right={<T v="mono" style={{ fontSize: 12 }}>{longDate(iso)}</T>}>
           {live && (

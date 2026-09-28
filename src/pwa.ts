@@ -24,7 +24,9 @@ export const isStandalone = () =>
   typeof window !== 'undefined' && (matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true);
 /** The old app kept a copy of its data in this browser's localStorage: a sure sign someone is moving over. */
 export const hadOldApp = () => { try { return localStorage.getItem('ironlog.profiles.v1') != null; } catch { return false; } };
-export const isIOS = () => typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent);
+// iPadOS reports itself as a Mac; a Mac with a touch screen is an iPad.
+export const isIOS = () => typeof navigator !== 'undefined' && !/Android/.test(navigator.userAgent) && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+export const isAndroid = () => typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent);
 
 /** canInstall: the browser offered a native install prompt (Chrome/Edge/Android). iOS needs Share → Add to Home Screen. */
 export function useInstall() {

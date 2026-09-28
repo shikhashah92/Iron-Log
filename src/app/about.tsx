@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { fmtHeight, parseHeight, planWarning, toKg } from '../body';
+import { fromFtIn, ftIn, parseHeight, planWarning, toKg } from '../body';
 import { addDays, GENDERS, GOALS, newId, putProfile, putWeighIn, today, type Gender, type Goal, type Log } from '../model';
 import { useLog } from '../store';
 import { notify } from '../io';
@@ -27,7 +27,16 @@ export default function About() {
   const [dob, setDob] = useState(p.dob ?? '');
   const [gender, setGender] = useState<Gender | undefined>(p.gender);
   const [goal, setGoal] = useState<Goal | undefined>(p.goal);
-  const [height, setHeight] = useState(p.height ? fmtHeight(p.height, units.length).replace(' cm', '') : '');
+  const [cmText, setCmText] = useState(p.height ? String(Math.round(p.height)) : '');
+  const [ft, setFt] = useState(p.height ? String(ftIn(p.height)[0]) : '');
+  const [inch, setInch] = useState(p.height ? String(ftIn(p.height)[1]) : '');
+  const blank = units.length === 'cm' ? !cmText.trim() : !ft.trim() && !inch.trim();
+  const heightCm = blank ? undefined : units.length === 'cm' ? parseHeight(cmText, 'cm') : fromFtIn(ft, inch);
+  /** Switching cm ↔ ft/in carries a typed height across. */
+  function setLength(length: 'cm' | 'in') {
+    if (heightCm) { setCmText(String(Math.round(heightCm))); setFt(String(ftIn(heightCm)[0])); setInch(String(ftIn(heightCm)[1])); }
+    setUnits({ ...units, length });
+  }
   const [weight, setWeight] = useState('');
   const [target, setTarget] = useState('');
   const iso = today();
@@ -43,8 +52,8 @@ export default function About() {
     startTour();
   }
   function save() {
-    const cm = height.trim() ? parseHeight(height, units.length) : undefined;
-    if (cm === null) return notify('That doesn’t look like a height', units.length === 'cm' ? 'Try something like 175.' : 'Try something like 5\'11" or 71 (inches).');
+    const cm = heightCm;
+    if (cm === null) return notify('That doesn’t look like a height', units.length === 'cm' ? 'Try something like 175.' : 'Try something like 5 feet 11 inches.');
     const w = kg !== null ? toKg(kg, units.weight) : null;
     if (w !== null && (w < 20 || w > 400)) return notify('Check your weight', `Enter it in ${units.weight}.`);
     update((l) => {
@@ -93,10 +102,17 @@ export default function About() {
         {onboarding && (
           <View style={{ flexDirection: 'row', gap: space.sm }}>
             <View style={{ flex: 1 }}><Segmented value={units.weight} onChange={(w) => setUnits({ ...units, weight: w })} options={[{ id: 'kg', label: 'kg' }, { id: 'lb', label: 'lb' }]} /></View>
-            <View style={{ flex: 1 }}><Segmented value={units.length} onChange={(l) => setUnits({ ...units, length: l })} options={[{ id: 'cm', label: 'cm' }, { id: 'in', label: 'ft / in' }]} /></View>
+            <View style={{ flex: 1 }}><Segmented value={units.length} onChange={setLength} options={[{ id: 'cm', label: 'cm' }, { id: 'in', label: 'ft / in' }]} /></View>
           </View>
         )}
-        <Field label={units.length === 'cm' ? 'Height (cm)' : 'Height (e.g. 5\'11")'} value={height} onChangeText={setHeight} inputMode={units.length === 'cm' ? 'decimal' : 'text'} onFocus={selectAll} />
+        {units.length === 'cm'
+          ? <Field label="Height (cm)" value={cmText} onChangeText={setCmText} inputMode="decimal" onFocus={selectAll} />
+          : (
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              <View style={{ flex: 1 }}><Field label="Height (feet)" value={ft} onChangeText={setFt} inputMode="numeric" onFocus={selectAll} /></View>
+              <View style={{ flex: 1 }}><Field label="Inches" value={inch} onChangeText={setInch} inputMode="decimal" onFocus={selectAll} /></View>
+            </View>
+          )}
         {onboarding && <Field label={`Weight today (${units.weight})`} value={weight} onChangeText={setWeight} inputMode="decimal" onFocus={selectAll} />}
         {wantsTarget && (
           <>
