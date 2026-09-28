@@ -61,12 +61,12 @@ export function useBackup() {
   /** Replace what's here (kept in Undo history), or start with it on first run. */
   async function bringIn(next: { log: Log; images: Images }, title: string, done: string, reason?: string) {
     const n = next.log.profiles.length;
-    const summary = `${plural(next.log.entries.length, 'logged exercise')} for ${n === 1 ? '1 person' : `${n} people`}`;
+    const summary = `${plural(next.log.workouts.length, 'workout')} for ${n === 1 ? '1 person' : `${n} people`}`;
     if (!log) {
       if (!(await confirm(title, `This has ${summary}.`, 'Continue'))) return false;
       await start(next);
     } else {
-      const msg = `This has ${summary}. It will replace what is on this device now (${plural(log.entries.length, 'logged exercise')}), which is kept in Undo history so you can go back.`;
+      const msg = `This has ${summary}. It will replace what is on this device now (${plural(log.workouts.length, 'workout')}), which is kept in Undo history so you can go back.`;
       if (!(await confirm(title, msg, 'Replace', true))) return false;
       await replace(next, reason);
     }
@@ -94,18 +94,17 @@ export function useBackup() {
       const { log: next, summary: s } = importStrong(log, text, kg ? 'kg' : 'lb');
       const who = log.profiles.find((p) => p.id === log.settings.currentProfileId)?.name ?? 'you';
       const msg = [
-        `${plural(s.sets, 'set')} over ${plural(s.days, 'day')} (${s.from} to ${s.to}), added to ${who}.`,
+        `${plural(s.workouts, 'workout')} (${plural(s.sets, 'set')}) from ${s.from} to ${s.to}, added to ${who}.`,
         `${s.matched} exercises match Iron Log’s library; ${plural(s.newExercises, 'new custom exercise')}.`,
-        s.templates ? `${plural(s.templates, 'workout')} saved as templates.` : '',
+        s.templates ? `${plural(s.templates, 'workout name')} saved as templates.` : '',
         `Heaviest set: ${num(s.heaviest)} kg.`,
-        s.skippedEntries ? `${plural(s.skippedEntries, 'exercise day')} you already have are left as they are.` : '',
+        s.replaced ? `${plural(s.replaced, 'workout')} already on those ${plural(s.days, 'day')} (e.g. an earlier import) will be replaced.` : '',
         s.notes ? `Set notes (${s.notes}) aren’t imported.` : '',
         'Your current data is kept in Undo history first.',
       ].filter(Boolean).join(' ');
-      if (!s.entries && !s.templates) return notify('Nothing new to import', `Everything in this file is already here. ${msg}`);
-      if (!(await confirm('Import from Strong?', msg, 'Import'))) return;
+      if (!(await confirm(s.replaced ? 'Re-import from Strong?' : 'Import from Strong?', msg, 'Import'))) return;
       await replace({ log: next }, 'Before Strong import');
-      notify('Imported from Strong', `${plural(s.entries, 'exercise day')} added. See them in History.`);
+      notify('Imported from Strong', `${plural(s.workouts, 'workout')} are in History now.`);
     } catch (e) { notify('Could not import', (e as Error).message); }
   }
 

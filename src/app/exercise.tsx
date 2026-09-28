@@ -1,6 +1,6 @@
 import { Image, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { addToWorkout, delExercise, getEx, historyOf, isBuiltIn, isCustom, num, prOf, WEIGHT_TYPES } from '../model';
+import { addExercises, delExercise, getEx, historyOf, isBuiltIn, isCustom, num, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
 import { useLog, useTheme } from '../store';
 import { confirm, notify, pickImage } from '../io';
 import { Empty, goBack, Illustration, ProgressBlock, Star, Tag } from '../components';
@@ -21,6 +21,15 @@ export default function ExerciseDetail() {
   async function addPhoto() {
     try { const img = await pickImage(); if (img) setImage(id, img); }
     catch (e) { notify('Could not add the photo', (e as Error).message); }
+  }
+  /** Into the workout in progress, or a new empty one with this exercise in it. */
+  function addToWorkout() {
+    update((l) => {
+      const started = viewOf(l).active ? l : startWorkout(l);
+      const w = viewOf(started).active!;
+      return putWorkout(started, addExercises(w, viewOf(started), [id]));
+    });
+    router.replace('/active');
   }
   async function remove() {
     if (!(await confirm('Delete this custom exercise?', 'Its logged history stays in History.', 'Delete', true))) return;
@@ -74,7 +83,7 @@ export default function ExerciseDetail() {
         </View>
       ) : <Empty>No form notes for this one yet{custom ? '. Tap Edit to add some.' : '.'}</Empty>}
       <Gap />
-      <Button title="Add to today’s workout" onPress={() => { update((l) => addToWorkout(l, id)); router.dismissTo('/workout'); }} />
+      <Button title={v.active ? `Add to ${v.active.name}` : 'Start a workout with this'} onPress={addToWorkout} />
       {custom && (
         <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
           <Button title="Edit" kind="secondary" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/edit-exercise', params: { id } })} />

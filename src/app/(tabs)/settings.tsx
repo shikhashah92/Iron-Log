@@ -32,7 +32,7 @@ export default function Settings() {
   const setSettings = (patch: Partial<S>) => update((l) => ({ ...l, settings: { ...l.settings, ...patch } }));
 
   async function eraseAll() {
-    if (!(await confirm('Erase all data?', `This clears every profile, exercise and workout on this device (${plural(log.entries.length, 'logged exercise')}). A copy stays in Undo history, so you can still go back.`, 'Erase', true))) return;
+    if (!(await confirm('Erase all data?', `This clears every profile, exercise and workout on this device (${plural(log.workouts.length, 'workout')}). A copy stays in Undo history, so you can still go back.`, 'Erase', true))) return;
     try {
       await erase();
     } catch (e) {
@@ -72,7 +72,7 @@ export default function Settings() {
         <Row left={icon('cloud-upload-outline')} title="Save an unlocked backup" subtitle="Plain file, readable by anyone who has it" right={chevron} onPress={backup.exportPlain} />
         <Row left={icon('document-text-outline')} title="Export as spreadsheet (CSV)" subtitle="One row per set, for Excel or Google Sheets" right={chevron} onPress={backup.exportCSV} />
         <Row left={icon('cloud-download-outline')} title="Restore from backup" subtitle="Replace data with a backup file" right={chevron} onPress={backup.restore} />
-        <Row left={icon('swap-vertical-outline')} title="Import from Strong" subtitle="Add your history from a Strong CSV export" right={chevron} onPress={backup.importFromStrong} />
+        <Row left={icon('swap-vertical-outline')} title="Import from Strong" subtitle="Your history from a Strong CSV export (import again any time)" right={chevron} onPress={backup.importFromStrong} />
         <Row left={icon('time-outline')} title="Undo history" subtitle="Go back to an earlier version (last 10, on this device)" right={chevron} onPress={() => router.push('/undo')} last />
       </Card>
       <Gap h={space.sm} />

@@ -2,7 +2,7 @@
 // Columns: Date, Workout Name, Duration, Exercise Name, Set Order, Weight, Reps, Distance, Seconds, Notes, Workout Notes, RPE
 import { GROUPS } from './exercises.ts';
 import {
-  isRealDay, MAX_R, MAX_W, newId, type CustomExercise, type Entry, type Log, type Session, type SetRow, type Template, type WeightType,
+  isRealDay, MAX_R, MAX_W, newId, timeOfDayName, type CustomExercise, type Log, type Template, type WeightType, type Workout,
 } from './model.ts';
 
 /** Strong's standard names → our built-ins, only where the weight means the same thing (total vs per dumbbell). */
@@ -83,16 +83,18 @@ function groupOf(name: string): string {
 }
 
 export interface StrongSummary {
-  sets: number; days: number; entries: number; skippedEntries: number;
+  sets: number; workouts: number; days: number; replaced: number;
   newExercises: number; matched: number; templates: number; heaviest: number; notes: number; from: string; to: string;
 }
 
 /**
- * Merge a Strong export into the current profile. Days already logged for an exercise are left alone, as are existing
- * workouts and same-named templates. Throws a readable Error if this isn't a Strong export.
+ * Bring a Strong export into the current profile, one Iron Log workout per Strong workout (its name, start time,
+ * duration, warm-up and drop sets). Workouts already on the days this file covers are replaced, so importing again
+ * (or after an older import) never doubles anything; same-named templates are kept. Throws a readable Error if this
+ * isn't a Strong export.
  */
 export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date.now()): { log: Log; summary: StrongSummary } {
-  const [head, ...rows] = parseCSV(text.replace(/^﻿/, ''));
+  const [head, ...rows] = parseCSV(text.replace(/^\uFEFF/, ''));
   const col = (k: string) => head?.indexOf(k) ?? -1;
   const C = { date: col('Date'), workout: col('Workout Name'), dur: col('Duration'), ex: col('Exercise Name'), order: col('Set Order'),
     w: col('Weight'), r: col('Reps'), secs: col('Seconds'), notes: col('Notes') };
@@ -125,61 +127,55 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
     return id;
   };
 
-  // Group sets by day and exercise, and workouts by day, in file order.
-  const perEntry = new Map<string, { date: string; exId: string; sets: SetRow[]; at: number }>();
-  const perDay = new Map<string, { start: number; end: number; ids: string[] }>();
-  const lastByWorkout = new Map<string, { at: number; ids: string[] }>();
+  // One Strong workout = one start time (the Date column), in file order.
+  const byStart = new Map<string, Workout>();
   let sets = 0, heaviest = 0, notes = 0, from = '', to = '';
   for (const r of rows) {
     const name = r[C.ex]?.trim();
     const order = r[C.order]?.trim();
     const date = r[C.date]?.slice(0, 10);
     if (!name || !order || order === 'Rest Timer' || !isRealDay(date)) continue;
-    const at = new Date(r[C.date].replace(' ', 'T')).getTime() || now;
     const exId = exFor(name);
     const secs = timed.get(name);
     const w = Math.round(Math.max(-MAX_W, Math.min(MAX_W, (Number(r[C.w]) || 0) * factor)) * 100) / 100;
     const reps = Math.round(Math.max(0, Math.min(MAX_R, Number(secs ? r[C.secs] : r[C.r]) || 0)));
     if (!w && !reps) continue;
     if (r[C.notes]?.trim()) notes++;
-    const key = `${date}|${exId}`;
-    const e = perEntry.get(key) ?? { date, exId, sets: [], at };
-    if (e.sets.length < 200) e.sets.push({ w, r: reps });
-    perEntry.set(key, e);
-    const d = perDay.get(date) ?? { start: at, end: at, ids: [] };
-    d.start = Math.min(d.start, at);
-    d.end = Math.max(d.end, at + (C.dur >= 0 ? durationMs(r[C.dur] ?? '') : 0));
-    if (!d.ids.includes(exId)) d.ids.push(exId);
-    perDay.set(date, d);
-    const wn = C.workout >= 0 ? r[C.workout]?.trim() : '';
-    if (wn) {
-      const t = lastByWorkout.get(wn);
-      if (!t || at > t.at) lastByWorkout.set(wn, { at, ids: [exId] });
-      else if (at === t.at && !t.ids.includes(exId)) t.ids.push(exId);
+    let wk = byStart.get(r[C.date]);
+    if (!wk) {
+      const at = new Date(r[C.date].replace(' ', 'T')).getTime() || now;
+      const dur = C.dur >= 0 ? durationMs(r[C.dur] ?? '') : 0;
+      const title = (C.workout >= 0 ? r[C.workout]?.trim() : '') || timeOfDayName(at);
+      wk = { id: newId('w'), profileId: pid, date, name: title.slice(0, 60), startedAt: at, ...(dur ? { endedAt: at + dur } : {}),
+        exercises: [], source: 'strong', updatedAt: at };
+      byStart.set(r[C.date], wk);
     }
+    let ex = wk.exercises.find((e) => e.exerciseId === exId);
+    if (!ex) { ex = { exerciseId: exId, sets: [] }; wk.exercises.push(ex); }
+    if (ex.sets.length < 200) ex.sets.push({ w, r: reps, ...(order === 'W' || order === 'D' ? { kind: order } : {}) });
     sets++;
     heaviest = Math.max(heaviest, w);
     if (!from || date < from) from = date;
     if (!to || date > to) to = date;
   }
   if (!sets) throw new Error('No sets found in this file.');
+  const imported = [...byStart.values()];
+  const days = new Set(imported.map((w) => w.date));
 
-  const has = new Set(l.entries.filter((e) => e.profileId === pid).map((e) => `${e.date}|${e.exerciseId}`));
-  const entries: Entry[] = [...perEntry.entries()].filter(([k]) => !has.has(k))
-    .map(([, e]) => ({ profileId: pid, date: e.date, exerciseId: e.exId, sets: e.sets, updatedAt: e.at }));
-  const hasDay = new Set(l.sessions.filter((s) => s.profileId === pid).map((s) => s.date));
-  const sessions: Session[] = [...perDay.entries()].filter(([d]) => !hasDay.has(d))
-    .map(([date, d]) => ({ profileId: pid, date, exerciseIds: d.ids.slice(0, 200), startedAt: d.start, ...(d.end > d.start ? { endedAt: d.end } : {}), updatedAt: d.start }));
+  // Replace what's on those days (an earlier import, or its version 1 one-per-day form), never a workout in progress.
+  const replaced = l.workouts.filter((w) => w.profileId === pid && !w.active && (days.has(w.date) || w.source === 'strong'));
+  const gone = new Set(replaced.map((w) => w.id));
+  // Each workout name becomes a template of its latest exercises and set counts (unless one by that name exists).
   const hasTpl = new Set(l.templates.filter((t) => t.profileId === pid).map((t) => t.name.toLowerCase()));
-  const templates: Template[] = [...lastByWorkout.entries()].filter(([n]) => !hasTpl.has(n.toLowerCase()))
-    .map(([name, t]) => ({ id: newId('t'), profileId: pid, name: name.slice(0, 60), exerciseIds: t.ids, updatedAt: now }));
-  // Only keep new exercises that something actually uses.
-  const used = new Set([...entries.map((e) => e.exerciseId), ...templates.flatMap((t) => t.exerciseIds)]);
-  const exercises = created.filter((e) => used.has(e.id));
+  const latest = new Map<string, Workout>();
+  for (const w of imported) if ((latest.get(w.name)?.startedAt ?? -1) < w.startedAt) latest.set(w.name, w);
+  const templates: Template[] = [...latest.values()].filter((w) => !hasTpl.has(w.name.toLowerCase()) && !/^(morning|midday|afternoon|evening|night) workout$/i.test(w.name))
+    .map((w) => ({ id: newId('t'), profileId: pid, name: w.name, exercises: w.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets.length })), updatedAt: now }));
+  const exercises = created.filter((e) => imported.some((w) => w.exercises.some((x) => x.exerciseId === e.id)));
 
   return {
-    log: { ...l, exercises: [...l.exercises, ...exercises], entries: [...l.entries, ...entries], sessions: [...l.sessions, ...sessions], templates: [...l.templates, ...templates] },
-    summary: { sets, days: perDay.size, entries: entries.length, skippedEntries: perEntry.size - entries.length, newExercises: exercises.length,
+    log: { ...l, exercises: [...l.exercises, ...exercises], workouts: [...l.workouts.filter((w) => !gone.has(w.id)), ...imported], templates: [...l.templates, ...templates] },
+    summary: { sets, workouts: imported.length, days: days.size, replaced: replaced.length, newExercises: exercises.length,
       matched: [...idOf.values()].filter((id) => !id.startsWith('u_strong_')).length, templates: templates.length, heaviest, notes, from, to },
   };
 }

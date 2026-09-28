@@ -23,7 +23,7 @@ export default function Undo() {
   async function restore(s: Snapshot) {
     const n = s.count;
     if (!(await confirm('Go back to this version?',
-      `${when(s.at)}: ${plural(n, 'logged exercise')}. Your current data (${plural(log.entries.length, 'logged exercise')}) is saved to this history first, so you can undo this too.`, 'Go back'))) return;
+      `${when(s.at)}: ${plural(n, 'workout')}. Your current data (${plural(log.workouts.length, 'workout')}) is saved to this history first, so you can undo this too.`, 'Go back'))) return;
     try {
       await replace({ log: parseBackup(s.data).log }, 'Before going back');
       notify('Restored', `Back to ${when(s.at)}.`);
@@ -46,7 +46,7 @@ export default function Undo() {
             <Row key={`${s.at}-${i}`} last={i === list.length - 1}
               left={<View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="time-outline" size={18} color={c.accent} /></View>}
-              title={when(s.at)} subtitle={`${s.reason} · ${plural(s.count, 'logged exercise')}`}
+              title={when(s.at)} subtitle={`${s.reason} · ${plural(s.count, 'workout')}`}
               right={<T color={c.accent} style={{ fontWeight: '600' }}>Go back</T>} onPress={() => restore(s)} />
           ))}
       </Card>

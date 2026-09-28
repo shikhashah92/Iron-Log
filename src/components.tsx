@@ -4,12 +4,12 @@ import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  estOneRM, fmtSet, getEx, historyOf, isBuiltIn, isCustom, isFav, lastEntry, longDate, newId, num, prOf, putTemplate, shortDate, toggleFav, topLoad,
-  type Entry, type Exercise, type View as LogView,
+  duration, estOneRM, fmtSet, getEx, historyOf, isBuiltIn, isCustom, isFav, lastEntry, longDate, newId, num, prOf, putTemplate, shortDate, toggleFav, topLoad,
+  type Entry, type Exercise, type TemplateExercise, type View as LogView,
 } from './model';
 import { ask } from './io';
 import { useLog, useTheme } from './store';
-import { adjustRest, stopRest, useRest } from './timer';
+import { adjustRest, stopRest, useNow, useRest } from './timer';
 import { Button, Card, Field, Gap, MAX_WIDTH, T } from './ui';
 import { condensed, mono, radius, space } from './theme';
 import { isIOS } from './pwa';
@@ -25,10 +25,10 @@ export const openExercise = (id: string) => router.push({ pathname: '/exercise',
 /** Name and save these exercises as a template (from today, or any past day in History). */
 export function useSaveAsTemplate() {
   const { update } = useLog();
-  return async (ids: string[], suggested = '') => {
-    if (!ids.length) return;
+  return async (exercises: TemplateExercise[], suggested = '') => {
+    if (!exercises.length) return;
     const name = await ask('Name this template (e.g. Leg Day)', suggested);
-    if (name) update((l) => putTemplate(l, { id: newId('t'), name: name.slice(0, 60), exerciseIds: ids }));
+    if (name) update((l) => putTemplate(l, { id: newId('t'), name: name.slice(0, 60), exercises }));
   };
 }
 
@@ -243,15 +243,35 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function AddButton({ onPress, label }: { onPress: () => void; label: string }) {
   const { c } = useTheme();
-  const resting = useRest() !== null; // the rest bar sits where the button would: move up above it
+  const { v } = useLog();
+  const resting = useRest() !== null; // the rest bar and the workout bar sit where the button would: move up above them
   return (
-    <View style={[st.fabWrap, resting && { bottom: 24 + 72 }]}>
+    <View style={[st.fabWrap, { bottom: 24 + (v.active ? 64 : 0) + (resting ? 72 : 0) }]}>
       <View style={{ width: '100%', maxWidth: MAX_WIDTH, alignItems: 'flex-end', paddingHorizontal: space.lg, pointerEvents: 'box-none' }}>
         <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
           style={({ pressed }) => [st.fab, { backgroundColor: c.accent, transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
           <Ionicons name="add" size={32} color={c.onAccent} />
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+/** The workout in progress, minimised: a bar above the tab bar. Tap to open it again. */
+export function WorkoutBar({ bottom }: { bottom: number }) {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const w = v.active;
+  const now = useNow(!!w);
+  if (!w) return null;
+  return (
+    <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress`} onPress={() => router.push('/active')}
+        style={({ pressed }) => [st.rest, { backgroundColor: c.accent, borderColor: c.accent, opacity: pressed ? 0.85 : 1 }]}>
+        <Ionicons name="chevron-up" size={20} color={c.onAccent} />
+        <T numberOfLines={1} style={{ flex: 1, fontFamily: condensed, fontWeight: '700', fontSize: 18, textTransform: 'uppercase' }} color={c.onAccent}>{w.name}</T>
+        <T style={{ fontFamily: mono, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>
+      </Pressable>
     </View>
   );
 }
