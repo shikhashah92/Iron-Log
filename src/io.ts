@@ -28,11 +28,11 @@ export async function saveFile(name: string, content: string, mimeType: string):
   return true;
 }
 
-export function pickTextFile(): Promise<string | null> {
+export function pickTextFile(accept = 'application/json,.json'): Promise<string | null> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json,.json';
+    input.accept = accept;
     input.onchange = () => {
       const f = input.files?.[0];
       if (!f) return resolve(null);
@@ -50,6 +50,7 @@ export function notify(title: string, message?: string) {
 }
 
 export const ask = (title: string, value = '') => askDialog(title, value);
+export { chooseDialog as choose } from './dialog';
 
 /** Pick a photo and shrink it to a small JPEG data URI (GIFs are kept as they are, if small). */
 export function pickImage(): Promise<string | null> {
