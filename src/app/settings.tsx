@@ -67,7 +67,7 @@ export default function Settings() {
       <Segmented<string> value={String(s.restSecs)} onChange={(x) => setSettings({ restSecs: Number(x) })} options={[
         { id: '0', label: 'Off' }, { id: '60', label: '1:00' }, { id: '90', label: '1:30' }, { id: '120', label: '2:00' }, { id: '180', label: '3:00' },
       ]} />
-      <T v="small" style={{ marginTop: space.xs }}>Starts when you enter reps for a set.</T>
+      <T v="small" style={{ marginTop: space.xs }}>Starts when you tick a set as done.</T>
       <Gap />
       <T v="label">People</T>
       <Gap h={space.sm} />

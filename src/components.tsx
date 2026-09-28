@@ -101,7 +101,7 @@ export function Star({ id }: { id: string }) {
   const { c } = useTheme();
   const on = isFav(v, id);
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={on ? 'Remove from favorites' : 'Add to favorites'}
+    <Pressable accessibilityRole="button" aria-pressed={on} accessibilityLabel={on ? 'Remove from favorites' : 'Add to favorites'}
       hitSlop={6} onPress={() => update((l) => toggleFav(l, id))} style={{ minWidth: 36, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={on ? 'star' : 'star-outline'} size={22} color={on ? c.accent : c.border} />
     </Pressable>
@@ -313,14 +313,20 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
   const { c } = useTheme();
   const w = v.active;
   const now = useNow(!!w);
+  const rest = useRest(); // outside the workout screen, the rest countdown rides along here instead of a bar of its own
   if (!w) return null;
   return (
     <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress`} onPress={() => router.push('/active')}
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress${rest !== null ? rest > 0 ? `, rest ${rest} seconds left` : ', rest over' : ''}`} onPress={() => router.push('/active')}
         style={({ pressed }) => [st.rest, { backgroundColor: c.brand, borderColor: c.brand, opacity: pressed ? 0.85 : 1 }]}>
         <Ionicons name="chevron-up" size={20} color={c.onAccent} />
         <T numberOfLines={1} style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 17 }} color={c.onAccent}>{w.name}</T>
-        <T style={{ fontFamily: sans, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>
+        {rest !== null ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.onAccent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+            <Ionicons name="timer-outline" size={15} color={c.brand} />
+            <T style={{ fontFamily: sans, fontSize: 15, fontWeight: '700' }} color={c.brand}>{rest > 0 ? `${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, '0')}` : 'Go'}</T>
+          </View>
+        ) : <T style={{ fontFamily: sans, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>}
       </Pressable>
     </View>
   );

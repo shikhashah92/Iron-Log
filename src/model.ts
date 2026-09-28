@@ -468,10 +468,11 @@ export const addSetTo = (w: Workout, i: number, done = false): Workout => mapEx(
   return { ...e, sets: [...e.sets, row] };
 });
 export const delSetFrom = (w: Workout, i: number, j: number): Workout => mapEx(w, i, (e) => ({ ...e, sets: e.sets.filter((_, k) => k !== j) }));
-export function setValue(w: Workout, i: number, j: number, field: 'w' | 'r', raw: string): Workout {
+/** `minus`: a negative weight means something here (assistance on a bodyweight exercise); elsewhere it can't be below 0. */
+export function setValue(w: Workout, i: number, j: number, field: 'w' | 'r', raw: string, minus = false): Workout {
   const t = raw.trim().replace(',', '.');
   const n = field === 'w' ? parseFloat(t) : parseInt(t, 10);
-  const val = t === '' || !Number.isFinite(n) ? 0 : Math.max(field === 'w' ? -MAX_W : 0, Math.min(field === 'w' ? MAX_W : MAX_R, n));
+  const val = t === '' || !Number.isFinite(n) ? 0 : Math.max(field === 'w' && minus ? -MAX_W : 0, Math.min(field === 'w' ? MAX_W : MAX_R, n));
   return mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => (k !== j ? s : { ...s, [field]: val, ...(s.done === false ? { typed: true as const } : {}) })) }));
 }
 /** Set a timed set's duration from "30", "30:15" or "1:05:00" (blank: 0). `bareSecs`: a plain number is seconds (a pose hold), not minutes. */

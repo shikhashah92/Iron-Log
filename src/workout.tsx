@@ -1,5 +1,5 @@
 // The workout itself: the set table shared by the live workout and "Edit workout", and the start / finish flow.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -20,7 +20,8 @@ export function useEditWorkout(id: string) {
   const { update } = useLog();
   return (fn: (w: Workout) => Workout) => update((l) => {
     const cur = l.workouts.find((w) => w.id === id);
-    return cur ? putWorkout(l, fn(cur)) : l;
+    const next = cur && fn(cur);
+    return next && next !== cur ? putWorkout(l, next) : l;
   });
 }
 
@@ -136,6 +137,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   // Time first for cardio and activities; yoga reads "3 rounds, 30 s hold".
   const cols = yoga ? ['Rounds', reps] : isTimed(ex) ? [reps, unit] : [unit, reps];
   const roundsCount = ex.yoga === 'rounds'; // Surya Namaskar: rounds alone can be ticked
+  const minus = ex.weightType === 'bodyweight';
   let working = -1; // index into last time's sets, matching by position
 
   async function setMenu(j: number) {
@@ -146,10 +148,15 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
     else if (pick === 3) edit((w) => delSetFrom(w, i, j));
   }
   function tick(j: number) {
-    const s = e.sets[j];
-    if (s.done === false && s.r <= 0 && !(roundsCount && s.w > 0)) return notify(`Enter ${roundsCount ? 'the rounds' : yoga && ex.yoga === 'hold' ? 'how long you held it' : isTimed(ex) ? 'the time' : reps.toLowerCase()} first`);
-    edit((w) => toggleDone(w, i, j, roundsCount).workout);
-    if (s.done === false && !isTimed(ex)) startRest(restSecs); // ticked a lifting set (not unticked, not a run or class): rest starts
+    // Decide from the saved set, not this render's copy: a number typed a moment ago may have only just been saved.
+    let outcome: 'ticked' | 'unticked' | 'empty' = 'empty';
+    edit((w) => {
+      const r = toggleDone(w, i, j, roundsCount);
+      outcome = r.ticked ? 'ticked' : r.workout === w ? 'empty' : 'unticked';
+      return r.workout;
+    });
+    if (outcome === 'empty') return notify(`Enter ${roundsCount ? 'the rounds' : yoga && ex.yoga === 'hold' ? 'how long you held it' : isTimed(ex) ? 'the time' : reps.toLowerCase()} first`);
+    if (outcome === 'ticked' && !isTimed(ex)) startRest(restSecs); // ticked a lifting set (not a run or class): rest starts
   }
 
   return (
@@ -189,12 +196,16 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               </>
             ) : (
               <>
-                <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} weight`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', t))} />
+                <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} weight`} onCommit={(t) => {
+                  // Only a bodyweight exercise takes minus kg (assistance); anywhere else it's a typo, so say so rather than keep it.
+                  if (!minus && parseFloat(t.replace(',', '.')) < 0) return notify('Weight can’t be below 0 kg. Minus kg is only for assisted bodyweight exercises, like an assisted pull-up.');
+                  edit((w) => setValue(w, i, j, 'w', t, minus));
+                }} />
                 <SetInput value={s.r} hint={hint} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setValue(w, i, j, 'r', t))} />
               </>
             )}
             {live && (
-              <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${labels[j]} done`} onPress={() => tick(j)}
+              <Pressable accessibilityRole="checkbox" aria-checked={done} accessibilityLabel={`Set ${labels[j]} done`} onPress={() => tick(j)}
                 style={[st.tick, { backgroundColor: done ? c.brand : c.chip, borderRadius: radius.sm }]}>
                 <Ionicons name="checkmark" size={20} color={done ? c.onAccent : c.muted} />
               </Pressable>
@@ -216,11 +227,13 @@ function SetInput({ value, hint, decimal, label, onCommit, fmt = num, unit }: {
   const { c } = useTheme();
   const shown = value ? fmt(value) : '';
   const [text, setText] = useState<string | null>(null); // null: not editing, show the stored value
+  // The latest keystroke, read at save time: a blur right after typing (tapping the tick) can arrive before a re-render.
+  const typed = useRef<string | null>(null);
   const [focused, setFocused] = useState(false);
-  const commit = () => { if (text !== null && text !== (hint ? '' : shown)) onCommit(text); setText(null); };
+  const commit = () => { const t = typed.current; typed.current = null; if (t !== null && t !== (hint ? '' : shown)) onCommit(t); setText(null); };
   return (
     <TextInput value={text ?? (hint ? '' : shown)} placeholder={hint ? shown || unit || '0' : unit ?? ''} placeholderTextColor={c.hint}
-      onChangeText={setText} inputMode={decimal ? 'decimal' : fmt === num ? 'numeric' : 'text'} accessibilityLabel={label}
+      onChangeText={(t) => { typed.current = t; setText(t); }} inputMode={decimal ? 'decimal' : fmt === num ? 'numeric' : 'text'} accessibilityLabel={label}
       onFocus={(e) => { setFocused(true); selectAll(e); }} onBlur={() => { setFocused(false); commit(); }} onSubmitEditing={commit}
       style={[st.cell, st.input, fmt === fmtDur && { fontSize: 15 }, { color: c.text, backgroundColor: c.field, borderColor: focused ? c.accent : c.fieldBorder, outlineWidth: 0 }]} />
   );

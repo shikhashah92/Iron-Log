@@ -45,7 +45,7 @@ export default function EditExercise() {
         <View style={{ gap: space.xs }}>
           <T v="label">Type</T>
           <Segmented value={kind} onChange={(k) => { setKind(k); if (k !== 'strength' && !(ACTIVITY_GROUPS as readonly string[]).includes(group)) setGroup(k === 'cardio' ? 'Cardio' : k === 'yoga' ? 'Yoga' : 'Classes'); }}
-            options={[{ id: 'strength', label: 'Strength' }, { id: 'cardio', label: 'Cardio' }, { id: 'activity', label: 'Activity' }, { id: 'yoga', label: 'Yoga pose' }]} />
+            options={[{ id: 'strength', label: 'Strength' }, { id: 'cardio', label: 'Cardio' }, { id: 'activity', label: 'Activity' }, { id: 'yoga', label: 'Yoga' }]} />
           <T v="small" style={{ fontSize: 12 }}>{kind === 'strength' ? 'Weight and reps.' : kind === 'cardio' ? 'Time and distance (pace and calories worked out).' : kind === 'yoga' ? 'Rounds and how long each is held.' : 'Time and intensity: a class, a match.'}</T>
         </View>
         <View style={{ gap: space.xs }}>

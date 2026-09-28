@@ -3,13 +3,14 @@ import { ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { GROUPS } from '../../exercises';
 import { ACTIVITY_GROUPS, allExercises, isCustom, isFav, matches } from '../../model';
-import { useLog } from '../../store';
+import { useLog, useTheme } from '../../store';
 import { Empty, ExRow } from '../../components';
 import { Button, Card, Chip, Field, Header, Screen, T } from '../../ui';
 import { space } from '../../theme';
 
 export default function Exercises() {
   const { v } = useLog();
+  const { c } = useTheme();
   const [q, setQ] = useState('');
   const [group, setGroup] = useState('All');
   const all = allExercises(v);
@@ -27,9 +28,13 @@ export default function Exercises() {
     <Screen>
       <Header title="Exercises" right={<Button title="Add" icon="add" kind="secondary" onPress={() => router.push('/edit-exercise')} style={{ minHeight: 44, paddingHorizontal: space.md }} />} />
       <Field placeholder={`Search ${all.length} exercises…`} value={q} onChangeText={setQ} autoCorrect={false} accessibilityLabel="Search exercises" inputMode="search" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: space.md }} contentContainerStyle={{ gap: space.sm }}>
-        {chips.map((g) => <Chip key={g} label={g === 'Favorites' ? '★ Favorites' : g} selected={group === g} onPress={() => setGroup(g)} />)}
-      </ScrollView>
+      {/* The filters scroll sideways; the right edge fades out so it's clear there are more (Yoga, Sports, Classes…). */}
+      <View style={{ marginVertical: space.md }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingRight: 40 }}>
+          {chips.map((g) => <Chip key={g} label={g === 'Favorites' ? '★ Favorites' : g} selected={group === g} onPress={() => setGroup(g)} />)}
+        </ScrollView>
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, right: -1, width: 48, experimental_backgroundImage: `linear-gradient(to right, transparent, ${c.bg})` }} />
+      </View>
       {!items.length ? <Empty>No exercises match.</Empty> : sections.map((s) => (
         <View key={s.title} style={{ marginBottom: space.md }}>
           {s.title ? <T v="label" style={{ marginBottom: space.xs, marginLeft: 2 }}>{s.title}</T> : null}

@@ -589,3 +589,12 @@ test('history trends: weeks start Monday, totals, 12-week bars, streaks, and set
   const g = Object.fromEntries(groupSets(v, '2026-08-30', '2026-09-28').map((x) => [x.group, x.sets]));
   assert.deepEqual([g.Chest, g.Legs, g.Core, g.Back], [1, 3, 1, 0], 'warm-ups not counted; timed core still counts as a set');
 });
+
+test('a negative weight is kept only where it means assistance (bodyweight); anywhere else it becomes 0', () => {
+  let l = newLog('A', at(D1));
+  l = startWorkout(l, undefined, at(D1));
+  const w = addExercises(viewOf(l).active!, viewOf(l), [bench, 'pull-up']);
+  assert.equal(setValue(w, 0, 0, 'w', '-5').exercises[0].sets[0].w, 0, 'barbell: no minus');
+  assert.equal(setValue(w, 1, 0, 'w', '-20', true).exercises[1].sets[0].w, -20, 'assisted pull-up: minus kg');
+  assert.equal(setValue(w, 0, 0, 'r', '-3').exercises[0].sets[0].r, 0, 'reps never go below 0');
+});

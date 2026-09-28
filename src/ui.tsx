@@ -124,7 +124,7 @@ export function Field({ label, style, onFocus, onBlur, ...props }: TextInputProp
 export function Chip({ label, selected, onPress, icon }: { label: string; selected?: boolean; onPress: () => void; icon?: string }) {
   const { c } = useTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={label} onPress={onPress}
+    <Pressable accessibilityRole="button" aria-pressed={!!selected} accessibilityLabel={label} onPress={onPress}
       style={({ pressed }) => [s.chip, { backgroundColor: selected ? c.brand : c.chip, opacity: pressed ? 0.8 : 1 }]}>
       {icon ? <Ionicons name={icon as IconName} size={18} color={selected ? c.onAccent : c.accent} /> : null}
       <Text style={{ fontFamily: sans, color: selected ? c.onAccent : c.text, fontSize: 16, fontWeight: selected ? '600' : '500' }}>{label}</Text>
@@ -139,7 +139,7 @@ export function Segmented<K extends string>({ value, options, onChange }: { valu
       {options.map((o) => {
         const on = o.id === value;
         return (
-          <Pressable key={o.id} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(o.id)}
+          <Pressable key={o.id} accessibilityRole="tab" aria-selected={on} onPress={() => onChange(o.id)}
             style={[s.segItem, on && { backgroundColor: c.brand }]}>
             {/* One line, whatever the width: the choice reads as a single chip, and the chosen one is in the accent colour. */}
             <Text numberOfLines={1} style={{ fontFamily: sans, color: on ? c.onAccent : c.text, fontSize: 15, fontWeight: on ? '700' : '500' }}>{o.label}</Text>
@@ -164,7 +164,7 @@ export function Row({ left, title, subtitle, right, actions, onPress, last }: {
         style={({ pressed }) => [s.row, { flex: 1 }, pressed && { opacity: 0.6 }]}>
         {left}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <T numberOfLines={1} style={{ fontWeight: '500' }}>{title}</T>
+          <T numberOfLines={2} style={{ fontWeight: '500' }}>{title}</T>
           {subtitle ? <T v="small" numberOfLines={2}>{subtitle}</T> : null}
         </View>
         {right}

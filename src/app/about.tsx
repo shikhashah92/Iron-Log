@@ -97,6 +97,8 @@ export default function About() {
       if (step === 'weight' && kg !== null && (toKg(kg, units.weight) < 20 || toKg(kg, units.weight) > 400)) return notify('Check your weight', `Enter it in ${units.weight}.`);
       if (last) save(); else setI(i + 1);
     };
+    // Nothing typed yet: Next waits for an answer, and "Skip this question" is the way past it.
+    const empty = step === 'height' ? blank : step === 'weight' ? !weight.trim() : step === 'target' ? !target.trim() : false;
     /** "Skip this question": clear the answer so it isn't saved, then move on. */
     const skipOne = () => {
       if (step === 'goal') setGoal(undefined);
@@ -131,7 +133,7 @@ export default function About() {
             {GOALS.map((g) => {
               const on = goal === g.id;
               return (
-                <Pressable key={g.id} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={g.label}
+                <Pressable key={g.id} accessibilityRole="radio" aria-checked={on} accessibilityLabel={g.label}
                   onPress={() => { setGoal(g.id); setI(i + 1); }}
                   style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 64, paddingHorizontal: space.lg, borderRadius: radius.md,
                     borderWidth: 2, borderColor: on ? c.accent : c.border, backgroundColor: on ? c.accentSoft : c.card, opacity: pressed ? 0.8 : 1 })}>
@@ -167,7 +169,7 @@ export default function About() {
           </View>
         )}
         <Gap h={space.xl} />
-        {step !== 'goal' && <Button title={last ? 'Finish' : 'Next'} icon={last ? 'checkmark' : 'arrow-forward'} onPress={() => next()} />}
+        {step !== 'goal' && <Button title={last ? 'Finish' : 'Next'} icon={last ? 'checkmark' : 'arrow-forward'} onPress={() => next()} disabled={empty} />}
         <Button title="Skip this question" kind="ghost" onPress={skipOne} style={{ marginTop: space.sm }} />
         <Gap />
         <T v="small" center>Saved only on this phone, like everything else.</T>
