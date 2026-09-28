@@ -6,7 +6,7 @@ importScripts('reminder-ics.js'); // self.reminderICS
 const ROOT = new URL(self.registration.scope).pathname; // "/" on the app's own domain
 const at = (p) => ROOT + p;
 const SHELL = ['', 'manifest.webmanifest', 'icon-192.png', 'apple-touch-icon.png',
-  'favicon.svg', 'brand/mark.svg', 'brand/mark-reversed.svg', 'fonts/Archivo-latin.woff2'].map(at);
+  'favicon.svg', 'brand/mark.svg', 'brand/mark-reversed.svg', 'brand/mark-black.svg', 'fonts/Archivo-latin.woff2'].map(at);
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
