@@ -1,5 +1,5 @@
 // The built-in exercise library (ships with the app, never stored). Custom exercises live in the log.
-import type { Exercise } from "./model";
+import type { Exercise, Template } from "./model";
 import { YOGA } from "./yoga.ts";
 
 export const GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core"] as const;
@@ -1837,3 +1837,23 @@ const ACTIVITIES: readonly Exercise[] = [
 ];
 
 export const BUILT_IN: readonly Exercise[] = [...STRENGTH, ...ACTIVITIES, ...YOGA];
+
+/**
+ * Ready-made templates (built in like the library, never stored). Editing or renaming one saves your own copy under
+ * the same id, which then replaces it. Set counts are left out: 3 for a new exercise, else as many as last time.
+ */
+const starter = (id: string, name: string, ids: string[]): Template =>
+  ({ id: `starter-${id}`, profileId: '', name, exercises: ids.map((exerciseId) => ({ exerciseId })), updatedAt: 0, starter: true });
+export const STARTERS: readonly Template[] = [
+  starter('full-body', 'Full body', ['goblet-squat', 'flat-db-press', 'lat-pulldown', 'seated-db-press', 'rdl', 'plank']),
+  starter('push', 'Push', ['bench-press-bb', 'ohp-bb', 'incline-db-press', 'lateral-raise', 'triceps-pushdown']),
+  starter('pull', 'Pull', ['pull-up', 'bb-bent-row', 'seated-cable-row', 'face-pull', 'bb-curl', 'hammer-curl']),
+  starter('legs', 'Legs', ['back-squat', 'rdl', 'leg-press', 'walking-lunge', 'lying-leg-curl', 'calf-raise']),
+  starter('chest', 'Chest', ['bench-press-bb', 'incline-db-press', 'machine-chest-press', 'cable-fly', 'push-up']),
+  starter('back', 'Back', ['lat-pulldown', 'bb-bent-row', 'seated-cable-row', 'one-arm-db-row', 'straight-arm-pulldown']),
+  starter('shoulders', 'Shoulders', ['ohp-bb', 'seated-db-press', 'lateral-raise', 'rear-delt-fly', 'face-pull', 'db-shrug']),
+  starter('arms', 'Arms', ['ez-bar-curl', 'close-grip-bench', 'hammer-curl', 'rope-pushdown', 'incline-db-curl', 'overhead-triceps-ext']),
+  starter('glutes', 'Glutes', ['hip-thrust', 'rdl', 'bulgarian-split-squat', 'seated-leg-curl', 'glute-bridge']),
+  starter('core', 'Core', ['plank', 'hanging-leg-raise', 'cable-crunch', 'dead-bug', 'russian-twist']),
+  starter('yoga', 'Morning yoga', ['surya-namaskar', 'tadasana', 'vrksasana', 'trikonasana', 'adho-mukha-svanasana', 'bhujangasana', 'setu-bandhasana', 'paschimottanasana', 'balasana', 'anulom-vilom', 'shavasana']),
+];

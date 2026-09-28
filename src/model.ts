@@ -1,5 +1,5 @@
 // The data model and every change to it, as pure functions (no I/O), so it can be unit tested with node --test.
-import { BUILT_IN } from './exercises.ts';
+import { BUILT_IN, STARTERS } from './exercises.ts';
 
 export const SCHEMA_VERSION = 4;
 export type Theme = 'system' | 'light' | 'dark';
@@ -12,7 +12,10 @@ export const WEIGHT_TYPES: { id: WeightType; label: string; unit: string }[] = [
   { id: 'bodyweight', label: 'Bodyweight: +/- kg', unit: '+/- kg (optional)' },
 ];
 export const FEELINGS = [
-  { id: 'Easy', emoji: '😌' }, { id: 'Moderate', emoji: '🙂' }, { id: 'Hard', emoji: '😓' }, { id: 'Max effort', emoji: '🥵' },
+  { id: 'Easy', hint: 'Plenty left in the tank' },
+  { id: 'Moderate', hint: 'Worked, but comfortable' },
+  { id: 'Hard', hint: 'A rep or two left at the end' },
+  { id: 'Max effort', hint: 'Nothing left' },
 ] as const;
 
 /**
@@ -87,7 +90,8 @@ export interface Workout {
 export interface Entry { profileId: string; date: string; exerciseId: string; sets: SetRow[]; updatedAt: number; workoutId: string; startedAt: number }
 /** `sets`: how many to plan; when absent, as many as last time (or 3 for a new exercise). */
 export interface TemplateExercise { exerciseId: string; sets?: number }
-export interface Template { id: string; profileId: string; name: string; exercises: TemplateExercise[]; updatedAt: number }
+/** `starter`: a ready-made one from the app (in the view only, never stored). */
+export interface Template { id: string; profileId: string; name: string; exercises: TemplateExercise[]; updatedAt: number; starter?: true }
 export interface Favorite { profileId: string; exerciseId: string; at: number }
 export interface Settings {
   theme: Theme; restSecs: number; currentProfileId: string;
@@ -177,7 +181,7 @@ export function viewOf(l: Log): View {
   const profile = l.profiles.find((p) => p.id === pid) ?? l.profiles[0];
   const weighIns = mine(l.weighIns).sort((a, b) => (a.date === b.date ? a.at - b.at : a.date < b.date ? -1 : 1));
   return {
-    profile, exercises: mine(l.exercises), favorites: mine(l.favorites).sort((a, b) => b.at - a.at), templates: mine(l.templates),
+    profile, exercises: mine(l.exercises), favorites: mine(l.favorites).sort((a, b) => b.at - a.at), templates: withStarters(mine(l.templates)),
     workouts, active: workouts.find((w) => w.active), entries, weighIns,
     bodyweight: weighIns.at(-1)?.weight ?? profile.bodyweight,
   };
@@ -322,9 +326,12 @@ export function putExercise(l: Log, ex: Exercise, now = Date.now()): Log {
 /** Deleting a custom exercise keeps its logged history (it then shows under its id). */
 export const delExercise = (l: Log, id: string) => ({ ...l, exercises: l.exercises.filter((e) => !(e.profileId === pidOf(l) && e.id === id)) });
 
+const withStarters = (own: Template[]) => [...own, ...STARTERS.filter((s) => !own.some((t) => t.id === s.id))];
 export function putTemplate(l: Log, t: { id: string; name: string; exercises: TemplateExercise[] }, now = Date.now()): Log {
   const pid = pidOf(l);
-  return { ...l, templates: [...l.templates.filter((x) => !(x.profileId === pid && x.id === t.id)), { ...t, profileId: pid, updatedAt: now }] };
+  // Only these fields are kept: saving a ready-made template stores a plain copy (no `starter` flag).
+  const saved = { id: t.id, name: t.name, exercises: t.exercises, profileId: pid, updatedAt: now };
+  return { ...l, templates: [...l.templates.filter((x) => !(x.profileId === pid && x.id === t.id)), saved] };
 }
 export const delTemplate = (l: Log, id: string) => ({ ...l, templates: l.templates.filter((t) => !(t.profileId === pidOf(l) && t.id === id)) });
 /** A template from a workout you did: its exercises, with as many sets as you did. */

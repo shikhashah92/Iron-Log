@@ -8,7 +8,7 @@ import {
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
-import { BUILT_IN } from '../src/exercises.ts';
+import { BUILT_IN, STARTERS } from '../src/exercises.ts';
 
 const bench = 'bench-press-bb', row = 'bb-bent-row';
 const at = (day: string, time = '07:00') => new Date(`${day}T${time}:00`).getTime();
@@ -271,7 +271,7 @@ test('Strong import: one workout per Strong workout, warm-up/drop sets, lb, repl
   assert.deepEqual([smith.weightType, smith.group], ['machine', 'Legs']);
   assert.deepEqual(push.exercises.find((e) => e.exerciseId === 'plank')!.sets, [{ w: 0, r: 45 }], 'timed sets are seconds');
   assert.deepEqual([summary.sets, summary.workouts, summary.days], [6, 2, 1], 'the empty Leg Press row is skipped');
-  assert.deepEqual(v.templates.map((t) => [t.name, t.exercises.map((e) => e.sets)]), [['Push, heavy', [3, 1, 1]]], 'no template for "Evening Workout"');
+  assert.deepEqual(v.templates.filter((t) => !t.starter).map((t) => [t.name, t.exercises.map((e) => e.sets)]), [['Push, heavy', [3, 1, 1]]], 'no template for "Evening Workout"');
   parseBackup(serialize(log)); // the result is a valid log
 
   const again = importStrong(log, csv, 'lb', 100);
@@ -545,4 +545,20 @@ test('reminders start on a day the repeat includes', async () => {
   assert.equal(b.reminderStart('weekly', thu).getDate(), 5, 'Monday');
   assert.equal(b.reminderStart('daily', thu).getDate(), 1);
   assert.equal(b.reminderStart('3x', new Date(2026, 9, 5)).getDate(), 5, 'already a Monday');
+});
+
+test('ready-made templates: real exercises, startable, and editing one saves a plain copy of your own', () => {
+  const ids = new Set(BUILT_IN.map((e) => e.id));
+  for (const s of STARTERS) for (const e of s.exercises) assert.ok(ids.has(e.exerciseId), `${s.name}: ${e.exerciseId}`);
+  let l = newLog('A', at(D1));
+  assert.equal(viewOf(l).templates.filter((t) => t.starter).length, STARTERS.length);
+  assert.equal(l.templates.length, 0, 'not stored');
+  const legs = viewOf(l).templates.find((t) => t.id === 'starter-legs')!;
+  const started = viewOf(startWorkout(l, legs.id, at(D1))).active!;
+  assert.equal(started.name, 'Legs');
+  assert.equal(started.exercises[0].sets.length, 3);
+  l = putTemplate(l, { ...legs, name: 'My legs' }, at(D1));
+  assert.equal(l.templates[0].starter, undefined);
+  const v = viewOf(l).templates.filter((t) => t.id === 'starter-legs');
+  assert.deepEqual(v.map((t) => [t.name, t.starter]), [['My legs', undefined]]);
 });

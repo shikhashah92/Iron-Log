@@ -82,7 +82,8 @@ export default function TemplateScreen() {
         <View style={{ gap: space.sm, marginTop: space.md }}>
           <Button title="Add exercises" icon="add" kind="secondary" onPress={() => router.push({ pathname: '/picker', params: { template: t.id } })} />
           <Button title="Rename" kind="secondary" onPress={rename} />
-          <Button title="Delete template" kind="danger" onPress={remove} />
+          {t.starter ? <T v="small" center>This one comes with Uplift. Any change saves it as your own template.</T>
+            : <Button title="Delete template" kind="danger" onPress={remove} />}
         </View>
       )}
     </Screen>
