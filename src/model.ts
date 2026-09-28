@@ -12,10 +12,10 @@ export const WEIGHT_TYPES: { id: WeightType; label: string; unit: string }[] = [
   { id: 'bodyweight', label: 'Bodyweight: +/- kg', unit: '+/- kg (optional)' },
 ];
 export const FEELINGS = [
-  { id: 'Easy', emoji: '😌', hint: 'Plenty left in the tank' },
-  { id: 'Moderate', emoji: '🙂', hint: 'Worked, but comfortable' },
-  { id: 'Hard', emoji: '😓', hint: 'A rep or two left at the end' },
-  { id: 'Max effort', emoji: '🥵', hint: 'Nothing left' },
+  { id: 'Easy', hint: 'Plenty left in the tank' },
+  { id: 'Moderate', hint: 'Worked, but comfortable' },
+  { id: 'Hard', hint: 'A rep or two left at the end' },
+  { id: 'Max effort', hint: 'Nothing left' },
 ] as const;
 
 /**
