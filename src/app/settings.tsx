@@ -7,7 +7,7 @@ import { useLog, useTheme } from '../store';
 import { useBackup } from '../backupActions';
 import { clearSnapshots } from '../safety';
 import { confirm, notify } from '../io';
-import { BASE, hadOldApp, isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
+import { isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
 import { Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../ui';
 import { goBack } from '../components';
 import { startTour } from '../tour';
@@ -37,9 +37,9 @@ export default function Settings() {
 
   function contact() {
     // Only what's typed here goes out, through your own mail app. Nothing from your log is attached.
-    const body = `\n\n\n—\nIron Log ${Constants.expoConfig?.version ?? ''} · ${navigator.userAgent}`;
+    const body = `\n\n\n—\nUplift ${Constants.expoConfig?.version ?? ''} · ${navigator.userAgent}`;
     // location, not window.open: an installed iPhone web app hands mailto: to Mail reliably this way, with no blank tab.
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Iron Log feedback')}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Uplift feedback')}&body=${encodeURIComponent(body)}`;
   }
   async function eraseAll() {
     if (!(await confirm('Erase all data?', `This clears every profile, exercise and workout on this device (${plural(log.workouts.length, 'workout')}). A copy stays in Undo history, so you can still go back.`, 'Erase', true))) return;
@@ -87,19 +87,8 @@ export default function Settings() {
       </Card>
       <Gap h={space.sm} />
       <T v="small" style={{ lineHeight: 20 }}>
-        Your data lives only in this browser on this device{s.backupChoice === 'local' ? ', and you chose not to keep a copy elsewhere' : ''}. Iron Log never uploads anything. To use another phone, save a backup here and restore it there.
+        Your data lives only in this browser on this device{s.backupChoice === 'local' ? ', and you chose not to keep a copy elsewhere' : ''}. Uplift never uploads anything. To use another phone, save a backup here and restore it there.
       </T>
-      {hadOldApp() && (
-        <>
-          <Gap />
-          <T v="label">Old Iron Log</T>
-          <Gap h={space.sm} />
-          <Card pad={false} style={{ paddingHorizontal: space.lg }}>
-            <Row left={icon('swap-vertical-outline')} title="Bring data over again" subtitle="From the old app’s cloud copy, if it still exists" right={chevron} onPress={() => { window.location.href = `${BASE}legacy/#move`; }} />
-            <Row left={icon('cloud-offline-outline', c.danger)} title="Delete the old cloud copy" subtitle="Removes everything the old app kept in Firebase" right={chevron} onPress={() => { window.location.href = `${BASE}legacy/#wipe`; }} last />
-          </Card>
-        </>
-      )}
       {!isStandalone() && (canInstall || isIOS() || isAndroid()) ? (
         <>
           <Gap />
@@ -107,7 +96,7 @@ export default function Settings() {
           <Gap h={space.sm} />
           <Card pad={false} style={{ paddingHorizontal: space.lg }}>
             {canInstall
-              ? <Row left={icon('download-outline')} title="Install Iron Log" subtitle="Opens like an app, works offline" right={chevron} onPress={install} last />
+              ? <Row left={icon('download-outline')} title="Install Uplift" subtitle="Opens like an app, works offline" right={chevron} onPress={install} last />
               : <Row left={icon('share-outline')} title="Add to Home Screen" subtitle="Step-by-step for your phone. Keeps your data safer." right={chevron} onPress={() => router.push('/install')} last />}
           </Card>
         </>
@@ -121,7 +110,7 @@ export default function Settings() {
           <T style={{ fontWeight: '600' }}>Everything stays on this phone</T>
         </View>
         <T v="small" style={{ lineHeight: 20 }}>
-          Iron Log has no account and no server. Your details, workouts, weigh-ins and photos are saved only in this browser on this device. Nothing is synced or uploaded, and there are no ads, analytics or trackers, so nobody else (us included) can see your data.
+          Uplift has no account and no server. Your details, workouts, weigh-ins and photos are saved only in this browser on this device. Nothing is synced or uploaded, and there are no ads, analytics or trackers, so nobody else (us included) can see your data.
         </T>
         <T v="small" style={{ lineHeight: 20 }}>
           It only leaves the phone when you choose to: a backup file you save, a CSV you export, or an email you send us. Locked backups are encrypted with your passphrase. Clearing this browser’s site data deletes it, so keep a backup.
@@ -139,7 +128,7 @@ export default function Settings() {
         <Row left={icon('trash-outline', c.danger)} title="Erase all data" subtitle="Clear everything here (you can undo it from Undo history)" onPress={eraseAll} last />
       </Card>
       <Gap />
-      <T v="small" center>Iron Log {Constants.expoConfig?.version ?? ''} · No account · No ads, no tracking</T>
+      <T v="small" center>Uplift {Constants.expoConfig?.version ?? ''} · No account · No ads, no tracking</T>
       <Gap h={space.sm} />
       <T v="small" center style={{ fontSize: 12, lineHeight: 18 }}>
         Exercise illustrations from Workout Guide by Bryl Lim, based on Everkinetic, used under CC BY-SA 4.0.

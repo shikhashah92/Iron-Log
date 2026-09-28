@@ -1,14 +1,14 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Iron Log//Weigh-in//EN
+PRODID:-//Uplift//Weigh-in//EN
 BEGIN:VEVENT
-UID:ironlog-weigh-in-weekly@ironlog
+UID:uplift-weigh-in-weekly@uplift
 DTSTAMP:20260105T000000
 DTSTART:20260105T073000
 DTEND:20260105T073500
 RRULE:FREQ=WEEKLY;BYDAY=MO
-SUMMARY:Weigh in (Iron Log)
-DESCRIPTION:Before breakfast: Iron Log > Me > Log weigh-in
+SUMMARY:Weigh in (Uplift)
+DESCRIPTION:Before breakfast: Uplift > Me > Log weigh-in
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:Weigh in

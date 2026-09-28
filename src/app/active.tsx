@@ -1,13 +1,13 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { duration, longDate } from '../model';
-import { useLog, useTheme } from '../store';
+import { useLog } from '../store';
 import { useNow } from '../timer';
 import { ask } from '../io';
 import { goBack, RestBar } from '../components';
 import { useEditWorkout, useWorkoutFlow, WorkoutEditor } from '../workout';
 import { Button, Gap, IconButton, Screen, T } from '../ui';
-import { condensed, mono, space } from '../theme';
+import { sans, space } from '../theme';
 
 /** The workout in progress, full screen. Swipe down or tap ⌄ to shrink it to the bar above the tabs. */
 export default function ActiveWorkout() {
@@ -19,7 +19,6 @@ export default function ActiveWorkout() {
 
 function Live() {
   const { v } = useLog();
-  const { c } = useTheme();
   const w = v.active!;
   const now = useNow(true);
   const flow = useWorkoutFlow();
@@ -40,12 +39,12 @@ function Live() {
       <Screen edges={['top', 'bottom']}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: space.sm }}>
           <IconButton icon="chevron-down" label="Minimise workout" onPress={goBack} />
-          <Button title="Finish" onPress={finish} style={{ minHeight: 44, paddingHorizontal: space.xl, backgroundColor: c.good }} />
+          <Button title="Finish" onPress={finish} style={{ minHeight: 44, paddingHorizontal: space.xl }} />
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={`${w.name}. Rename`} onPress={rename}>
-          <T numberOfLines={2} style={{ fontFamily: condensed, fontWeight: '700', fontSize: 28, textTransform: 'uppercase', marginTop: space.sm }}>{w.name}</T>
+          <T numberOfLines={2} style={{ fontFamily: sans, fontWeight: '800', fontSize: 28, letterSpacing: -0.56, marginTop: space.sm }}>{w.name}</T>
         </Pressable>
-        <T v="small">{longDate(w.date)} · <T v="small" style={{ fontFamily: mono }}>{duration(now - w.startedAt)}</T> · tap the name to rename</T>
+        <T v="small">{longDate(w.date)} · <T v="small" style={{ fontFamily: sans }}>{duration(now - w.startedAt)}</T> · tap the name to rename</T>
         <Gap h={space.md} />
         <WorkoutEditor workout={w} live />
         <Button title="Add exercises" icon="add" kind="secondary" onPress={() => router.push({ pathname: '/picker', params: { workout: w.id } })} />

@@ -11,7 +11,7 @@ import { ask } from './io';
 import { useLog, useTheme } from './store';
 import { adjustRest, stopRest, useNow, useRest } from './timer';
 import { Button, Card, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
-import { condensed, mono, radius, space } from './theme';
+import { sans, radius, space } from './theme';
 import { isAndroid, isIOS, isStandalone } from './pwa';
 
 // iOS Safari offers "Use Strong Password" on any masked field, which would replace the passphrase the person must write
@@ -37,7 +37,7 @@ export function Tag({ label, tone }: { label: string; tone?: 'accent' | 'good' }
   const fg = tone === 'accent' ? c.accent : tone === 'good' ? c.good : c.muted;
   return (
     <View style={{ borderWidth: 1, borderColor: tone === 'good' ? c.good : tone ? c.accentSoft : c.border, backgroundColor: tone === 'good' ? c.goodSoft : c.chip, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1 }}>
-      <T style={{ fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, color: fg }}>{label}</T>
+      <T style={{ fontSize: 12, fontWeight: '600', color: fg }}>{label}</T>
     </View>
   );
 }
@@ -47,7 +47,7 @@ export function Stat({ k, v }: { k: string; v: ReactNode }) {
   return (
     <View style={{ flex: 1, backgroundColor: c.chip, borderColor: c.border, borderWidth: 1, borderRadius: 10, padding: space.sm + 2 }}>
       <T v="label" style={{ fontSize: 11 }}>{k}</T>
-      <T style={{ fontFamily: mono, fontSize: 20, marginTop: 2 }}>{v}</T>
+      <T style={{ fontFamily: sans, fontSize: 20, marginTop: 2 }}>{v}</T>
     </View>
   );
 }
@@ -63,7 +63,7 @@ const REDUCED_MOTION = typeof matchMedia !== 'undefined' && matchMedia('(prefers
 /**
  * An exercise's drawing: three poses, looped like a GIF when `animate` (still when the phone asks for reduced motion).
  * The SVGs are single-colour shapes used as a mask, so they take the theme's ink in light and dark mode. The paths are
- * relative: every route is one level deep, so they resolve under the app's folder (e.g. /Iron-Log/illustrations/).
+ * relative: every route is one level deep, so they resolve under the app's folder (e.g. /illustrations/, or <folder>/illustrations/).
  */
 /** `label` for screen readers; without one the drawing is decorative (e.g. next to the name in a list). */
 export function Illustration({ id, size, animate = false, label }: { id: string; size: number; animate?: boolean; label?: string }) {
@@ -128,7 +128,7 @@ export function ExRow({ ex, right, actions, onPress, star = true, last }: {
         </View>
       ) : <View style={{ width: 44 }} /> /* same slot with no drawing, so names line up */}
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-        <T numberOfLines={2} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18, lineHeight: 21 }}>{ex.name}</T>
+        <T numberOfLines={2} style={{ fontFamily: sans, fontWeight: '600', fontSize: 18, lineHeight: 21 }}>{ex.name}</T>
         <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
           <Tag label={ex.group} />
           {ex.equip ? <Tag label={ex.equip} /> : null}
@@ -138,7 +138,7 @@ export function ExRow({ ex, right, actions, onPress, star = true, last }: {
       {right ?? (
         <View style={{ alignItems: 'flex-end', gap: 2 }}>
           <T v="mono" style={{ fontSize: 12 }}>{prev ? shortDate(prev.date) : 'no log'}</T>
-          {best && <T style={{ fontFamily: mono, fontSize: 13 }}>{best}</T>}
+          {best && <T style={{ fontFamily: sans, fontSize: 13 }}>{best}</T>}
           <Spark id={ex.id} />
         </View>
       )}
@@ -192,7 +192,7 @@ export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in 
   const lo = mn - pad, hi = mx + pad;
   const X = (d: string) => pl + ((dayMs(d) - x0) / span) * (W - pl - pr);
   const Y = (v: number) => pt + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - pt - pb);
-  const text = { fontSize: 9, fill: c.muted, fontFamily: mono };
+  const text = { fontSize: 9, fill: c.muted, fontFamily: sans };
   const first = all.reduce((m, p) => (p.date < m ? p.date : m), all[0].date), last = all.reduce((m, p) => (p.date > m ? p.date : m), all[0].date);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Chart from ${dateWithYear(first)} to ${dateWithYear(last)}`} style={{ width: '100%', height: 'auto', margin: `${space.sm}px 0` }}>
@@ -299,7 +299,7 @@ export function AddButton({ onPress, label }: { onPress: () => void; label: stri
     <View style={[st.fabWrap, { bottom: 24 + (v.active ? 64 : 0) + (resting ? 72 : 0) }]}>
       <View style={{ width: '100%', maxWidth: MAX_WIDTH, alignItems: 'flex-end', paddingHorizontal: space.lg, pointerEvents: 'box-none' }}>
         <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
-          style={({ pressed }) => [st.fab, { backgroundColor: c.accent, transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
+          style={({ pressed }) => [st.fab, { backgroundColor: c.brand, transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
           <Ionicons name="add" size={32} color={c.onAccent} />
         </Pressable>
       </View>
@@ -317,10 +317,10 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
   return (
     <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress`} onPress={() => router.push('/active')}
-        style={({ pressed }) => [st.rest, { backgroundColor: c.accent, borderColor: c.accent, opacity: pressed ? 0.85 : 1 }]}>
+        style={({ pressed }) => [st.rest, { backgroundColor: c.brand, borderColor: c.brand, opacity: pressed ? 0.85 : 1 }]}>
         <Ionicons name="chevron-up" size={20} color={c.onAccent} />
-        <T numberOfLines={1} style={{ flex: 1, fontFamily: condensed, fontWeight: '700', fontSize: 18, textTransform: 'uppercase' }} color={c.onAccent}>{w.name}</T>
-        <T style={{ fontFamily: mono, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>
+        <T numberOfLines={1} style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 17 }} color={c.onAccent}>{w.name}</T>
+        <T style={{ fontFamily: sans, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>
       </Pressable>
     </View>
   );
@@ -336,14 +336,14 @@ export function RestBar({ bottom = 12 }: { bottom?: number }) {
   const btn = (label: string, onPress: () => void, a11y: string) => (
     <Pressable accessibilityRole="button" accessibilityLabel={a11y} onPress={onPress}
       style={({ pressed }) => [st.tb, { backgroundColor: c.chip, borderColor: c.border, opacity: pressed ? 0.7 : 1 }]}>
-      <T style={{ fontFamily: mono, fontSize: 13 }}>{label}</T>
+      <T style={{ fontFamily: sans, fontSize: 13 }}>{label}</T>
     </Pressable>
   );
   return (
     <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
       <View accessibilityRole="timer" accessibilityLiveRegion="polite" style={[st.rest, { backgroundColor: c.card, borderColor: c.border }]}>
         <T v="label" style={{ fontSize: 11 }}>{done ? 'Go' : 'Rest'}</T>
-        <T style={{ fontFamily: mono, fontSize: 24, minWidth: 64, color: done ? c.good : c.text }}>{clock}</T>
+        <T style={{ fontFamily: sans, fontSize: 24, minWidth: 64, color: done ? c.good : c.text }}>{clock}</T>
         {btn('−15', () => adjustRest(-15), 'Rest 15 seconds less')}
         {btn('+15', () => adjustRest(15), 'Rest 15 seconds more')}
         <View style={{ flex: 1 }} />
@@ -394,7 +394,7 @@ export function PassphraseModal({ visible, mode, onSubmit, onClose }: {
           <T v="title">{mode === 'set' ? 'Lock this backup' : 'Enter the backup passphrase'}</T>
           <T v="small" style={{ lineHeight: 20 }}>
             {mode === 'set'
-              ? 'The backup file is locked with this passphrase on your phone, before you save it anywhere. Nobody else can open it, not even Iron Log. If you forget it, the backup cannot be recovered, so write it down somewhere safe.'
+              ? 'The backup file is locked with this passphrase on your phone, before you save it anywhere. Nobody else can open it, not even Uplift. If you forget it, the backup cannot be recovered, so write it down somewhere safe.'
               : 'This backup is locked. Enter the passphrase you chose when you saved it.'}
           </T>
           <Field label="Passphrase" value={pass} onChangeText={(t) => { setPass(t); setError(''); }} {...MASKED} autoFocus
@@ -413,9 +413,9 @@ export function PassphraseModal({ visible, mode, onSubmit, onClose }: {
   );
 }
 
-const NUDGE_KEY = 'ironlog.installNudgeAt';
+const NUDGE_KEY = 'uplift.installNudgeAt';
 /**
- * In a phone's browser (not the installed app): a card asking to add Iron Log to the Home Screen, with a "how" sheet
+ * In a phone's browser (not the installed app): a card asking to add Uplift to the Home Screen, with a "how" sheet
  * for this phone. "Not now" hides it for two weeks. Once installed it never shows (the app runs standalone).
  */
 export function InstallNudge() {
@@ -427,7 +427,7 @@ export function InstallNudge() {
     <Card style={{ marginBottom: space.md, gap: space.sm, borderColor: c.accent }}>
       <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>
         <Ionicons name="phone-portrait-outline" size={20} color={c.accent} />
-        <T style={{ fontWeight: '600', flex: 1 }}>Add Iron Log to your Home Screen</T>
+        <T style={{ fontWeight: '600', flex: 1 }}>Add Uplift to your Home Screen</T>
       </View>
       <T v="small">It opens like an app, works offline, and keeps your data safer. Takes 20 seconds.</T>
       <View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -445,11 +445,11 @@ export function InstallSteps() {
     ? [['menu-outline', 'In Safari, tap the ≡ button at the left of the address bar, then Share. (On older iPhones: the Share button, a square with an arrow.)'],
       ['add-circle-outline', 'Tap “View More”, then “Add to Home Screen”.'],
       ['checkmark-circle-outline', 'Leave “Open as Web App” on, then tap Add.'],
-      ['apps-outline', 'Open Iron Log from your Home Screen from now on.']]
+      ['apps-outline', 'Open Uplift from your Home Screen from now on.']]
     : [['ellipsis-vertical', 'Tap the ⋮ menu at the top right of Chrome.'],
       ['add-circle-outline', 'Tap “Add to Home screen” (or “Install app”).'],
       ['checkmark-circle-outline', 'Tap Install.'],
-      ['apps-outline', 'Open Iron Log from your Home Screen from now on.']];
+      ['apps-outline', 'Open Uplift from your Home Screen from now on.']];
   return (
     <Card style={{ gap: space.md }}>
       {steps.map(([icon, text], i) => (

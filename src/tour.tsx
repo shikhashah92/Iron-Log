@@ -11,7 +11,7 @@ import { radius, space } from './theme';
 type Step = { tab: number; icon: keyof typeof Ionicons.glyphMap; title: string; body: string };
 const TAB_PATHS = ['/', '/exercises', '/workout', '/history', '/me'] as const;
 export const STEPS: Step[] = [
-  { tab: 0, icon: 'lock-closed-outline', title: 'Welcome to Iron Log', body: 'A quick look around. Everything you log stays on this phone: no account, no sync, nothing uploaded.' },
+  { tab: 0, icon: 'lock-closed-outline', title: 'Welcome to Uplift', body: 'A quick look around. Everything you log stays on this phone: no account, no sync, nothing uploaded.' },
   { tab: 0, icon: 'home-outline', title: 'Home', body: 'Today at a glance: your workout in progress, this week’s numbers, favourite exercises, and a nudge when a weigh-in or a backup is due.' },
   { tab: 1, icon: 'list-outline', title: 'Exercises', body: 'Over 100 exercises and activities, with drawings and how-to steps. Star your favorites, or add your own.' },
   { tab: 2, icon: 'barbell-outline', title: 'Workout', body: 'Start an empty workout or a template. Sets fill in from last time: type over them and tick each one. The rest timer starts itself. Log a run or a class here too.' },

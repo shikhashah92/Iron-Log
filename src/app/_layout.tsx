@@ -1,13 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { HANDOFF_KEY, useStore, StoreProvider, useTheme } from '../store';
-import { fromLegacy } from '../backup';
-import { useBackup } from '../backupActions';
+import { useStore, StoreProvider, useTheme } from '../store';
 import { today } from '../model';
-import { BASE } from '../pwa';
-import * as storage from '../storage';
 import { confirm, notify, saveFile } from '../io';
 import { Button, Gap, Screen, T } from '../ui';
 import { DialogHost } from '../dialog';
@@ -15,7 +11,7 @@ import { DialogHost } from '../dialog';
 /** Shown if stored data fails validation: never a dead end, never silently overwritten. */
 function Recovery() {
   const { corrupt, erase } = useStore();
-  const download = () => saveFile(`ironlog-unreadable-${today()}.json`, corrupt!.raw, 'application/json').catch((e) => notify('Download failed', e.message));
+  const download = () => saveFile(`uplift-unreadable-${today()}.json`, corrupt!.raw, 'application/json').catch((e) => notify('Download failed', e.message));
   const fresh = async () => {
     if (await confirm('Start fresh?', 'A copy of the unreadable data is kept on this device. Download it first if you want to keep it safe elsewhere.', 'Start fresh', true)) await erase();
   };
@@ -35,38 +31,9 @@ function Recovery() {
   );
 }
 
-/**
- * Moving from the old (Firestore) app: legacy/index.html leaves everything it read under HANDOFF_KEY on this same
- * device, then opens this app. Bring it in, then offer to delete the cloud copy so nothing is left online.
- */
-function useHandoff() {
-  const { ready, corrupt } = useStore();
-  const { bringIn } = useBackup();
-  const busy = useRef(false);
-  useEffect(() => {
-    if (!ready || corrupt || busy.current) return;
-    busy.current = true;
-    (async () => {
-      const raw = await storage.getItem(HANDOFF_KEY).catch(() => null);
-      if (!raw) return;
-      try {
-        const next = fromLegacy(raw);
-        const done = await bringIn(next, 'Bring in your Iron Log data?', 'Moved to this device', 'Before moving from the old app');
-        if (!done) return;
-        await storage.removeItem(HANDOFF_KEY);
-        if (await confirm('Delete the cloud copy?', 'Your workouts are on this device now. The old app still has a copy in the cloud (Firebase). Delete it so nothing is kept online? Save a backup first if you want an extra copy.', 'Delete cloud copy', true))
-          window.location.href = `${BASE}legacy/#wipe`;
-      } catch (e) {
-        notify('Could not bring your data over', `${(e as Error).message} Nothing was changed; you can try again from the old app.`);
-      }
-    })().finally(() => { busy.current = false; });
-  }, [ready, corrupt]); // eslint-disable-line react-hooks/exhaustive-deps
-}
-
 function Root() {
   const { ready, log, corrupt } = useStore();
   const { c, dark } = useTheme();
-  useHandoff();
   useEffect(() => {
     document.body.style.backgroundColor = c.bg;
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light';

@@ -1,7 +1,9 @@
 // Passphrase encryption for backups that leave the device (WebCrypto only: works in browsers and Node).
 // gzip, then AES-256-GCM with a key from PBKDF2-SHA256 (600k iterations, OWASP 2023). The passphrase never leaves the device.
 export const ITERATIONS = 600_000;
-export const ENVELOPE_APP = 'ironlog-encrypted';
+export const ENVELOPE_APP = 'uplift-encrypted';
+/** Locked backups made before the rename (Uplift) still open. */
+const ENVELOPE_APPS = new Set([ENVELOPE_APP, 'ironlog-encrypted']);
 
 /** v1: plain JSON inside. v2: gzip-compressed JSON inside (logs compress well; photos less so). */
 export interface Envelope { app: string; v: 1 | 2; kdf: 'PBKDF2-SHA256'; iter: number; salt: string; iv: string; ct: string }
@@ -56,7 +58,7 @@ export async function encryptWithKey(key: CryptoKey, salt: string, iter: number,
 }
 
 export function isEnvelope(text: string): boolean {
-  try { return JSON.parse(text)?.app === ENVELOPE_APP; } catch { return false; }
+  try { return ENVELOPE_APPS.has(JSON.parse(text)?.app); } catch { return false; }
 }
 
 export async function decryptEnvelope(text: string, passphrase: string): Promise<string> {

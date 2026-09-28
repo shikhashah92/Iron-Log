@@ -107,17 +107,17 @@ export default function About() {
     };
     const Q = { goal: 'What’s your main goal?', height: 'How tall are you?', weight: 'What do you weigh today?', target: 'Where would you like to get to?' }[step];
     const hint = {
-      goal: 'It shapes what Iron Log shows you first. Change it any time.',
+      goal: 'It shapes what Uplift shows you first. Change it any time.',
       height: 'Used for BMI and the healthy range on your weight chart.',
       weight: 'Your first weigh-in: the start of your trend line.',
-      target: 'A target weight and date. Iron Log plans a steady weekly pace and shows it against your trend.',
+      target: 'A target weight and date. Uplift plans a steady weekly pace and shows it against your trend.',
     }[step];
     return (
       <Screen edges={['top', 'bottom']}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingTop: space.lg, minHeight: 56 }}>
           {i > 0 ? <IconButton icon="chevron-back" label="Back" onPress={() => setI(i - 1)} /> : <View style={{ width: 24 }} />}
           <View accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: steps.length, now: i + 1 }} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: c.chip, overflow: 'hidden' }}>
-            <View style={{ width: `${((i + 1) / steps.length) * 100}%`, height: 6, backgroundColor: c.accent }} />
+            <View style={{ width: `${((i + 1) / steps.length) * 100}%`, height: 6, backgroundColor: c.brand }} />
           </View>
           <Button title="Skip all" kind="ghost" onPress={done} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
         </View>

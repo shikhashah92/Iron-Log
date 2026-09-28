@@ -13,7 +13,7 @@ import { startRest } from './timer';
 import { choose, confirm, menu, notify } from './io';
 import { ExArt, openExercise } from './components';
 import { Button, Card, selectAll, T } from './ui';
-import { condensed, mono, radius, space } from './theme';
+import { sans, radius, space } from './theme';
 
 /** Apply a change to one workout, always to its latest stored version. */
 export function useEditWorkout(id: string) {
@@ -106,7 +106,7 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               <ExArt id={e.exerciseId} size={36} />
               <Pressable accessibilityRole="button" accessibilityLabel={`${ex.name}: form and history`} onPress={() => openExercise(e.exerciseId)} style={{ flex: 1 }}>
-                <T numberOfLines={2} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 20 }} color={c.accent}>{ex.name}</T>
+                <T numberOfLines={2} style={{ fontFamily: sans, fontWeight: '600', fontSize: 20 }} color={c.accent}>{ex.name}</T>
               </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel={`${ex.name} options`} onPress={actions} hitSlop={6} style={st.more}>
                 <Ionicons name="ellipsis-horizontal" size={20} color={c.text} />
@@ -168,7 +168,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
         return (
           <View key={j} style={[st.row, { backgroundColor: bg, borderRadius: radius.sm }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Set ${labels[j]}: change type or delete`} onPress={() => setMenu(j)} style={st.setCol}>
-              <T style={{ fontFamily: mono, fontWeight: '600', textAlign: 'center', color: s.kind === 'W' ? c.warnText : s.kind === 'D' ? c.accent : c.text }}>{labels[j]}</T>
+              <T style={{ fontFamily: sans, fontWeight: '600', textAlign: 'center', color: s.kind === 'W' ? c.warnText : s.kind === 'D' ? c.accent : c.text }}>{labels[j]}</T>
             </Pressable>
             <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex)}</T>
             {yoga ? (
@@ -195,7 +195,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
             )}
             {live && (
               <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${labels[j]} done`} onPress={() => tick(j)}
-                style={[st.tick, { backgroundColor: done ? c.good : c.chip, borderRadius: radius.sm }]}>
+                style={[st.tick, { backgroundColor: done ? c.brand : c.chip, borderRadius: radius.sm }]}>
                 <Ionicons name="checkmark" size={20} color={done ? c.onAccent : c.muted} />
               </Pressable>
             )}
@@ -232,7 +232,7 @@ const st = StyleSheet.create({
   setCol: { width: 30, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   prevCol: { flex: 1.3, minWidth: 0 },
   cell: { flex: 1, minWidth: 0 }, // minWidth: web inputs otherwise refuse to shrink below ~20 characters
-  input: { minHeight: 44, borderWidth: 1.5, borderRadius: radius.sm, textAlign: 'center', fontFamily: mono, fontSize: 18, fontWeight: '500' },
+  input: { minHeight: 44, borderWidth: 1.5, borderRadius: radius.sm, textAlign: 'center', fontFamily: sans, fontSize: 18, fontWeight: '500' },
   tick: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   more: { minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
 });

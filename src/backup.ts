@@ -1,13 +1,14 @@
 // Pure backup logic (no platform I/O) so it can be unit tested with node --test.
 import {
-  isRealDay, MAX_R, MAX_W, MEASURES, SCHEMA_VERSION, WEIGHT_TYPES, imgKey, timeOfDayName,
+  isRealDay, MAX_R, MAX_W, MEASURES, SCHEMA_VERSION, WEIGHT_TYPES, timeOfDayName,
   type CustomExercise, type Images, type Log, type SetRow, type Template, type WeighIn, type Workout,
 } from './model.ts';
 import { BUILT_IN } from './exercises.ts';
 import { STRONG_BUILT_IN } from './strong.ts';
 
-export const BACKUP_APP = 'ironlog';
-export const LEGACY_APP = 'ironlog-legacy';
+export const BACKUP_APP = 'uplift';
+/** Backups made before the rename (Uplift) still restore. */
+const BACKUP_APPS = new Set([BACKUP_APP, 'ironlog']);
 export const MAX_IMPORT_BYTES = 60 * 1024 * 1024;
 
 /** Compact form used for on-device storage; parseBackup reads both. Photos are stored separately. */
@@ -32,10 +33,10 @@ const isPhoto = (v: unknown): v is string => isStr(v, 2_000_000) && /^data:image
  * Throws Error with a human-readable message on the first problem found.
  */
 export function parseBackup(text: string): { log: Log; images: Images } {
-  if (text.length > MAX_IMPORT_BYTES) throw new Error('File is too large to be an Iron Log backup.');
+  if (text.length > MAX_IMPORT_BYTES) throw new Error('File is too large to be an Uplift backup.');
   let raw: any;
   try { raw = JSON.parse(text); } catch { throw new Error('This file is not valid JSON.'); }
-  if (!raw || typeof raw !== 'object' || raw.app !== BACKUP_APP) throw new Error('This is not an Iron Log backup file.');
+  if (!raw || typeof raw !== 'object' || !BACKUP_APPS.has(raw.app)) throw new Error('This is not an Uplift backup file.');
   if (!Number.isInteger(raw.schemaVersion) || raw.schemaVersion < 1) throw new Error('Unknown backup version.');
   if (raw.schemaVersion > SCHEMA_VERSION) throw new Error('This backup is from a newer version of the app. Please update the app first.');
   if (raw.schemaVersion === 1) raw = fromV1(raw);
@@ -233,53 +234,6 @@ export function parseImages(v: unknown, pids?: Set<string>): Images {
   return out;
 }
 
-/**
- * The old Firestore app's data, as the legacy page dumps it: every profile with its raw subcollections.
- * `{ app: 'ironlog-legacy', prefs: {rest, theme, bw}, profiles: { [id]: { name, ts, logs, sessions, exercises, exImg, favorites, templates } } }`
- * The result goes through parseBackup, so nothing unvalidated gets in.
- */
-export function fromLegacy(text: string, now = Date.now()): { log: Log; images: Images } {
-  let raw: any;
-  try { raw = JSON.parse(text); } catch { throw new Error('The old Iron Log data could not be read.'); }
-  if (raw?.app !== LEGACY_APP || !raw.profiles || typeof raw.profiles !== 'object') throw new Error('This is not data from the old Iron Log.');
-  const obj = (v: any): Record<string, any> => (v && typeof v === 'object' ? v : {});
-  const prefs = obj(raw.prefs);
-  const log: any = { app: BACKUP_APP, schemaVersion: 1, profiles: [], exercises: [], favorites: [], templates: [], sessions: [], entries: [] };
-  const images: Images = {};
-  const pids = Object.keys(raw.profiles);
-  for (const pid of pids) {
-    const p = obj(raw.profiles[pid]);
-    log.profiles.push({ id: pid, name: String(p.name ?? "").trim().slice(0, 40) || "Me", createdAt: time(p.ts),
-      // Bodyweight was one device setting; it now belongs to each person. Give it to the first.
-      bodyweight: pid === pids[0] && Number.isFinite(+prefs.bw) ? +prefs.bw : 0 });
-    // Keep what the old app itself would show; tidy what it tolerated (it never validated).
-    for (const [id, e] of Object.entries(obj(p.exercises))) if (isName(e?.name))
-      log.exercises.push({ ...e, id, profileId: pid, equip: isStr(e.equip, 60) ? e.equip : '', group: isStr(e.group, 40) && e.group ? e.group : 'Other',
-        weightType: TYPES.has(e.weightType) ? e.weightType : 'barbell', updatedAt: time(e.ts) });
-    for (const [id, f] of Object.entries(obj(p.favorites))) log.favorites.push({ profileId: pid, exerciseId: id, at: time(f?.ts) });
-    for (const [id, t] of Object.entries(obj(p.templates))) if (isName(t?.name, 60))
-      log.templates.push({ id, profileId: pid, name: t.name, exerciseIds: t.exerciseIds, updatedAt: time(t.ts) });
-    for (const s of Object.values(obj(p.sessions))) if (isRealDay(s?.date))
-      log.sessions.push({ ...s, profileId: pid, exerciseIds: s.exerciseIds ?? [], updatedAt: time(s.ts) });
-    for (const e of Object.values(obj(p.logs))) {
-      if (!isRealDay(e?.date) || !isId(e.exerciseId)) continue;
-      // The old app only ever wrote numbers, but its parseFloat/parseInt could leave NaN in older data.
-      const sets = (Array.isArray(e.sets) ? e.sets : []).map((s: any) => ({
-        w: Number.isFinite(s?.w) ? Math.max(-MAX_W, Math.min(MAX_W, s.w)) : 0,
-        r: Number.isInteger(s?.r) ? Math.max(0, Math.min(MAX_R, s.r)) : 0,
-      })).slice(0, 200);
-      log.entries.push({ profileId: pid, date: e.date, exerciseId: e.exerciseId, sets, updatedAt: time(e.ts) || now });
-    }
-    for (const [id, x] of Object.entries(obj(p.exImg))) if (isPhoto(x?.img)) images[imgKey(pid, id)] = x.img;
-  }
-  log.settings = {
-    theme: prefs.theme === 'light' || prefs.theme === 'dark' ? prefs.theme : 'system',
-    restSecs: Number.isInteger(prefs.rest) ? prefs.rest : 90,
-    currentProfileId: typeof raw.currentProfileId === 'string' ? raw.currentProfileId : pids[0],
-  };
-  const out = parseBackup(JSON.stringify(log));
-  return { log: out.log, images };
-}
 
 /** Escape one CSV cell; neutralise spreadsheet formula injection (=, +, -, @, tab, CR). */
 export function csvCell(v: string | number): string {

@@ -5,7 +5,7 @@ import { useBackup } from '../backupActions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { addDays, GENDERS, newLog, putProfile, today, type Gender } from '../model';
 import { DateField } from '../DateField';
-import { BASE, hadOldApp, isIOS, isStandalone } from '../pwa';
+import { isIOS, isStandalone } from '../pwa';
 import { InstallSteps } from '../components';
 import { BrandMark, Button, Card, Chip, Field, Gap, Screen, T } from '../ui';
 import { space } from '../theme';
@@ -19,7 +19,6 @@ export default function Welcome() {
   const [dob, setDob] = useState('');
   const [gender, setGender] = useState<Gender>();
   const [busy, setBusy] = useState(false);
-  const old = hadOldApp();
   const [how, setHow] = useState(false);
   // iPhone: the Home Screen app has its own storage, so the best time to add it is before logging anything here.
   const iosBrowser = isIOS() && !isStandalone();
@@ -36,18 +35,8 @@ export default function Welcome() {
       <View style={{ minHeight: 520, justifyContent: 'center', paddingVertical: space.xxl }}>
         <BrandMark size={44} />
         <Gap h={space.sm} />
-        <T style={{ color: c.muted }}>Your strength log. Exercises, sets, and progress.</T>
+        <T style={{ color: c.muted }}>Your training log: lifts, yoga, runs and your progress.</T>
         <Gap h={space.xl} />
-        {old && (
-          <>
-            <Card style={{ gap: space.sm, borderColor: c.accent }}>
-              <T v="title">Used Iron Log before?</T>
-              <T v="small">Bring your workouts over from the old app. Afterwards you can delete the cloud copy so nothing is kept online.</T>
-              <Button title="Bring my data over" icon="arrow-forward" onPress={() => { window.location.href = `${BASE}legacy/#move`; }} />
-            </Card>
-            <Gap />
-          </>
-        )}
         {iosBrowser && (
           <>
             <Card style={{ gap: space.sm }}>
@@ -84,7 +73,7 @@ export default function Welcome() {
           </View>
         </Card>
         <Gap h={space.lg} />
-        <Button title="Get started" onPress={go} disabled={busy} kind={old ? 'secondary' : 'primary'} />
+        <Button title="Get started" onPress={go} disabled={busy} />
         <Gap h={space.sm} />
         <Button title="Restore from a backup" kind="ghost" onPress={restore} />
         <Gap h={space.xl} />

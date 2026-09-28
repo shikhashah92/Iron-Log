@@ -1,18 +1,17 @@
 {
   "expo": {
-    "name": "Iron Log",
-    "slug": "iron-log",
-    "scheme": "ironlog",
+    "name": "Uplift",
+    "slug": "uplift",
+    "scheme": "uplift",
     "version": "2.0.0",
     "userInterfaceStyle": "automatic",
     "web": {
       "output": "single",
       "favicon": "./assets/favicon.png",
-      "name": "Iron Log",
-      "shortName": "Iron Log",
-      "backgroundColor": "#e7e4de"
+      "name": "Uplift",
+      "shortName": "Uplift",
+      "backgroundColor": "#F7F7F5"
     },
-    "experiments": { "baseUrl": "/Iron-Log" },
     "plugins": ["expo-router", "expo-font"]
   }
 }

@@ -6,7 +6,7 @@ import {
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
   setValue, startWorkout, templateFrom, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
-import { csvCell, fromLegacy, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
+import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
 import { BUILT_IN } from '../src/exercises.ts';
 
@@ -153,7 +153,8 @@ test('parseBackup: round trip (with a workout in progress), and bad files are re
 
   const bad = (mut: (x: any) => void) => { const x = JSON.parse(serialize(l)); mut(x); return () => parseBackup(JSON.stringify(x)); };
   assert.throws(() => parseBackup('nope'), /not valid JSON/);
-  assert.throws(() => parseBackup('{"app":"ledger"}'), /not an Iron Log backup/);
+  assert.throws(() => parseBackup('{"app":"ledger"}'), /not an Uplift backup/);
+  assert.equal(parseBackup(serialize(newLog('Asha')).replace('"app":"uplift"', '"app":"ironlog"')).log.profiles[0].name, 'Asha', 'Iron Log backups still restore');
   assert.throws(bad((x) => { x.schemaVersion = 99; }), /newer version/);
   assert.throws(bad((x) => { x.workouts[0].exercises[0].sets[0].w = 'heavy'; }), /workout #1/);
   assert.throws(bad((x) => { x.workouts[0].date = '2026-02-31'; }), /workout #1/);
@@ -199,43 +200,6 @@ test('locked backups: encrypt, decrypt, wrong passphrase', async () => {
   await assert.rejects(decryptEnvelope(file, 'wrong'), /does not open/);
 });
 
-test('fromLegacy: maps the old Firestore layout, keeps profiles apart, tidies bad docs', () => {
-  const dump = {
-    app: 'ironlog-legacy', currentProfileId: 'p_b', prefs: { rest: 120, theme: 'dark', bw: 72 },
-    profiles: {
-      p_a: {
-        name: 'Asha', ts: 100,
-        logs: {
-          [`${D1}_${bench}`]: { exerciseId: bench, date: D1, sets: [{ w: 60, r: 8 }, { w: null, r: 5 }], ts: 200 },
-          [`${D2}_u_1`]: { exerciseId: 'u_1', date: D2, sets: [], ts: 300 },
-          junk: { date: 'soon' },
-        },
-        sessions: { [D1]: { date: D1, exerciseIds: [bench], startedAt: 1000, endedAt: 500, feeling: 'Easy', ts: 5 } },
-        exercises: { u_1: { name: 'Landmine', group: 'Shoulders', equip: 'Landmine', weightType: 'rope?', metric: 'secs', pattern: 'neutral', setup: [], exec: [], avoid: [], ts: 9 }, u_2: { group: 'Legs' } },
-        exImg: { [bench]: { img: 'data:image/jpeg;base64,AAAA', ts: 1 }, x: { img: 'http://evil' } },
-        favorites: { [bench]: { ts: 7 } },
-        templates: { t_1: { name: 'Push', exerciseIds: [bench, 'push-up'], ts: 8 }, t_2: { exerciseIds: [] } },
-      },
-      p_b: { name: '  ', ts: 101, logs: { [`${D1}_squat`]: { exerciseId: 'squat', date: D1, sets: [{ w: 100, r: 5 }] } } },
-    },
-  };
-  const { log, images } = fromLegacy(JSON.stringify(dump), 999);
-  assert.deepEqual(log.profiles.map((p) => [p.id, p.name, p.bodyweight]), [['p_a', 'Asha', 72], ['p_b', 'Me', 0]]);
-  assert.equal(log.settings.currentProfileId, 'p_b');
-  assert.equal(log.settings.restSecs, 120);
-  assert.equal(log.settings.theme, 'dark');
-  assert.deepEqual(log.workouts.map((w) => [w.profileId, w.exercises.map((e) => [e.exerciseId, e.sets])]),
-    [['p_a', [[bench, [{ w: 60, r: 8 }, { w: 0, r: 5 }]]]], ['p_b', [['squat', [{ w: 100, r: 5 }]]]]]);
-  assert.equal(log.workouts.find((w) => w.profileId === 'p_b')!.updatedAt, 999);
-  assert.deepEqual(log.exercises.map((e) => [e.id, e.weightType, e.metric]), [['u_1', 'barbell', 'secs']]);
-  assert.deepEqual(log.templates.map((t) => [t.name, t.exercises.length]), [['Push', 2]]);
-  const w = log.workouts[0];
-  assert.equal(w.endedAt, undefined, 'an end before the start is dropped');
-  assert.equal(w.feeling, 'Easy');
-  assert.deepEqual(images, { [`p_a:${bench}`]: 'data:image/jpeg;base64,AAAA' });
-  assert.throws(() => fromLegacy('{"app":"ironlog"}'), /not data from the old Iron Log/);
-});
-
 test('backup nudge: only when something changed and the last backup is over a week old', () => {
   const day = 86400_000;
   let l = did(newLog(), D1, [[bench, [[50, 5]]]]);
@@ -271,11 +235,12 @@ test('built-in library: unique ids; strength has cues and drawings; activities h
   assert.ok(existsSync('public/illustrations/LICENSE.md'), 'the CC BY-SA credit ships with the images');
 });
 
-test('built app: served from /Iron-Log/, no third-party requests', { skip: !process.env.REQUIRE_DIST && !existsSync('dist/index.html') }, () => {
+test('built app: served from the domain root, no third-party requests', { skip: !process.env.REQUIRE_DIST && !existsSync('dist/index.html') }, () => {
   const html = readFileSync('dist/index.html', 'utf8');
-  assert.match(html, /src="\/Iron-Log\/_expo\/static\/js\/web\/[^"]+\.js"/);
+  assert.match(html, /src="\/_expo\/static\/js\/web\/[^"]+\.js"/);
   assert.ok(!/https?:\/\/(?!www\.w3\.org)/.test(html.replace(/<meta[^>]*>/g, '')), 'no external URLs in the shell');
-  assert.ok(existsSync('dist/sw.js') && existsSync('dist/fonts/IBMPlexMono-400.woff2') && existsSync('dist/legacy/index.html'));
+  assert.ok(existsSync('dist/sw.js') && existsSync('dist/fonts/Archivo-latin.woff2') && existsSync('dist/brand/mark.svg'));
+  assert.ok(!existsSync('dist/legacy'), 'no leftover Firebase page');
 });
 
 test('Strong import: one workout per Strong workout, warm-up/drop sets, lb, replaces an earlier import', async () => {
