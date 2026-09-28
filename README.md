@@ -1,114 +1,59 @@
 # Iron Log
 
-A personal strength-training exercise library and weight log — installable on your
-phone as a home-screen app, synced across devices, and free to run forever.
+A private strength-training log: an exercise library with form cues, set-by-set logging, a rest timer, templates,
+several people on one phone, and progress charts. It installs to your phone's home screen and works offline.
 
-**Stack:** plain HTML/CSS/JS (no build step), Firebase Authentication + Firestore
-for sign-in and sync (free "Spark" plan), GitHub Pages for hosting (free for public
-repos). Total monthly cost: **$0**, for personal-scale use.
+**Your data stays on your phone.** There's no account and no server, and nothing is uploaded. Backups are files you
+save yourself, to Files, iCloud Drive, Google Drive or email, and they can be locked with a passphrase
+(AES-256-GCM, encrypted on the phone). To move to a new phone, save a backup on the old one and restore it on the new one.
 
----
+**Stack:** Expo + React Native Web + TypeScript. It's exported as a static web app and hosted on GitHub Pages at
+`/Iron-Log/`. The architecture is the same as [Munshi](../expense-tracker): IndexedDB storage behind one serial
+write queue, validated load and restore, undo history (the last 10 versions), and a service worker for offline use.
 
-## 1. Create your Firebase project (free)
-
-1. Go to <https://console.firebase.google.com> and sign in with your Google
-   account (shikhashah92@gmail.com or whichever you prefer).
-2. **Add project** → name it e.g. `iron-log` → you can disable Google Analytics
-   (not needed) → **Create project**.
-3. On the project overview page, click the **`</>` (Web)** icon to register a web
-   app → nickname it `iron-log` → **do not** check "Also set up Firebase
-   Hosting" (we're using GitHub Pages instead) → **Register app**.
-4. Firebase shows a `firebaseConfig` object like:
-   ```js
-   const firebaseConfig = {
-     apiKey: "AIza...",
-     authDomain: "iron-log-xxxxx.firebaseapp.com",
-     projectId: "iron-log-xxxxx",
-     storageBucket: "iron-log-xxxxx.appspot.com",
-     messagingSenderId: "...",
-     appId: "..."
-   };
-   ```
-   Copy those six values into **`firebase-config.js`** in this folder, replacing
-   the `"REPLACE_ME"` placeholders. (This key is not secret — Firebase web API
-   keys only identify your project; your data is protected by the security
-   rules below, not by hiding this file.)
-5. Left sidebar → **Build → Authentication** → **Get started** → under
-   **Sign-in method**, enable **Google** → pick a support email → **Save**.
-6. Left sidebar → **Build → Firestore Database** → **Create database** →
-   **Start in production mode** → pick a region close to you (e.g.
-   `asia-south1 (Mumbai)`) → **Enable**.
-7. In Firestore, open the **Rules** tab, replace the contents with the rules
-   below, and click **Publish**:
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /users/{uid}/{document=**} {
-         allow read, write: if request.auth != null && request.auth.uid == uid;
-       }
-     }
-   }
-   ```
-   This means: only you, signed in, can read or write your own data — nobody
-   else, even with the project config, can see or change it.
-
-## 2. Put it on GitHub Pages (free)
-
-1. Create a new **public** repository on GitHub, e.g. `iron-log`. (Public is
-   fine — the code has no secrets in it; your workout *data* lives in
-   Firestore behind the rules above, not in this repo.)
-2. From this folder:
-   ```bash
-   git remote add origin https://github.com/<your-username>/iron-log.git
-   git branch -M main
-   git push -u origin main
-   ```
-3. On GitHub: repo → **Settings → Pages** → Source: **Deploy from a branch** →
-   Branch: `main`, folder: `/ (root)` → **Save**.
-4. Wait about a minute, then your app is live at:
-   `https://<your-username>.github.io/iron-log/`
-5. Back in Firebase console → **Authentication → Settings → Authorized
-   domains** → **Add domain** → add `<your-username>.github.io`. (Without
-   this step, Google sign-in will be blocked on the live site.)
-
-## 3. Install it on your iPhone
-
-1. Open `https://<your-username>.github.io/iron-log/` in **Safari** (must be
-   Safari, not Chrome, for this to work on iOS).
-2. Sign in with Google when prompted.
-3. Tap the **Share** icon → **Add to Home Screen** → **Add**.
-4. You now have a full-screen "Iron Log" icon. Sign in once per device with
-   the same Google account and your data stays in sync everywhere.
-
-## Updating the app later
+## Develop
 
 ```bash
-# edit index.html / other files, then:
-git add -A
-git commit -m "describe the change"
-git push
+npm ci
+npx expo start --web     # dev server
+npm run check            # the release gate: typecheck, lint, build, tests
 ```
-GitHub Pages redeploys automatically within about a minute. Existing
-home-screen icons keep pointing at the same URL — nobody needs to reinstall.
 
-## What's free, and for how long
+## Deploy
 
-- **Firebase Spark plan**: 1 GiB Firestore storage, 50k reads / 20k writes /
-  20k deletes per day, unlimited Authentication users — all far beyond what
-  one person logging workouts will ever use. No credit card required, no
-  trial period that expires.
-- **GitHub Pages**: free indefinitely for public repositories on a personal
-  GitHub account.
+Every push to `main` runs `.github/workflows/deploy.yml`: `npm run check`, then publish `dist/` to GitHub Pages.
+The workflow copies `index.html` to `404.html` so deep links work. **One-time setup:** repo **Settings → Pages →
+Source: GitHub Actions**.
 
-If Google ever changes Firebase's free tier, the only cost driver here would
-be Firestore reads/writes, and this app's usage (a handful of writes per gym
-session) is nowhere near the free quota.
+If the repo is renamed, change `experiments.baseUrl` in `app.json` and the path check in `tests/core.test.ts`.
+
+## Install on iPhone
+
+Open the site in **Safari**, tap **Share → Add to Home Screen**. Installing matters. Safari may clear a website's
+storage after 7 days without a visit, but not for a home-screen app. Iron Log also reminds you weekly to save a backup.
+
+## Moving from the old (Firebase) Iron Log
+
+The old app is kept at `/Iron-Log/legacy/` only so people can move their data over:
+
+1. The new app spots data left behind by the old one and offers **Bring my data over**. You can also reach it from Settings.
+2. The old page signs you in with Google, reads every profile from Firestore, and leaves the data in this browser's
+   IndexedDB (same origin). Then it opens the new app.
+3. The new app validates the data, asks you to confirm, and imports it. Anything already on the phone goes to Undo history first.
+4. The new app then offers to **delete the cloud copy**. The old page refuses to delete until the new app has the data.
+   After deleting, it signs you out and clears its own local data.
+
+Once everyone has moved, delete `public/legacy/` and the Firebase project (`iron-log-975eb`).
 
 ## Files
 
-- `index.html` — the whole app (UI, exercise library, logic)
-- `firebase-config.js` — your project's public config (fill this in — step 1)
-- `manifest.json` — PWA metadata (name, icons, colors) for "Add to Home Screen"
-- `sw.js` — a small service worker that caches the app shell for offline launch
-- `icons/` — app icons at the sizes iOS/Android expect
+- `src/model.ts`: the data model and every change to it, as pure functions
+- `src/exercises.ts`: the built-in library (65 exercises)
+- `public/illustrations/`: 3-frame drawings for each built-in exercise, from
+  [Workout Guide](https://github.com/bryllim/workout-guide) / Everkinetic, **CC BY-SA 4.0** (credit in `LICENSE.md` there
+  and in Settings). Re-import with `node scripts/import-illustrations.mjs <workout-guide checkout>`.
+- `src/backup.ts`: backup validation, CSV export, and conversion from the old app's data
+- `src/store.tsx`: the IndexedDB write queue and undo snapshots
+- `src/app/`: screens (expo-router)
+- `public/sw.js`: the offline service worker
+- `tests/`: `node --test`

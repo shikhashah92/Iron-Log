@@ -9,7 +9,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Iron Log">
-<link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,7 +196,7 @@
 <div class="signin" id="signin">
   <div class="signin-card">
     <h1><span class="mk" style="color:var(--accent-ink)">Iron</span> Log</h1>
-    <p>Sign in with Google to sync your workouts across every device.</p>
+    <p>Sign in with the Google account you used before, to move your workouts to the new Iron Log or delete the cloud copy.</p>
     <button class="g-btn" id="googleSignIn" type="button">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
       Continue with Google
@@ -681,11 +680,77 @@ if(window.firebase && firebase.apps.length){
   }
   window.__ironlogProfiles = {select:selectProfile, add:addProfile, put:putProfile, del:delProfile};
 
+  /* ---- Moving to the new, on-device app (../) ----
+     move: read every profile's data from Firestore, leave it in this browser's IndexedDB (same origin as the new app),
+     then open the new app, which validates and imports it. wipe: once the new app has the data, delete the cloud copy. */
+  var SUBS = ["logs","sessions","exercises","exImg","favorites","templates"];
+  function idb(){ return new Promise(function(ok,fail){
+    var r=indexedDB.open("ironlog",1);
+    r.onupgradeneeded=function(){ r.result.createObjectStore("kv"); };
+    r.onsuccess=function(){ ok(r.result); }; r.onerror=function(){ fail(r.error); };
+  }); }
+  function idbDo(mode,fn){ return idb().then(function(d){ return new Promise(function(ok,fail){
+    var tx=d.transaction("kv",mode), req=fn(tx.objectStore("kv"));
+    tx.oncomplete=function(){ ok(req.result); }; tx.onerror=tx.onabort=function(){ fail(tx.error||req.error); };
+  }); }); }
+  function dumpAll(){
+    return userRoot().collection("profiles").get().then(function(ps){
+      var out={app:"ironlog-legacy", currentProfileId:getPlain(LS_CURPROF), prefs:{rest:prefs.rest, theme:prefs.theme, bw:prefs.bw}, profiles:{}};
+      return Promise.all(ps.docs.map(function(pd){
+        var p=Object.assign({}, pd.data()); out.profiles[pd.id]=p;
+        return Promise.all(SUBS.map(function(col){
+          return pd.ref.collection(col).get().then(function(snap){ p[col]={}; snap.docs.forEach(function(d){ p[col][d.id]=d.data(); }); });
+        }));
+      })).then(function(){ return out; });
+    });
+  }
+  function moveData(){
+    toast("Reading your data…");
+    dumpAll().then(function(out){
+      var n=Object.keys(out.profiles).length;
+      if(!n){ toast("Nothing to move yet"); return; }
+      return idbDo("readwrite",function(s){ return s.put(JSON.stringify(out),"handoff:v1"); }).then(function(){ location.href="../"; });
+    }).catch(function(e){ alert("Couldn't read your data: "+e.message+"\n\nCheck your connection and try again. Nothing was changed."); });
+  }
+  function deleteCol(ref){
+    return ref.get().then(function(snap){
+      var chunks=[]; for(var i=0;i<snap.docs.length;i+=400) chunks.push(snap.docs.slice(i,i+400));
+      return Promise.all(chunks.map(function(ch){ var b=firestore.batch(); ch.forEach(function(d){ b.delete(d.ref); }); return b.commit(); }));
+    });
+  }
+  function wipeCloud(){
+    // Only once the new app has its own copy: never leave someone with no copy at all.
+    Promise.all([idbDo("readonly",function(s){ return s.get("log:v1"); }), idbDo("readonly",function(s){ return s.get("handoff:v1"); })]).then(function(r){
+      if(!r[0] || r[1]){ alert("Move your data to the new app first. The cloud copy is only deleted once the new app has everything."); return; }
+      if(!confirm("Delete everything Iron Log kept in the cloud (Firebase) for "+(currentUser.email||"this account")+"?\n\nYour data on this phone, in the new app, is not affected. This cannot be undone.")) return;
+      toast("Deleting the cloud copy…");
+      var root=userRoot();
+      return root.collection("profiles").get().then(function(ps){
+        return Promise.all(ps.docs.map(function(pd){
+          return Promise.all(SUBS.map(function(col){ return deleteCol(pd.ref.collection(col)); })).then(function(){ return pd.ref.delete(); });
+        }));
+      }).then(function(){
+        // pre-profiles data, if any was left at the top level
+        return Promise.all(["logs","sessions","exercises","exImg"].map(function(col){ return deleteCol(root.collection(col)); }));
+      }).then(function(){
+        teardownAcct(); teardownProfile();
+        Object.keys(localStorage).forEach(function(k){ if(k.indexOf("ironlog.")===0) localStorage.removeItem(k); });
+        return auth.signOut();
+      }).then(function(){
+        document.getElementById("signin").innerHTML='<div class="signin-card"><h1><span class="mk" style="color:var(--accent-ink)">Iron</span> Log</h1>'+
+          '<p>Done. Nothing is kept in the cloud any more. Your workouts are on this phone, in the new app.</p><a class="btn" href="../">Open Iron Log</a></div>';
+        showSignedIn(false);
+      });
+    }).catch(function(e){ alert("Couldn't finish deleting: "+e.message+"\n\nTry again; whatever was deleted stays deleted."); });
+  }
+  window.__ironlogMove = {move:moveData, wipe:wipeCloud};
+
   auth.onAuthStateChanged(function(user){
     teardownAcct(); teardownProfile();
     if(!user){ db=null; currentUid=null; currentUser=null; currentProfileId=null; profiles={}; primed=false; showSignedIn(false); return; }
     currentUser=user; currentUid=user.uid;
     showSignedIn(true, "Signed in as "+(user.displayName||user.email||"you"));
+    var act=location.hash.slice(1); if(act==="move"||act==="wipe"){ history.replaceState(null,"",location.pathname); setTimeout(act==="move"?moveData:wipeCloud,0); }
 
     acctUnsub.push(userRoot().collection("profiles").onSnapshot(function(s){
       const nx={}; s.docs.forEach(function(doc){const v=doc.data(); if(v&&v.name) nx[doc.id]={name:v.name,ts:v.ts};});
@@ -908,7 +973,10 @@ screens.home=function(){
     }).join("")+'</div>':
     '<div class="card"><h2>Recently used</h2><p class="empty">Your recent exercises will show up here once you start logging.</p></div>';
 
-  return '<div class="apphead"><h1><span class="mk">Iron</span> Log</h1>'+
+  return '<div class="card lift" style="border-color:var(--accent)"><h2 style="color:var(--accent-ink)">Iron Log has moved</h2>'+
+    '<p class="small" style="margin:6px 0 10px">The new Iron Log keeps your workouts on this phone only, with no account and nothing in the cloud. Move everything over in one tap, every profile included.</p>'+
+    '<button class="btn" style="width:100%" data-act="move-data">Move my data to the new app</button></div>'+
+    '<div class="apphead"><h1><span class="mk">Iron</span> Log</h1>'+
     '<span class="row" style="gap:6px"><button class="btn ghost sm" data-act="open-profiles" title="Switch profile">'+esc(profileName(currentProfileId))+'</button>'+
     '<button class="iconbtn" data-act="theme" title="Theme">◐</button>'+
     '<button class="iconbtn" data-act="signout" title="Sign out">⏻</button></span></div>'+
@@ -1290,6 +1358,7 @@ document.addEventListener("click",function(ev){
   const a=t.getAttribute("data-act"), id=t.getAttribute("data-id");
   switch(a){
     case "nav": go(t.getAttribute("data-screen")); break;
+    case "move-data": if(window.__ironlogMove) window.__ironlogMove.move(); break;
     case "go-workout": go("workout"); break;
     case "theme":
       prefs.theme = prefs.theme==="auto"?"light":prefs.theme==="light"?"dark":"auto";
@@ -1486,9 +1555,6 @@ function toast(m){const el=document.getElementById("toast");el.textContent=m;el.
 /* ============ BOOT ============ */
 applyTheme();
 if(["home","exercises","workout","history"].indexOf(prefs.screen)<0) prefs.screen="home";
-if("serviceWorker" in navigator){
-  window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
-}
 </script>
 </body>
 </html>
