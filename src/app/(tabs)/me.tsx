@@ -3,13 +3,13 @@ import { Image, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  bmi, bmiLabel, fmtHeight, fmtLength, fmtWeight, fromKg, healthyRange, googleCalendarURL, planCurve, planRate, planStatus, reminderFile, reminderICS,
+  bmi, bmiLabel, fmtHeight, fmtLength, fmtWeight, fromKg, healthyRange, googleCalendarURL, planCurve, planRate, planStatus, reminderFile, reminderICS, reminderStart,
   trendChange, trendOf, weighInDue, type WeighEvery,
 } from '../../body';
-import { ageOn, dateWithYear, GENDERS, GOALS, imgKey, MEASURES, putProfile, today } from '../../model';
+import { ageOn, dateWithYear, dayKey, GENDERS, GOALS, imgKey, MEASURES, putProfile, today } from '../../model';
 import { useLog, useTheme } from '../../store';
 import { notify, saveFile } from '../../io';
-import { BASE, isAndroid, isIOS, isStandalone } from '../../pwa';
+import { BASE, isAndroid, isIOS } from '../../pwa';
 import { Empty, RANGES, rangeLabel, rangeStart, Section, Stat, TimeChart, type Range } from '../../components';
 import { Button, Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { font, mono, space } from '../../theme';
@@ -41,9 +41,15 @@ export default function Me() {
   async function addReminder() {
     if (every === 'off') return notify('Reminders are off', 'Pick how often first.');
     // iPhone: Safari opens a hosted .ics as "Add to Calendar". Android: Google Calendar, pre-filled. Elsewhere: a file.
-    if (isIOS()) { const url = new URL(`${BASE}${reminderFile(every)}`, location.origin).href; return isStandalone() ? void window.open(url) : void (location.href = url); }
-    if (isAndroid()) return void window.open(googleCalendarURL(every, new Date()), '_blank');
-    try { await saveFile('iron-log-weigh-in.ics', reminderICS(every, new Date()), 'text/calendar'); }
+    const start = reminderStart(every, new Date());
+    if (isIOS()) {
+      // The app's own service worker answers this on the phone (starting today); see public/sw.js.
+      const url = new URL(`${BASE}${reminderFile(every)}?day=${dayKey(start).replace(/-/g, '')}`, location.origin).href;
+      location.href = url; // in Safari and in the Home Screen app alike (window.open there shows a blank sheet)
+      return;
+    }
+    if (isAndroid()) return void window.open(googleCalendarURL(every, start), '_blank');
+    try { await saveFile('iron-log-weigh-in.ics', reminderICS(every, start), 'text/calendar'); }
     catch (e) { notify('Could not create the reminder', (e as Error).message); }
   }
 
@@ -132,7 +138,7 @@ export default function Me() {
         <View style={{ paddingVertical: space.sm, gap: space.sm }}>
           <T v="small">Weigh-in reminder</T>
           <Segmented<WeighEvery> value={every} onChange={(weighEvery) => update((l) => putProfile(l, p.id, { weighEvery }))}
-            options={[{ id: 'daily', label: 'Daily' }, { id: '3x', label: '3× a week' }, { id: 'weekly', label: 'Weekly' }, { id: 'off', label: 'Off' }]} />
+            options={[{ id: 'daily', label: 'Daily' }, { id: '3x', label: '3×/week' }, { id: 'weekly', label: 'Weekly' }, { id: 'off', label: 'Off' }]} />
           <T v="small" style={{ fontSize: 12 }}>Iron Log shows “Weigh-in due” on Home. To get a notification too, add a repeating reminder to your calendar.</T>
           <Button title="Add reminder to calendar" icon="calendar-outline" kind="secondary" onPress={addReminder} disabled={every === 'off'} />
         </View>

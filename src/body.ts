@@ -97,6 +97,13 @@ export function reminderICS(every: Exclude<WeighEvery, 'off'>, start: Date, time
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Weigh in', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
 }
 
+/** The first reminder day on or after `from` that the repeat rule includes (calendars count the start day as a reminder too). */
+export function reminderStart(every: Exclude<WeighEvery, 'off'>, from: Date): Date {
+  const days = every === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : every === '3x' ? [1, 3, 5] : [1];
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  while (!days.includes(d.getDay())) d.setDate(d.getDate() + 1);
+  return d;
+}
 const RULE: Record<Exclude<WeighEvery, 'off'>, string> = { daily: 'FREQ=DAILY', '3x': 'FREQ=WEEKLY;BYDAY=MO,WE,FR', weekly: 'FREQ=WEEKLY;BYDAY=MO' };
 /**
  * iPhones: the same event as a file the app hosts (public/reminders/, fixed start in January 2026): Safari opens a

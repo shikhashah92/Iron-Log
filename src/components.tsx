@@ -442,8 +442,8 @@ export function InstallNudge() {
 export function InstallSteps() {
   const { c } = useTheme();
   const steps: [keyof typeof Ionicons.glyphMap, string][] = isIOS()
-    ? [['share-outline', 'Tap Share: the square with an arrow. In Safari on newer iPhones it’s in the ••• menu next to the address bar.'],
-      ['add-circle-outline', 'Scroll down and tap “Add to Home Screen”.'],
+    ? [['menu-outline', 'In Safari, tap the ≡ button at the left of the address bar, then Share. (On older iPhones: the Share button, a square with an arrow.)'],
+      ['add-circle-outline', 'Tap “View More”, then “Add to Home Screen”.'],
       ['checkmark-circle-outline', 'Leave “Open as Web App” on, then tap Add.'],
       ['apps-outline', 'Open Iron Log from your Home Screen from now on.']]
     : [['ellipsis-vertical', 'Tap the ⋮ menu at the top right of Chrome.'],
