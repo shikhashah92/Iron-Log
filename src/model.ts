@@ -37,7 +37,18 @@ export interface Profile {
   height?: number; // cm
   target?: WeightTarget;
   weighEvery?: 'daily' | '3x' | 'weekly' | 'off';
+  /** Optional, from onboarding: never leaves the device. */
+  dob?: string; gender?: Gender; goal?: Goal;
 }
+export type Gender = 'female' | 'male' | 'other';
+export type Goal = 'lose' | 'muscle' | 'strength' | 'fit';
+export const GOALS: { id: Goal; label: string; icon: string }[] = [
+  { id: 'lose', label: 'Lose weight', icon: 'trending-down-outline' }, { id: 'muscle', label: 'Build muscle', icon: 'barbell-outline' },
+  { id: 'strength', label: 'Get stronger', icon: 'flash-outline' }, { id: 'fit', label: 'Stay active', icon: 'walk-outline' },
+];
+export const GENDERS: { id: Gender; label: string }[] = [{ id: 'female', label: 'Female' }, { id: 'male', label: 'Male' }, { id: 'other', label: 'Other' }];
+/** Whole years from a date of birth to a day. */
+export const ageOn = (dob: string, day = today()) => Number(day.slice(0, 4)) - Number(dob.slice(0, 4)) - (day.slice(5) < dob.slice(5) ? 1 : 0);
 /** A target weight by a date. The plan starts from the trend when it was set. */
 export interface WeightTarget { weight: number; date: string; startWeight: number; startDate: string }
 /** One weigh-in (kg, cm). Everything but the weight is optional; a photo is kept with the other photos. */
@@ -78,6 +89,8 @@ export interface Settings {
   backupChoice?: 'file' | 'local';
   /** Units for body weight and measurements (lifts are always kg). */
   units?: { weight: 'kg' | 'lb'; length: 'cm' | 'in' };
+  /** A new person who hasn't seen the second onboarding step (starting point and goal) yet. */
+  setupPending?: true;
 }
 export interface Log {
   schemaVersion: number; profiles: Profile[]; exercises: CustomExercise[]; favorites: Favorite[];
@@ -420,7 +433,7 @@ export const putProfile = (l: Log, id: string, patch: Partial<Omit<Profile, 'id'
   ({ ...l, profiles: l.profiles.map((p) => {
     if (p.id !== id) return p;
     const next = { ...p, ...patch };
-    for (const k of ['height', 'target', 'weighEvery'] as const) if (next[k] === undefined) delete next[k];
+    for (const k of ['height', 'target', 'weighEvery', 'dob', 'gender', 'goal'] as const) if (next[k] === undefined) delete next[k];
     return next;
   }) });
 

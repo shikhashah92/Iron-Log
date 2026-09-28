@@ -10,7 +10,10 @@ import { confirm, notify } from '../io';
 import { BASE, hadOldApp, isIOS, isStandalone, useInstall } from '../pwa';
 import { Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../ui';
 import { goBack } from '../components';
+import { startTour } from '../tour';
 import { space } from '../theme';
+
+export const SUPPORT_EMAIL = 'shikhashah92@gmail.com';
 
 const ago = (ms?: number) => {
   if (!ms) return 'Never';
@@ -32,6 +35,12 @@ export default function Settings() {
   );
   const setSettings = (patch: Partial<S>) => update((l) => ({ ...l, settings: { ...l.settings, ...patch } }));
 
+  function contact() {
+    // Only what's typed here goes out, through your own mail app. Nothing from your log is attached.
+    const body = `\n\n\n—\nIron Log ${Constants.expoConfig?.version ?? ''} · ${navigator.userAgent}`;
+    // location, not window.open: an installed iPhone web app hands mailto: to Mail reliably this way, with no blank tab.
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Iron Log feedback')}&body=${encodeURIComponent(body)}`;
+  }
   async function eraseAll() {
     if (!(await confirm('Erase all data?', `This clears every profile, exercise and workout on this device (${plural(log.workouts.length, 'workout')}). A copy stays in Undo history, so you can still go back.`, 'Erase', true))) return;
     try {
@@ -103,6 +112,28 @@ export default function Settings() {
           </Card>
         </>
       ) : null}
+      <Gap />
+      <T v="label">Privacy</T>
+      <Gap h={space.sm} />
+      <Card style={{ gap: space.sm }}>
+        <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>
+          <Ionicons name="lock-closed-outline" size={20} color={c.accent} />
+          <T style={{ fontWeight: '600' }}>Everything stays on this phone</T>
+        </View>
+        <T v="small" style={{ lineHeight: 20 }}>
+          Iron Log has no account and no server. Your details, workouts, weigh-ins and photos are saved only in this browser on this device. Nothing is synced or uploaded, and there are no ads, analytics or trackers, so nobody else (us included) can see your data.
+        </T>
+        <T v="small" style={{ lineHeight: 20 }}>
+          It only leaves the phone when you choose to: a backup file you save, a CSV you export, or an email you send us. Locked backups are encrypted with your passphrase. Clearing this browser’s site data deletes it, so keep a backup.
+        </T>
+      </Card>
+      <Gap />
+      <T v="label">Help</T>
+      <Gap h={space.sm} />
+      <Card pad={false} style={{ paddingHorizontal: space.lg }}>
+        <Row left={icon('map-outline')} title="App tour" subtitle="A quick walk through each screen" right={chevron} onPress={() => { goBack(); startTour(); }} />
+        <Row left={icon('mail-outline')} title="Contact support" subtitle={`Questions, bugs or ideas: ${SUPPORT_EMAIL}`} right={chevron} onPress={contact} last />
+      </Card>
       <Gap />
       <Card pad={false} style={{ paddingHorizontal: space.lg }}>
         <Row left={icon('trash-outline', c.danger)} title="Erase all data" subtitle="Clear everything here (you can undo it from Undo history)" onPress={eraseAll} last />

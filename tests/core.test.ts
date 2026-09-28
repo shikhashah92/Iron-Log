@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
-  addExercises, addProfile, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
+  addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
   setValue, startWorkout, templateFrom, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
@@ -473,4 +473,18 @@ test('Strong cardio: built-in activities with distance, and version 2 custom car
   assert.deepEqual(up.workouts[0].exercises[0].sets, [{ w: 0, r: 1800 }]);
   assert.deepEqual(up.templates[0].exercises, [{ exerciseId: 'treadmill', sets: 1 }]);
   assert.deepEqual(up.exercises.map((e) => e.id), ['u_strong_kettlebell-raise'], 'strength customs stay');
+});
+
+test('onboarding details: kept through a backup, junk dropped, age by birthday', () => {
+  const l = newLog('Asha');
+  const pid = l.profiles[0].id;
+  const on = { ...putProfile(l, pid, { dob: '1992-10-05', gender: 'female', goal: 'lose' }), settings: { ...l.settings, setupPending: true as const } };
+  const back = parseBackup(serialize(on)).log;
+  assert.deepEqual([back.profiles[0].dob, back.profiles[0].gender, back.profiles[0].goal, back.settings.setupPending], ['1992-10-05', 'female', 'lose', true]);
+  const junk = JSON.parse(serialize(on)); Object.assign(junk.profiles[0], { dob: '1992-02-31', gender: 'x', goal: 'win' });
+  const p = parseBackup(JSON.stringify(junk)).log.profiles[0];
+  assert.deepEqual([p.dob, p.gender, p.goal], [undefined, undefined, undefined]);
+  assert.equal(putProfile(on, pid, { gender: undefined }).profiles[0].gender, undefined);
+  assert.equal(ageOn('1992-10-05', '2026-10-04'), 33);
+  assert.equal(ageOn('1992-10-05', '2026-10-05'), 34);
 });

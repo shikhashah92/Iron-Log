@@ -57,7 +57,10 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     return { id: p.id, name: p.name, bodyweight: bw, createdAt: time(p.createdAt),
       ...(Number.isFinite(p.height) && p.height >= 50 && p.height <= 272 ? { height: p.height } : {}),
       ...(target ? { target } : {}),
-      ...(['daily', '3x', 'weekly', 'off'].includes(p.weighEvery) ? { weighEvery: p.weighEvery } : {}) };
+      ...(['daily', '3x', 'weekly', 'off'].includes(p.weighEvery) ? { weighEvery: p.weighEvery } : {}),
+      ...(isRealDay(p.dob) ? { dob: p.dob } : {}),
+      ...(['female', 'male', 'other'].includes(p.gender) ? { gender: p.gender } : {}),
+      ...(['lose', 'muscle', 'strength', 'fit'].includes(p.goal) ? { goal: p.goal } : {}) };
   });
   if (!profiles.length) throw new Error('Backup is damaged: it has no profiles.');
   const pids = new Set<string>(profiles.map((p: any) => p.id));
@@ -127,6 +130,7 @@ export function parseBackup(text: string): { log: Log; images: Images } {
       currentProfileId: pids.has(s.currentProfileId) ? s.currentProfileId : profiles[0].id,
       ...(isTime(s.lastBackupAt) ? { lastBackupAt: s.lastBackupAt } : {}),
       ...(s.backupChoice === 'file' || s.backupChoice === 'local' ? { backupChoice: s.backupChoice } : {}),
+      ...(s.setupPending === true ? { setupPending: true as const } : {}),
       ...(s.units && ['kg', 'lb'].includes(s.units.weight) && ['cm', 'in'].includes(s.units.length) ? { units: { weight: s.units.weight, length: s.units.length } } : {}),
     },
   };

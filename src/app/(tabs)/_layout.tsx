@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { View } from 'react-native';
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../../store';
 import { RestBar, WorkoutBar } from '../../components';
+import { TourOverlay } from '../../tour';
 import { condensed } from '../../theme';
 
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -20,6 +22,9 @@ export default function TabsLayout() {
   const { bottom } = useSafeAreaInsets(); // home-indicator space in the installed app; 0 in a browser tab
   const { log } = useStore();
   const live = !!log?.workouts.some((w) => w.active && w.profileId === log.settings.currentProfileId);
+  // A new person: onboarding's second step (optional), then the tour.
+  const pending = !!log?.settings.setupPending;
+  useEffect(() => { if (pending) router.push({ pathname: '/about', params: { first: '1' } }); }, [pending]);
   return (
     <View style={{ flex: 1 }}>
     <Tabs screenOptions={{
@@ -40,6 +45,7 @@ export default function TabsLayout() {
     </Tabs>
     <WorkoutBar bottom={78 + bottom} />
     <RestBar bottom={(live ? 142 : 78) + bottom} />
+    <TourOverlay inset={bottom} />
     </View>
   );
 }
