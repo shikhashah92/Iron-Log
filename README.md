@@ -47,7 +47,9 @@ Once everyone has moved, delete `public/legacy/` and the Firebase project (`iron
 
 ## Files
 
-- `src/model.ts`: the data model and every change to it, as pure functions
+- `src/model.ts`: the data model and every change to it, as pure functions (workouts, planned and ticked sets)
+- `src/workout.tsx`: the live workout's set table (shared with "Edit workout") and the start / finish flow
+- `src/strong.ts`: import from a Strong CSV export
 - `src/exercises.ts`: the built-in library (65 exercises)
 - `public/illustrations/`: 3-frame drawings for each built-in exercise, from
   [Workout Guide](https://github.com/bryllim/workout-guide) / Everkinetic, **CC BY-SA 4.0** (credit in `LICENSE.md` there

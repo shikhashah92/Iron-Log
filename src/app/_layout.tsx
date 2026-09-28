@@ -84,11 +84,11 @@ function Root() {
         <Stack.Screen name="exercise" options={modal} />
         <Stack.Screen name="edit-exercise" options={modal} />
         <Stack.Screen name="picker" options={modal} />
-        <Stack.Screen name="templates" options={modal} />
         <Stack.Screen name="template" options={modal} />
+        <Stack.Screen name="active" options={modal} />
+        <Stack.Screen name="edit-workout" options={modal} />
         <Stack.Screen name="profiles" options={modal} />
         <Stack.Screen name="feeling" options={modal} />
-        <Stack.Screen name="log" options={modal} />
         <Stack.Screen name="undo" />
       </Stack.Protected>
       <Stack.Protected guard={!log}>

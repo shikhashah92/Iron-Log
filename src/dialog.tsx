@@ -9,8 +9,10 @@ import { radius, space } from './theme';
 interface Req {
   id: number;
   title: string; message?: string; ok: string; cancel?: string; destructive?: boolean;
+  /** A menu: one button per option; resolves to its index (null when closed). */
+  options?: { label: string; destructive?: boolean }[];
   input?: { value: string; placeholder?: string };
-  done: (v: string | boolean | null) => void;
+  done: (v: string | boolean | number | null) => void;
 }
 let queue: Req[] = [];
 let seq = 0;
@@ -22,7 +24,7 @@ function open<T>(r: Omit<Req, 'done' | 'id'>): Promise<T> {
     listeners.forEach((f) => f());
   });
 }
-function close(v: string | boolean | null) {
+function close(v: string | boolean | number | null) {
   const [head, ...rest] = queue;
   queue = rest;
   listeners.forEach((f) => f());
@@ -31,6 +33,9 @@ function close(v: string | boolean | null) {
 
 export const confirmDialog = (title: string, message: string, ok = 'OK', destructive = false) =>
   open<boolean>({ title, message, ok, cancel: 'Cancel', destructive });
+/** A menu of actions (e.g. an exercise's •••). Resolves to the chosen index, or null if closed. */
+export const menuDialog = (title: string, options: { label: string; destructive?: boolean }[]) =>
+  open<number | null>({ title, ok: '', cancel: 'Cancel', options });
 /** Two answers: resolves true for `a`, false for `b` (closing the dialog counts as `b`). */
 export const chooseDialog = (title: string, message: string, a: string, b: string) => open<boolean>({ title, message, ok: a, cancel: b });
 export const noticeDialog = (title: string, message?: string) => open<boolean>({ title, message, ok: 'OK' }).then(() => {});
@@ -49,7 +54,7 @@ function Dialog({ r }: { r: Req }) {
   const { c } = useTheme();
   const [text, setText] = useState(r.input?.value ?? '');
   const ok = () => close(r.input ? text : true);
-  const cancel = () => close(r.input ? null : false);
+  const cancel = () => close(r.input || r.options ? null : false);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={r.cancel ? cancel : ok}>
       <View style={{ flex: 1, backgroundColor: '#0008', padding: space.lg, paddingTop: 96 }}>{/* top-aligned: stays above the keyboard */}
@@ -60,10 +65,17 @@ function Dialog({ r }: { r: Req }) {
             <Field value={text} onChangeText={setText} placeholder={r.input.placeholder} autoFocus onFocus={selectAll}
               accessibilityLabel={r.title} onSubmitEditing={ok} returnKeyType="done" />
           )}
-          <View style={{ flexDirection: 'row', gap: space.sm, justifyContent: 'flex-end' }}>
-            {r.cancel && <Button title={r.cancel} kind="ghost" onPress={cancel} />}
-            <Button title={r.ok} kind={r.destructive ? 'danger' : 'primary'} onPress={ok} style={{ minWidth: 96 }} />
-          </View>
+          {r.options ? (
+            <View style={{ gap: space.sm }}>
+              {r.options.map((o, i) => <Button key={i} title={o.label} kind={o.destructive ? 'danger' : 'secondary'} onPress={() => close(i)} />)}
+              <Button title={r.cancel ?? 'Cancel'} kind="ghost" onPress={cancel} />
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: space.sm, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              {r.cancel && <Button title={r.cancel} kind="ghost" onPress={cancel} />}
+              <Button title={r.ok} kind={r.destructive ? 'danger' : 'primary'} onPress={ok} style={{ minWidth: 96 }} />
+            </View>
+          )}
         </View>
       </View>
     </Modal>

@@ -13,7 +13,7 @@ let chain: Promise<unknown> = Promise.resolve(); // serial: read-modify-write ne
  * "you can undo this" (restore, erase, going back) can stop instead of losing data. Callers that don't care catch.
  */
 export function takeSnapshot(log: Log, reason: string): Promise<void> {
-  const snap = { at: Date.now(), reason, count: log.entries.length, data: serialize(log) }; // captured now
+  const snap = { at: Date.now(), reason, count: log.workouts.length, data: serialize(log) }; // captured now
   const job = chain.then(async () => {
     const list = await readSnapshots();
     await storage.setItem(SNAP_KEY, JSON.stringify(pushSnapshot(list, snap)));

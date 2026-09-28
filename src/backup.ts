@@ -1,7 +1,7 @@
 // Pure backup logic (no platform I/O) so it can be unit tested with node --test.
 import {
-  isRealDay, MAX_R, MAX_W, SCHEMA_VERSION, WEIGHT_TYPES, imgKey,
-  type CustomExercise, type Entry, type Images, type Log, type Session, type Template,
+  isRealDay, MAX_R, MAX_W, SCHEMA_VERSION, WEIGHT_TYPES, imgKey, timeOfDayName,
+  type CustomExercise, type Images, type Log, type SetRow, type Template, type Workout,
 } from './model.ts';
 
 export const BACKUP_APP = 'ironlog';
@@ -21,7 +21,6 @@ const isId = (v: unknown): v is string => isStr(v, 100) && v.length > 0;
 const isTime = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 const time = (v: unknown) => (isTime(v) ? v : 0);
 const lines = (v: unknown) => (Array.isArray(v) ? v.filter((x) => isStr(x, 500)).slice(0, 30) : []);
-const ids = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter(isId))].slice(0, 200) : []);
 const TYPES = new Set(WEIGHT_TYPES.map((t) => t.id));
 const isPhoto = (v: unknown): v is string => isStr(v, 2_000_000) && /^data:image\/(jpeg|png|gif|webp);base64,/.test(v);
 
@@ -36,8 +35,9 @@ export function parseBackup(text: string): { log: Log; images: Images } {
   if (!raw || typeof raw !== 'object' || raw.app !== BACKUP_APP) throw new Error('This is not an Iron Log backup file.');
   if (!Number.isInteger(raw.schemaVersion) || raw.schemaVersion < 1) throw new Error('Unknown backup version.');
   if (raw.schemaVersion > SCHEMA_VERSION) throw new Error('This backup is from a newer version of the app. Please update the app first.');
+  if (raw.schemaVersion === 1) raw = fromV1(raw);
   const fail = (what: string, i: number): never => { throw new Error(`Backup is damaged: ${what} #${i + 1} is invalid.`); };
-  for (const k of ['profiles', 'exercises', 'favorites', 'templates', 'sessions', 'entries'] as const)
+  for (const k of ['profiles', 'exercises', 'favorites', 'templates', 'workouts'] as const)
     if (!Array.isArray(raw[k])) throw new Error(`Backup is damaged: missing ${k}.`);
 
   const seen = new Set<string>();
@@ -66,30 +66,40 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     return { profileId: f.profileId, exerciseId: f.exerciseId, at: time(f.at) };
   });
   const templates: Template[] = raw.templates.map((t: any, i: number) => {
-    if (!owned(t) || !isId(t.id) || !isName(t.name, 60)) fail('template', i);
+    if (!owned(t) || !isId(t.id) || !isName(t.name, 60) || !Array.isArray(t.exercises)) fail('template', i);
     unique(`t:${t.profileId}:${t.id}`, 'template', i);
-    return { id: t.id, profileId: t.profileId, name: t.name, exerciseIds: ids(t.exerciseIds), updatedAt: time(t.updatedAt) };
+    return { id: t.id, profileId: t.profileId, name: t.name, exercises: planOf(t.exercises), updatedAt: time(t.updatedAt) };
   });
-  const sessions: Session[] = raw.sessions.map((s: any, i: number) => {
-    if (!owned(s) || !isRealDay(s.date)) fail('workout', i);
-    unique(`s:${s.profileId}:${s.date}`, 'workout', i);
-    const out: Session = { profileId: s.profileId, date: s.date, exerciseIds: ids(s.exerciseIds), updatedAt: time(s.updatedAt) };
-    if (isTime(s.startedAt)) out.startedAt = s.startedAt;
-    if (isTime(s.endedAt) && out.startedAt !== undefined && s.endedAt >= out.startedAt) out.endedAt = s.endedAt;
-    if (isName(s.feeling, 30)) out.feeling = s.feeling;
+  const isSet = (x: any) => Number.isFinite(x?.w) && Math.abs(x.w) <= MAX_W && Number.isInteger(x.r) && x.r >= 0 && x.r <= MAX_R;
+  const activeOf = new Map<string, number>(); // newest active workout per person: only one can be in progress
+  const workouts: Workout[] = raw.workouts.map((w: any, i: number) => {
+    const okEx = Array.isArray(w?.exercises) && w.exercises.length <= 200 && w.exercises.every((e: any) =>
+      isId(e?.exerciseId) && Array.isArray(e.sets) && e.sets.length <= 200 && e.sets.every(isSet));
+    if (!owned(w) || !isId(w.id) || !isRealDay(w.date) || !isName(w.name, 60) || !isTime(w.startedAt) || !okEx) fail('workout', i);
+    unique(`w:${w.profileId}:${w.id}`, 'workout', i);
+    if (w.active === true && w.startedAt >= (activeOf.get(w.profileId) ?? -1)) activeOf.set(w.profileId, w.startedAt);
+    return w;
+  }).map((w: any): Workout => {
+    const active = w.active === true && activeOf.get(w.profileId) === w.startedAt;
+    const set = (x: any): SetRow => ({ w: x.w, r: x.r,
+      ...(active && x.done === false ? { done: false as const, ...(x.typed === true ? { typed: true as const } : {}) } : {}),
+      ...(x.kind === 'W' || x.kind === 'D' ? { kind: x.kind } : {}) });
+    const exercises = w.exercises.map((e: any) => ({ exerciseId: e.exerciseId,
+      sets: (active ? e.sets : e.sets.filter((x: any) => x.done !== false)).map(set) }))
+      .filter((e: any) => active || e.sets.length);
+    const out: Workout = { id: w.id, profileId: w.profileId, date: w.date, name: w.name, startedAt: w.startedAt, exercises, updatedAt: time(w.updatedAt) };
+    if (active) out.active = true;
+    if (isTime(w.endedAt) && w.endedAt >= w.startedAt) out.endedAt = w.endedAt;
+    if (isName(w.feeling, 30)) out.feeling = w.feeling;
+    if (isId(w.templateId)) out.templateId = w.templateId;
+    if (Array.isArray(w.planned)) out.planned = planOf(w.planned);
+    if (w.source === 'strong') out.source = 'strong';
     return out;
-  });
-  const entries: Entry[] = raw.entries.map((e: any, i: number) => {
-    const okSets = Array.isArray(e?.sets) && e.sets.length <= 200 && e.sets.every((s: any) =>
-      Number.isFinite(s?.w) && Math.abs(s.w) <= MAX_W && Number.isInteger(s.r) && s.r >= 0 && s.r <= MAX_R);
-    if (!owned(e) || !isRealDay(e.date) || !isId(e.exerciseId) || !okSets) fail('logged exercise', i);
-    unique(`x:${e.profileId}:${e.date}:${e.exerciseId}`, 'logged exercise', i);
-    return { profileId: e.profileId, date: e.date, exerciseId: e.exerciseId, sets: e.sets.map((s: any) => ({ w: s.w, r: s.r })), updatedAt: time(e.updatedAt) };
-  }).filter((e: Entry) => e.sets.length);
+  }).filter((w: Workout) => w.active || w.exercises.length);
 
   const s = raw.settings ?? {};
   const log: Log = {
-    schemaVersion: SCHEMA_VERSION, profiles, exercises, favorites, templates, sessions, entries,
+    schemaVersion: SCHEMA_VERSION, profiles, exercises, favorites, templates, workouts,
     settings: {
       theme: ['system', 'light', 'dark'].includes(s.theme) ? s.theme : 'system',
       restSecs: Number.isInteger(s.restSecs) && s.restSecs >= 0 && s.restSecs <= 600 ? s.restSecs : 90,
@@ -99,6 +109,39 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     },
   };
   return { log, images: parseImages(raw.images, pids) };
+}
+
+/** A template's (or a workout's planned) exercises: bad or repeated entries are dropped. */
+function planOf(v: unknown): { exerciseId: string; sets?: number }[] {
+  const seen = new Set<string>();
+  return (Array.isArray(v) ? v : []).filter((x: any) => isId(x?.exerciseId) && !seen.has(x.exerciseId) && seen.add(x.exerciseId)).slice(0, 200)
+    .map((x: any) => ({ exerciseId: x.exerciseId, ...(Number.isInteger(x.sets) && x.sets >= 1 && x.sets <= 50 ? { sets: x.sets } : {}) }));
+}
+
+/**
+ * Version 1 kept one "session" and per-exercise "entries" per person per day. Each such day becomes one finished
+ * workout; the result is then validated like any version 2 file. Planned-but-empty days are dropped.
+ */
+function fromV1(raw: any): any {
+  const days = new Map<string, { s?: any; es: any[] }>();
+  const key = (x: any) => `${x?.profileId}|${x?.date}`;
+  for (const s of Array.isArray(raw.sessions) ? raw.sessions : []) days.set(key(s), { ...(days.get(key(s)) ?? { es: [] }), s });
+  for (const e of Array.isArray(raw.entries) ? raw.entries : []) { const d = days.get(key(e)) ?? { es: [] }; d.es.push(e); days.set(key(e), d); }
+  const workouts = [...days.values()].map(({ s, es }) => {
+    const x = s ?? es[0];
+    const withSets = es.filter((e) => Array.isArray(e?.sets) && e.sets.length);
+    const order = [...(Array.isArray(s?.exerciseIds) ? s.exerciseIds : []), ...withSets.map((e) => e.exerciseId)];
+    const exercises = [...new Set(order)].map((id) => withSets.find((e) => e.exerciseId === id)).filter(Boolean)
+      .map((e) => ({ exerciseId: e.exerciseId, sets: e.sets }));
+    const times = withSets.map((e) => e.updatedAt).filter(isTime);
+    const startedAt = isTime(s?.startedAt) ? s.startedAt : times.length ? Math.min(...times) : new Date(`${x?.date}T12:00:00`).getTime() || 0;
+    return { id: `w_${String(x?.date).replace(/-/g, '')}_${x?.profileId}`, profileId: x?.profileId, date: x?.date,
+      name: isTime(s?.startedAt) ? timeOfDayName(s.startedAt) : 'Workout', startedAt, endedAt: s?.endedAt, feeling: s?.feeling, exercises,
+      updatedAt: Math.max(0, ...times, isTime(s?.updatedAt) ? s.updatedAt : 0) };
+  }).filter((w) => w.exercises.length);
+  const templates = (Array.isArray(raw.templates) ? raw.templates : [])
+    .map((t: any) => ({ ...t, exercises: (Array.isArray(t?.exerciseIds) ? t.exerciseIds : []).map((id: unknown) => ({ exerciseId: id })) }));
+  return { ...raw, schemaVersion: 2, templates, workouts };
 }
 
 /** Photos are optional: a bad one is dropped rather than failing the whole backup. */
@@ -123,7 +166,7 @@ export function fromLegacy(text: string, now = Date.now()): { log: Log; images: 
   if (raw?.app !== LEGACY_APP || !raw.profiles || typeof raw.profiles !== 'object') throw new Error('This is not data from the old Iron Log.');
   const obj = (v: any): Record<string, any> => (v && typeof v === 'object' ? v : {});
   const prefs = obj(raw.prefs);
-  const log: any = { app: BACKUP_APP, schemaVersion: SCHEMA_VERSION, profiles: [], exercises: [], favorites: [], templates: [], sessions: [], entries: [] };
+  const log: any = { app: BACKUP_APP, schemaVersion: 1, profiles: [], exercises: [], favorites: [], templates: [], sessions: [], entries: [] };
   const images: Images = {};
   const pids = Object.keys(raw.profiles);
   for (const pid of pids) {
@@ -167,12 +210,14 @@ export function csvCell(v: string | number): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** One row per set, for spreadsheets. */
+/** One row per logged set, for spreadsheets. */
 export function toCSV(l: Log, exName: (profileId: string, exerciseId: string) => string): string {
   const who = new Map(l.profiles.map((p) => [p.id, p.name]));
-  const head = ['Date', 'Person', 'Exercise', 'Set', 'Weight (kg)', 'Reps / seconds'];
-  const rows = [...l.entries].sort((a, b) => (a.date === b.date ? a.updatedAt - b.updatedAt : a.date < b.date ? -1 : 1))
-    .flatMap((e) => e.sets.map((s, i) => [e.date, who.get(e.profileId) ?? '', exName(e.profileId, e.exerciseId), i + 1, s.w, s.r].map(csvCell).join(',')));
+  const head = ['Date', 'Workout', 'Person', 'Exercise', 'Set', 'Weight (kg)', 'Reps / seconds', 'Type'];
+  const rows = [...l.workouts].sort((a, b) => a.startedAt - b.startedAt).flatMap((w) => w.exercises.flatMap((e) =>
+    e.sets.filter((s) => s.done !== false).map((s, i) =>
+      [w.date, w.name, who.get(w.profileId) ?? '', exName(w.profileId, e.exerciseId), i + 1, s.w, s.r, s.kind === 'W' ? 'Warm-up' : s.kind === 'D' ? 'Drop' : '']
+        .map(csvCell).join(','))));
   return [head.join(','), ...rows].join('\r\n') + '\r\n';
 }
 

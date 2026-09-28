@@ -6,13 +6,13 @@ const light = {
   bg: '#e7e4de', card: '#f6f4ef', text: '#1c1a16', muted: '#6c675d', border: '#d3cec3', chip: '#efece5',
   accent: '#a23b23', onAccent: '#FFFFFF', accentSoft: '#f0e0d8',
   good: '#3f7a34', goodSoft: '#e2ecdc', danger: '#a23b23',
-  field: '#ffffff', fieldBorder: '#bfb8aa', warnBg: '#f4e7c9', warnText: '#6e4b00',
+  field: '#ffffff', fieldBorder: '#bfb8aa', hint: '#b3ac9f', warnBg: '#f4e7c9', warnText: '#6e4b00',
 };
 const dark: typeof light = {
   bg: '#151719', card: '#1f2224', text: '#ece9e2', muted: '#948f84', border: '#343a3d', chip: '#26292c',
   accent: '#e2724f', onAccent: '#151719', accentSoft: '#3a2620',
   good: '#83c069', goodSoft: '#28311f', danger: '#e88a6c',
-  field: '#2b2f32', fieldBorder: '#4b5256', warnBg: '#3a2a0e', warnText: '#f5c26b',
+  field: '#2b2f32', fieldBorder: '#4b5256', hint: '#6d6a63', warnBg: '#3a2a0e', warnText: '#f5c26b',
 };
 export type Colors = typeof light;
 

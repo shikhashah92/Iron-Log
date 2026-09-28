@@ -50,7 +50,7 @@ export function notify(title: string, message?: string) {
 }
 
 export const ask = (title: string, value = '') => askDialog(title, value);
-export { chooseDialog as choose } from './dialog';
+export { chooseDialog as choose, menuDialog as menu } from './dialog';
 
 /** Pick a photo and shrink it to a small JPEG data URI (GIFs are kept as they are, if small). */
 export function pickImage(): Promise<string | null> {

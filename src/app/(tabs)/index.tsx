@@ -4,9 +4,7 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../../store';
 import { useBackup } from '../../backupActions';
-import {
-  bestSet, duration, entryOf, fmtSet, getEx, longDate, needsBackupNudge, num, putProfile, recentExIds, today, weekStats, workoutExIds,
-} from '../../model';
+import { duration, getEx, longDate, needsBackupNudge, num, plural, putProfile, recentExIds, today, weekStats, workoutStats } from '../../model';
 import { AddButton, Empty, ExRow, Section, Stat } from '../../components';
 import { Banner, BrandMark, Button, Card, Field, Gap, Screen, selectAll, T } from '../../ui';
 import { condensed, mono, space } from '../../theme';
@@ -18,10 +16,10 @@ export default function Home() {
   const backup = useBackup();
   const iso = today();
   const week = weekStats(v, iso);
-  const ids = workoutExIds(v, iso);
-  const s = v.sessions.get(iso);
-  const live = !!s?.startedAt && !s.endedAt;
-  const now = useNow(live);
+  const todays = v.workouts.filter((w) => w.date === iso && !w.active).reverse();
+  const live = v.active;
+  const now = useNow(!!live);
+  const openWorkout = () => (live ? router.push('/active') : router.navigate('/workout'));
   const favIds = v.favorites.map((f) => f.exerciseId);
   const recent = recentExIds(v).slice(0, 6);
 
@@ -39,24 +37,29 @@ export default function Home() {
 
         {saveError ? <><Banner tone="error" text={saveError} action="Back up" onPress={backup.exportPlain} /><Gap h={space.md} /></> : null}
         <Section title="Today" right={<T v="mono" style={{ fontSize: 12 }}>{longDate(iso)}</T>}>
-          {live ? <T style={{ color: c.accent, fontSize: 13 }}>● Workout in progress · {duration(now - s!.startedAt!)}</T>
-            : s?.endedAt ? <T v="small">Finished in {duration(s.endedAt - s.startedAt!)}{s.feeling ? ` · felt ${s.feeling}` : ''}</T> : null}
-          {ids.length ? ids.map((id) => {
-            const ex = getEx(v, id);
-            const sets = entryOf(v, iso, id)?.sets ?? [];
+          {live && (
+            <Pressable accessibilityRole="button" accessibilityLabel={`Resume ${live.name}`} onPress={openWorkout}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 6 }}>
+              <T style={{ flex: 1, fontFamily: condensed, fontWeight: '600', fontSize: 17 }} color={c.accent}>● {live.name}</T>
+              <T v="mono" style={{ fontSize: 12 }}>in progress · {duration(now - live.startedAt)}</T>
+            </Pressable>
+          )}
+          {todays.map((w) => {
+            const { sets, volume } = workoutStats(v, w);
             return (
-              <View key={id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: c.border }}>
-                <T numberOfLines={1} style={{ flex: 1, fontFamily: condensed, fontWeight: '600', fontSize: 17 }}>{ex.name}</T>
-                <T v="mono" style={{ fontSize: 12 }}>{sets.length ? `${sets.length} set${sets.length > 1 ? 's' : ''} · ${fmtSet(bestSet(sets), ex)}` : 'no sets'}</T>
+              <View key={w.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: c.border }}>
+                <T numberOfLines={1} style={{ flex: 1, fontFamily: condensed, fontWeight: '600', fontSize: 17 }}>{w.name}</T>
+                <T v="mono" style={{ fontSize: 12 }}>{[w.endedAt ? duration(w.endedAt - w.startedAt) : '', plural(sets, 'set'), `${num(volume)} kg`].filter(Boolean).join(' · ')}</T>
               </View>
             );
-          }) : <Empty>Nothing logged yet today.</Empty>}
+          })}
+          {!live && !todays.length && <Empty>No workout yet today.</Empty>}
           <Gap h={space.sm} />
-          <Button title={ids.length ? 'Open today’s workout' : 'Start today’s workout'} onPress={() => router.navigate('/workout')} />
+          <Button title={live ? 'Resume workout' : todays.length ? 'Start another workout' : 'Start a workout'} onPress={openWorkout} />
         </Section>
 
         {/* Backups: a quiet nudge once there's something worth losing, never before. */}
-        {!log.settings.backupChoice && log.entries.length ? (
+        {!log.settings.backupChoice && log.workouts.some((w) => !w.active) ? (
           <Card style={{ marginBottom: space.md, gap: space.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               <Ionicons name="shield-checkmark-outline" size={20} color={c.accent} />
@@ -96,7 +99,7 @@ export default function Home() {
 
         <Bodyweight key={v.profile.id} />
       </Screen>
-      <AddButton label="Log a set" onPress={() => router.push('/log')} />
+      <AddButton label={live ? 'Resume workout' : 'Start a workout'} onPress={openWorkout} />
       {backup.modal}
     </View>
   );

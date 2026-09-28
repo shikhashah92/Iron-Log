@@ -2,8 +2,8 @@ import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../store';
-import { RestBar } from '../../components';
+import { useStore, useTheme } from '../../store';
+import { RestBar, WorkoutBar } from '../../components';
 import { condensed } from '../../theme';
 
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -18,6 +18,8 @@ const TABS: { name: string; title: string; icon: Icon; on: Icon }[] = [
 export default function TabsLayout() {
   const { c } = useTheme();
   const { bottom } = useSafeAreaInsets(); // home-indicator space in the installed app; 0 in a browser tab
+  const { log } = useStore();
+  const live = !!log?.workouts.some((w) => w.active && w.profileId === log.settings.currentProfileId);
   return (
     <View style={{ flex: 1 }}>
     <Tabs screenOptions={{
@@ -36,7 +38,8 @@ export default function TabsLayout() {
         }} />
       ))}
     </Tabs>
-    <RestBar bottom={78 + bottom} />
+    <WorkoutBar bottom={78 + bottom} />
+    <RestBar bottom={(live ? 142 : 78) + bottom} />
     </View>
   );
 }
