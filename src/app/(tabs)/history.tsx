@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, getEx, groupSets, longDate, matches, num, plural, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
+import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, getEx, groupSets, longDate, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
-import { Empty, ProgressBlock, Section, SetLines, useSaveAsTemplate } from '../../components';
+import { Empty, ProgressBlock, Records, Section, SetLines, ShareWorkout, useSaveAsTemplate } from '../../components';
 import { Button, Card, Field, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { sans, radius, space } from '../../theme';
 
@@ -77,7 +77,7 @@ function Calendar({ trained, day, onDay }: { trained: Set<string>; day: string |
               <View key={i} style={{ flex: 1, alignItems: 'center', paddingVertical: 3 }}>
                 {d && (
                   <Pressable disabled={!on} onPress={() => onDay(d)} accessibilityRole="button" accessibilityLabel={`${longDate(d)}${on ? ', trained' : ''}`}
-                    accessibilityState={{ selected: picked, disabled: !on }}
+                    aria-pressed={picked} aria-disabled={!on}
                     style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.brand : 'transparent',
                       borderWidth: 2, borderColor: picked ? c.text : d === now ? c.accent : 'transparent', opacity: d > now ? 0.35 : 1 }}>
                     <T style={{ fontSize: 14, fontWeight: on ? '700' : '400' }} color={on ? c.onAccent : c.text}>{Number(d.slice(8))}</T>
@@ -188,6 +188,8 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
   const ago = daysAgo(w.date);
   const time = new Date(w.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const cal = workoutCalories(v, w);
+  const recs = recordsOf(v, w);
+  const prIds = new Set(recs.map((r) => r.exerciseId));
   const meta = [...(w.endedAt ? [duration(w.endedAt - w.startedAt)] : []), plural(sets, 'set'), ...(volume ? [`${num(volume)} kg`] : []),
     ...(cal ? [`≈${cal} kcal`] : []), ...(w.feeling ? [w.feeling] : [])].join(' · ');
   async function editIt() {
@@ -201,19 +203,27 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
   }
   return (
     <Card style={{ marginBottom: space.sm }}>
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={onToggle} style={{ gap: 2 }}>
+      <Pressable accessibilityRole="button" aria-expanded={open} onPress={onToggle} style={{ gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.sm }}>
           <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '700', fontSize: 19, flex: 1 }}>{w.name}</T>
           <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
         </View>
         <T v="small">{longDate(w.date)}, {time} · {ago === 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago}d ago`}</T>
         <T v="mono" style={{ fontSize: 12 }}>{meta}</T>
+        {w.note ? <T v="small" numberOfLines={open ? undefined : 2} style={{ fontStyle: 'italic', color: c.text }}>“{w.note}”</T> : null}
+        {recs.length ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: c.accentSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginVertical: 2 }}>
+            <Ionicons name="trophy" size={13} color={c.accent} />
+            <T style={{ fontSize: 12, fontWeight: '700' }} color={c.accent}>{recs.length === 1 ? '1 personal best' : `${recs.length} personal bests`}</T>
+          </View>
+        ) : null}
         {!open && w.exercises.map((e) => {
           const ex = getEx(v, e.exerciseId);
           const best = isTimed(ex) ? e.sets[0] : bestSet(e.sets.filter((x) => x.kind !== 'W').length ? e.sets.filter((x) => x.kind !== 'W') : e.sets);
           return (
             <View key={e.exerciseId} style={{ flexDirection: 'row', gap: space.sm }}>
               <T numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{isTimed(ex) ? ex.name : `${e.sets.length} × ${ex.name}`}</T>
+              {prIds.has(e.exerciseId) ? <Ionicons name="trophy" size={13} color={c.accent} accessibilityLabel="Personal best" /> : null}
               <T v="mono" style={{ fontSize: 12 }}>{best ? fmtSet(best, ex) : ''}</T>
             </View>
           );
@@ -223,8 +233,13 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
         <>
           <Gap h={space.sm} />
           <SetLines entries={v.entries.filter((e) => e.workoutId === w.id)} name />
+          {w.exercises.filter((e) => e.note).map((e) => (
+            <T key={e.exerciseId} v="small" style={{ marginTop: 4 }}><T v="small" style={{ fontWeight: '700', color: c.text }}>{getEx(v, e.exerciseId).name}:</T> {e.note}</T>
+          ))}
+          {recs.length ? <><Gap h={space.sm} /><Records v={v} w={w} /></> : null}
           <Gap h={space.sm} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+            <ShareWorkout w={w} />
             <Button title="Edit" icon="create-outline" kind="secondary" style={{ minHeight: 40 }} onPress={editIt} />
             <Button title="Save as template" icon="star-outline" kind="secondary" style={{ minHeight: 40 }}
               onPress={() => saveAsTemplate(templateFrom(w), w.name)} />
@@ -252,7 +267,7 @@ function Progress() {
   return (
     <>
       {/* A dropdown: the exercise you're looking at; tap to search the ones you've logged (most recent first). */}
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`Exercise: ${ex.name}. Change`}
+      <Pressable accessibilityRole="button" aria-expanded={open} accessibilityLabel={`Exercise: ${ex.name}. Change`}
         onPress={() => { setOpen(!open); setQ(''); }}
         style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 52, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: open ? c.accent : c.fieldBorder, backgroundColor: c.field, marginBottom: space.sm }}>
         <View style={{ flex: 1 }}>

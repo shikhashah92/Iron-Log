@@ -4,12 +4,13 @@ import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  addDays, clock, dateWithYear, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
-  type Entry, type Exercise, type TemplateExercise, type View as LogView,
+  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
+  type Entry, type Exercise, type TemplateExercise, type View as LogView, type Workout,
 } from './model';
-import { ask } from './io';
+import { drawWorkout, shareWorkout } from './share';
+import { ask, notify } from './io';
 import { useLog, useTheme } from './store';
-import { adjustRest, stopRest, useNow, useRest } from './timer';
+import { adjustRest, stopRest, useNow, useRest, useRestLabel } from './timer';
 import { Button, Card, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
 import { sans, radius, space } from './theme';
 import { isAndroid, isIOS, isStandalone } from './pwa';
@@ -101,7 +102,7 @@ export function Star({ id }: { id: string }) {
   const { c } = useTheme();
   const on = isFav(v, id);
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={on ? 'Remove from favorites' : 'Add to favorites'}
+    <Pressable accessibilityRole="button" aria-pressed={on} accessibilityLabel={on ? 'Remove from favorites' : 'Add to favorites'}
       hitSlop={6} onPress={() => update((l) => toggleFav(l, id))} style={{ minWidth: 36, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={on ? 'star' : 'star-outline'} size={22} color={on ? c.accent : c.border} />
     </Pressable>
@@ -313,14 +314,20 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
   const { c } = useTheme();
   const w = v.active;
   const now = useNow(!!w);
+  const rest = useRest(); // outside the workout screen, the rest countdown rides along here instead of a bar of its own
   if (!w) return null;
   return (
     <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress`} onPress={() => router.push('/active')}
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress${rest !== null ? rest > 0 ? `, rest ${rest} seconds left` : ', rest over' : ''}`} onPress={() => router.push('/active')}
         style={({ pressed }) => [st.rest, { backgroundColor: c.brand, borderColor: c.brand, opacity: pressed ? 0.85 : 1 }]}>
         <Ionicons name="chevron-up" size={20} color={c.onAccent} />
         <T numberOfLines={1} style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 17 }} color={c.onAccent}>{w.name}</T>
-        <T style={{ fontFamily: sans, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>
+        {rest !== null ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.onAccent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+            <Ionicons name="timer-outline" size={15} color={c.brand} />
+            <T style={{ fontFamily: sans, fontSize: 15, fontWeight: '700' }} color={c.brand}>{rest > 0 ? `${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, '0')}` : 'Go'}</T>
+          </View>
+        ) : <T style={{ fontFamily: sans, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>}
       </Pressable>
     </View>
   );
@@ -329,6 +336,7 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
 /** The rest countdown, floating above the tab bar on every screen while it runs. */
 export function RestBar({ bottom = 12 }: { bottom?: number }) {
   const left = useRest();
+  const label = useRestLabel();
   const { c } = useTheme();
   if (left === null) return null;
   const done = left <= 0;
@@ -342,7 +350,7 @@ export function RestBar({ bottom = 12 }: { bottom?: number }) {
   return (
     <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
       <View accessibilityRole="timer" accessibilityLiveRegion="polite" style={[st.rest, { backgroundColor: c.card, borderColor: c.border }]}>
-        <T v="label" style={{ fontSize: 11 }}>{done ? 'Go' : 'Rest'}</T>
+        <T v="label" numberOfLines={2} style={{ fontSize: 11, maxWidth: 72 }}>{done ? 'Go' : label}</T>
         <T style={{ fontFamily: sans, fontSize: 24, minWidth: 64, color: done ? c.good : c.text }}>{clock}</T>
         {btn('−15', () => adjustRest(-15), 'Rest 15 seconds less')}
         {btn('+15', () => adjustRest(15), 'Rest 15 seconds more')}
@@ -462,4 +470,39 @@ export function InstallSteps() {
       ))}
     </Card>
   );
+}
+
+/** The workout's new personal bests, one row per exercise (nothing when there are none). */
+export function Records({ v, w }: { v: LogView; w: Workout }) {
+  const { c } = useTheme();
+  const recs = recordsOf(v, w);
+  if (!recs.length) return null;
+  const ids = [...new Set(recs.map((r) => r.exerciseId))];
+  return (
+    <View style={{ backgroundColor: c.accentSoft, borderRadius: radius.md, padding: space.md, gap: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+        <Ionicons name="trophy" size={20} color={c.accent} />
+        <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 17 }}>{recs.length === 1 ? 'New personal best' : `${recs.length} new personal bests`}</T>
+      </View>
+      {ids.map((id) => (
+        <View key={id}>
+          <T style={{ fontWeight: '600' }}>{getEx(v, id).name}</T>
+          <T v="small" style={{ color: c.text }}>{recs.filter((r) => r.exerciseId === id).map(recordLabel).join(' · ')}</T>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Share a finished workout as a picture. It's drawn when this appears, so the share sheet opens right on the tap. */
+export function ShareWorkout({ w, primary }: { w: Workout; primary?: boolean }) {
+  const { v } = useLog();
+  const [blob, setBlob] = useState<Blob | null>(null);
+  useEffect(() => {
+    let on = true;
+    drawWorkout(v, w).then((b) => { if (on) setBlob(b); }, () => {});
+    return () => { on = false; };
+  }, [v, w]);
+  const share = () => shareWorkout(v, w, blob ?? undefined).catch(() => notify('Couldn’t make the picture', 'Try again in a moment.'));
+  return <Button title="Share workout" icon="share-social-outline" kind={primary ? 'primary' : 'secondary'} onPress={share} style={primary ? undefined : { minHeight: 40 }} />;
 }

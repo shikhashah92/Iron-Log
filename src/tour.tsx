@@ -24,6 +24,8 @@ export const STEPS: Step[] = [
 let step: number | null = null;
 const subs = new Set<() => void>();
 const set = (s: number | null) => { step = s; subs.forEach((f) => f()); };
+/** Ending the tour (Done or Skip) goes back to Home, where you start your first workout. */
+const end = () => { set(null); router.navigate('/'); };
 export const startTour = () => set(0);
 const useStep = () => useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f); }, () => step, () => null);
 
@@ -52,10 +54,10 @@ export function TourOverlay({ inset }: { inset: number }) {
           </View>
           <T>{s.body}</T>
           <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
-            {last ? null : <Button title="Skip" kind="ghost" onPress={() => set(null)} style={{ paddingHorizontal: space.sm }} />}
+            {last ? null : <Button title="Skip" kind="ghost" onPress={end} style={{ paddingHorizontal: space.sm }} />}
             <View style={{ flex: 1 }} />
             {i > 0 && <Button title="Back" kind="secondary" onPress={() => set(i - 1)} style={{ paddingHorizontal: space.lg }} />}
-            <Button title={last ? 'Done' : 'Next'} onPress={() => set(last ? null : i + 1)} style={{ paddingHorizontal: space.xl }} />
+            <Button title={last ? 'Start logging' : 'Next'} onPress={() => (last ? end() : set(i + 1))} style={{ paddingHorizontal: space.xl }} />
           </View>
         </View>
       </View>

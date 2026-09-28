@@ -1,16 +1,16 @@
 // The workout itself: the set table shared by the live workout and "Edit workout", and the start / finish flow.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  addSetTo, fmtDur, pace, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
-  putWorkout, removeExercise, setKind, setLabels, setTime, setValue, startWorkout, templateFrom, toggleDone, unfinished,
+  addSetTo, addWarmups, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
+  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, toggleDone, unfinished,
   type Log, type SetRow, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
-import { startRest } from './timer';
-import { choose, confirm, menu, notify } from './io';
+import { startRest, startSteps } from './timer';
+import { ask, choose, confirm, menu, notify } from './io';
 import { ExArt, openExercise } from './components';
 import { Button, Card, selectAll, T } from './ui';
 import { sans, radius, space } from './theme';
@@ -20,7 +20,8 @@ export function useEditWorkout(id: string) {
   const { update } = useLog();
   return (fn: (w: Workout) => Workout) => update((l) => {
     const cur = l.workouts.find((w) => w.id === id);
-    return cur ? putWorkout(l, fn(cur)) : l;
+    const next = cur && fn(cur);
+    return next && next !== cur ? putWorkout(l, next) : l;
   });
 }
 
@@ -89,8 +90,26 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
       {workout.exercises.map((e, i) => {
         const ex = getEx(v, e.exerciseId);
         const prev = lastEntry(v, e.exerciseId, workout.id);
+        const earlierNote = e.note ? undefined : lastNote(v, e.exerciseId, workout.id);
+        const inSuperset = e.group !== undefined && (workout.exercises[i - 1]?.group === e.group || workout.exercises[i + 1]?.group === e.group);
+        const firstOfSuperset = inSuperset && workout.exercises[i - 1]?.group !== e.group;
+        const lifting = !isTimed(ex) && ex.metric !== 'secs' && ex.weightType !== 'bodyweight';
+        // The working weight: the heaviest working set, typed or last time's hint.
+        const top = Math.max(0, ...e.sets.filter((x) => x.kind !== 'W').map((x) => x.w));
+        const note = async () => { const t = await ask(`Note on ${ex.name}`, e.note ?? ''); if (t !== null) edit((w) => setNote(w, i, t)); };
         async function actions() {
           const opts: [string, () => void | Promise<void>, boolean?][] = [
+            [e.note ? 'Edit note' : 'Add a note', note],
+            ...(e.note ? [['Remove note', () => edit((w) => setNote(w, i, ''))] as [string, () => void]] : []),
+            ...(lifting ? [['Add warm-up sets', () => {
+              const sets = warmupsFor(ex, top);
+              if (!sets.length) return notify('Enter your working weight first', 'Warm-ups build up to the heaviest set, so Uplift needs to know it.');
+              edit((w) => addWarmups(w, i, sets));
+            }] as [string, () => void]] : []),
+            ...(ex.weightType === 'barbell' ? [['Plate calculator', () => { router.push({ pathname: '/plates', params: { kg: String(top || 60) } }); }] as [string, () => void]] : []),
+            ...(i < workout.exercises.length - 1 && !(e.group !== undefined && workout.exercises[i + 1].group === e.group)
+              ? [['Superset with next exercise', () => edit((w) => supersetWithNext(w, i))] as [string, () => void]] : []),
+            ...(inSuperset ? [['Take out of superset', () => edit((w) => leaveSuperset(w, i))] as [string, () => void]] : []),
             ['Replace exercise', () => { router.push({ pathname: '/picker', params: { workout: workout.id, replace: String(i) } }); }],
             ...(i > 0 ? [['Move up', () => edit((w) => moveExercise(w, i, -1))] as [string, () => void]] : []),
             ...(i < workout.exercises.length - 1 ? [['Move down', () => edit((w) => moveExercise(w, i, 1))] as [string, () => void]] : []),
@@ -102,7 +121,15 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
           if (pick !== null) await opts[pick][1]();
         }
         return (
-          <Card key={`${e.exerciseId}-${i}`} style={{ marginBottom: space.md, paddingBottom: space.md }}>
+          <Card key={`${e.exerciseId}-${i}`} style={{ marginBottom: space.md, paddingBottom: space.md,
+            // A superset: its exercises sit close together with a mint edge, so they read as one block.
+            ...(inSuperset ? { borderLeftWidth: 4, borderLeftColor: c.brand, marginBottom: workout.exercises[i + 1]?.group === e.group ? 6 : space.md } : {}) }}>
+            {firstOfSuperset && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: space.xs }}>
+                <Ionicons name="link-outline" size={14} color={c.accent} />
+                <T v="label" style={{ fontSize: 11 }} color={c.accent}>Superset · back to back, rest after the last</T>
+              </View>
+            )}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               <ExArt id={e.exerciseId} size={36} />
               <Pressable accessibilityRole="button" accessibilityLabel={`${ex.name}: form and history`} onPress={() => openExercise(e.exerciseId)} style={{ flex: 1 }}>
@@ -112,7 +139,32 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
                 <Ionicons name="ellipsis-horizontal" size={20} color={c.text} />
               </Pressable>
             </View>
+            {e.note ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={`Note: ${e.note}. Edit`} onPress={note} style={{ flexDirection: 'row', gap: 6, marginTop: space.xs }}>
+                <Ionicons name="document-text-outline" size={15} color={c.accent} style={{ marginTop: 2 }} />
+                <T v="small" style={{ flex: 1, color: c.text }}>{e.note}</T>
+              </Pressable>
+            ) : earlierNote ? (
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: space.xs }}>
+                <Ionicons name="document-text-outline" size={15} color={c.muted} style={{ marginTop: 2 }} />
+                <T v="small" style={{ flex: 1, fontStyle: 'italic' }}>Last time: {earlierNote}</T>
+              </View>
+            ) : null}
             <SetTable workout={workout} i={i} prev={prev?.sets ?? []} live={live} restSecs={log.settings.restSecs} />
+            {live && (ex.yoga === 'hold' || ex.metric === 'secs') && (() => {
+              const j = e.sets.findIndex((x) => x.done === false && x.r > 0);
+              if (j < 0) return null;
+              const set = e.sets[j], rounds = ex.yoga === 'hold' ? Math.max(1, Math.round(set.w)) : 1;
+              const sides = !!ex.exec?.some((t) => /other side/i.test(t));
+              // Get ready, then each round's hold with a short pause between (to switch sides, or breathe); the set ticks itself at the end.
+              const steps = [{ secs: 5, label: 'Get ready' }, ...Array.from({ length: rounds }, (_, k) => [
+                ...(k ? [{ secs: 8, label: sides ? 'Switch sides' : 'Breathe' }] : []),
+                { secs: set.r, label: rounds > 1 ? `Hold · ${k + 1} of ${rounds}` : 'Hold' }]).flat()];
+              return (
+                <Button title={`Time it: ${rounds > 1 ? `${rounds} × ` : ''}${fmtDur(set.r)}${sides && rounds > 1 ? ', sides' : ''}`} icon="timer-outline" kind="secondary" style={{ minHeight: 40, marginTop: space.sm }}
+                  onPress={() => startSteps(steps, () => edit((w) => (w.exercises[i]?.sets[j]?.done === false ? toggleDone(w, i, j, ex.yoga === 'rounds').workout : w)))} />
+              );
+            })()}
             {ex.kind === 'cardio' && (() => { const d = e.sets.reduce((t, x) => t + x.w, 0), secs = e.sets.reduce((t, x) => t + x.r, 0); const p = pace(d, secs); return p ? <T v="small" style={{ marginTop: 4 }}>Pace {p}</T> : null; })()}
             <Button title="Add set" icon="add" kind="secondary" onPress={() => edit((w) => addSetTo(w, i, !live))} style={{ minHeight: 40, marginTop: space.sm }} />
           </Card>
@@ -136,20 +188,35 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   // Time first for cardio and activities; yoga reads "3 rounds, 30 s hold".
   const cols = yoga ? ['Rounds', reps] : isTimed(ex) ? [reps, unit] : [unit, reps];
   const roundsCount = ex.yoga === 'rounds'; // Surya Namaskar: rounds alone can be ticked
+  const minus = ex.weightType === 'bodyweight';
   let working = -1; // index into last time's sets, matching by position
 
   async function setMenu(j: number) {
-    const pick = await menu(`Set ${labels[j]}`, [{ label: 'Normal set' }, { label: 'Warm-up' }, { label: 'Drop set' }, { label: 'Delete set', destructive: true }]);
+    const lifting = !isTimed(ex);
+    const pick = await menu(`Set ${labels[j]}`, [{ label: 'Normal set' }, { label: 'Warm-up' }, { label: 'Drop set' },
+      ...(lifting ? [{ label: e.sets[j].rpe ? `Effort: RPE ${num(e.sets[j].rpe!)} (change)` : 'How hard was it? (RPE)' }] : []), { label: 'Delete set', destructive: true }]);
+    const del = lifting ? 4 : 3;
     if (pick === 0) edit((w) => setKind(w, i, j));
     else if (pick === 1) edit((w) => setKind(w, i, j, 'W'));
     else if (pick === 2) edit((w) => setKind(w, i, j, 'D'));
-    else if (pick === 3) edit((w) => delSetFrom(w, i, j));
+    else if (pick === 3 && lifting) {
+      // RPE: 10 = nothing left, 9 = one more rep, 8 = two more… Optional, and only kept if you pick one.
+      const opts = [10, 9.5, 9, 8.5, 8, 7, 6];
+      const r = await menu('How hard was that set?', [...opts.map((n) => ({ label: `RPE ${n}: ${n === 10 ? 'nothing left' : n >= 9.5 ? 'maybe one more' : `${10 - Math.floor(n)} more rep${10 - Math.floor(n) === 1 ? '' : 's'} in the tank`}` })), { label: 'Clear' }]);
+      if (r !== null) edit((w) => setRpe(w, i, j, r < opts.length ? opts[r] : undefined));
+    } else if (pick === del) edit((w) => delSetFrom(w, i, j));
   }
   function tick(j: number) {
-    const s = e.sets[j];
-    if (s.done === false && s.r <= 0 && !(roundsCount && s.w > 0)) return notify(`Enter ${roundsCount ? 'the rounds' : yoga && ex.yoga === 'hold' ? 'how long you held it' : isTimed(ex) ? 'the time' : reps.toLowerCase()} first`);
-    edit((w) => toggleDone(w, i, j, roundsCount).workout);
-    if (s.done === false && !isTimed(ex)) startRest(restSecs); // ticked a lifting set (not unticked, not a run or class): rest starts
+    // Decide from the saved set, not this render's copy: a number typed a moment ago may have only just been saved.
+    let outcome: 'ticked' | 'unticked' | 'empty' = 'empty';
+    edit((w) => {
+      const r = toggleDone(w, i, j, roundsCount);
+      outcome = r.ticked ? 'ticked' : r.workout === w ? 'empty' : 'unticked';
+      return r.workout;
+    });
+    if (outcome === 'empty') return notify(`Enter ${roundsCount ? 'the rounds' : yoga && ex.yoga === 'hold' ? 'how long you held it' : isTimed(ex) ? 'the time' : reps.toLowerCase()} first`);
+    // Ticked a lifting set (not a run or class): rest starts, unless the next exercise of a superset comes first.
+    if (outcome === 'ticked' && !isTimed(ex) && restsAfter(workout, i)) startRest(restSecs);
   }
 
   return (
@@ -169,6 +236,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
           <View key={j} style={[st.row, { backgroundColor: bg, borderRadius: radius.sm }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Set ${labels[j]}: change type or delete`} onPress={() => setMenu(j)} style={st.setCol}>
               <T style={{ fontFamily: sans, fontWeight: '600', textAlign: 'center', color: s.kind === 'W' ? c.warnText : s.kind === 'D' ? c.accent : c.text }}>{labels[j]}</T>
+              {s.rpe ? <T style={{ fontSize: 9, lineHeight: 11, textAlign: 'center' }} color={c.muted}>@{num(s.rpe)}</T> : null}
             </Pressable>
             <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex)}</T>
             {yoga ? (
@@ -189,12 +257,16 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               </>
             ) : (
               <>
-                <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} weight`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', t))} />
+                <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} weight`} onCommit={(t) => {
+                  // Only a bodyweight exercise takes minus kg (assistance); anywhere else it's a typo, so say so rather than keep it.
+                  if (!minus && parseFloat(t.replace(',', '.')) < 0) return notify('Weight can’t be below 0 kg. Minus kg is only for assisted bodyweight exercises, like an assisted pull-up.');
+                  edit((w) => setValue(w, i, j, 'w', t, minus));
+                }} />
                 <SetInput value={s.r} hint={hint} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setValue(w, i, j, 'r', t))} />
               </>
             )}
             {live && (
-              <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${labels[j]} done`} onPress={() => tick(j)}
+              <Pressable accessibilityRole="checkbox" aria-checked={done} accessibilityLabel={`Set ${labels[j]} done`} onPress={() => tick(j)}
                 style={[st.tick, { backgroundColor: done ? c.brand : c.chip, borderRadius: radius.sm }]}>
                 <Ionicons name="checkmark" size={20} color={done ? c.onAccent : c.muted} />
               </Pressable>
@@ -216,11 +288,13 @@ function SetInput({ value, hint, decimal, label, onCommit, fmt = num, unit }: {
   const { c } = useTheme();
   const shown = value ? fmt(value) : '';
   const [text, setText] = useState<string | null>(null); // null: not editing, show the stored value
+  // The latest keystroke, read at save time: a blur right after typing (tapping the tick) can arrive before a re-render.
+  const typed = useRef<string | null>(null);
   const [focused, setFocused] = useState(false);
-  const commit = () => { if (text !== null && text !== (hint ? '' : shown)) onCommit(text); setText(null); };
+  const commit = () => { const t = typed.current; typed.current = null; if (t !== null && t !== (hint ? '' : shown)) onCommit(t); setText(null); };
   return (
     <TextInput value={text ?? (hint ? '' : shown)} placeholder={hint ? shown || unit || '0' : unit ?? ''} placeholderTextColor={c.hint}
-      onChangeText={setText} inputMode={decimal ? 'decimal' : fmt === num ? 'numeric' : 'text'} accessibilityLabel={label}
+      onChangeText={(t) => { typed.current = t; setText(t); }} inputMode={decimal ? 'decimal' : fmt === num ? 'numeric' : 'text'} accessibilityLabel={label}
       onFocus={(e) => { setFocused(true); selectAll(e); }} onBlur={() => { setFocused(false); commit(); }} onSubmitEditing={commit}
       style={[st.cell, st.input, fmt === fmtDur && { fontSize: 15 }, { color: c.text, backgroundColor: c.field, borderColor: focused ? c.accent : c.fieldBorder, outlineWidth: 0 }]} />
   );
@@ -236,3 +310,27 @@ const st = StyleSheet.create({
   tick: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   more: { minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
 });
+
+const asked = new Set<string>(); // once per workout per visit, so "Resume" isn't asked again on every screen
+/**
+ * On opening the app: a workout left running for hours gets one question. "Save as is" keeps the ticked sets and ends
+ * it at the last change, so its length isn't the hours it sat open.
+ */
+export function useForgottenWorkout() {
+  const { v, update } = useLog();
+  const w = v.active;
+  useEffect(() => {
+    if (!isForgotten(w) || asked.has(w.id)) return;
+    asked.add(w.id);
+    const hours = Math.floor((Date.now() - w.startedAt) / 3_600_000);
+    menu(`“${w.name}” started ${hours} hours ago and is still open`, [{ label: 'Resume it' }, { label: 'Save it as it is' }, { label: 'Discard it', destructive: true }]).then((pick) => {
+      if (pick === 0) router.push('/active');
+      if (pick === 1) {
+        let saved = false;
+        update((l) => { const done = finishWorkout(l, w.id, false, w.updatedAt); saved = !!done.workout; return done.log; });
+        notify(saved ? 'Workout saved' : 'Nothing to save', saved ? 'Only the sets you ticked were kept.' : 'No sets were ticked, so it was removed.');
+      }
+      if (pick === 2) update((l) => ({ ...l, workouts: l.workouts.filter((x) => x.id !== w.id) }));
+    });
+  }, [w, update]);
+}

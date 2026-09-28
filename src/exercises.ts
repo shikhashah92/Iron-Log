@@ -1846,6 +1846,9 @@ const starter = (id: string, name: string, ids: string[]): Template =>
   ({ id: `starter-${id}`, profileId: '', name, exercises: ids.map((exerciseId) => ({ exerciseId })), updatedAt: 0, starter: true });
 export const STARTERS: readonly Template[] = [
   starter('full-body', 'Full body', ['goblet-squat', 'flat-db-press', 'lat-pulldown', 'seated-db-press', 'rdl', 'plank']),
+  starter('full-body-b', 'Full body B', ['leg-press', 'incline-db-press', 'seated-cable-row', 'lateral-raise', 'hip-thrust', 'dead-bug']),
+  starter('upper', 'Upper body', ['bench-press-bb', 'bb-bent-row', 'seated-db-press', 'lat-pulldown', 'bb-curl', 'triceps-pushdown']),
+  starter('lower', 'Lower body', ['back-squat', 'rdl', 'leg-press', 'lying-leg-curl', 'calf-raise', 'hanging-leg-raise']),
   starter('push', 'Push', ['bench-press-bb', 'ohp-bb', 'incline-db-press', 'lateral-raise', 'triceps-pushdown']),
   starter('pull', 'Pull', ['pull-up', 'bb-bent-row', 'seated-cable-row', 'face-pull', 'bb-curl', 'hammer-curl']),
   starter('legs', 'Legs', ['back-squat', 'rdl', 'leg-press', 'walking-lunge', 'lying-leg-curl', 'calf-raise']),
@@ -1856,4 +1859,12 @@ export const STARTERS: readonly Template[] = [
   starter('glutes', 'Glutes', ['hip-thrust', 'rdl', 'bulgarian-split-squat', 'seated-leg-curl', 'glute-bridge']),
   starter('core', 'Core', ['plank', 'hanging-leg-raise', 'cable-crunch', 'dead-bug', 'russian-twist']),
   starter('yoga', 'Morning yoga', ['surya-namaskar', 'tadasana', 'vrksasana', 'trikonasana', 'adho-mukha-svanasana', 'bhujangasana', 'setu-bandhasana', 'paschimottanasana', 'balasana', 'anulom-vilom', 'shavasana']),
+];
+
+/** Ready-made plans: templates done in turn, one per session. The next one is whichever follows the last you did. */
+export interface Plan { id: string; name: string; days: string; about: string; templates: string[] }
+export const PLANS: readonly Plan[] = [
+  { id: 'full-body-3', name: 'Full body, 3 days', days: '3 days a week', about: 'New to lifting or short on time: the whole body each session, alternating A and B.', templates: ['starter-full-body', 'starter-full-body-b'] },
+  { id: 'upper-lower-4', name: 'Upper / Lower', days: '4 days a week', about: 'Each half of the body twice a week, with room to push the weights up.', templates: ['starter-upper', 'starter-lower'] },
+  { id: 'ppl', name: 'Push Pull Legs', days: '3 or 6 days a week', about: 'Pushing muscles, then pulling, then legs. Run it once or twice a week.', templates: ['starter-push', 'starter-pull', 'starter-legs'] },
 ];

@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
-  ACTIVITY_GROUPS, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
+  ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
-  setValue, startWorkout, templateFrom, totals, weekly, weekStart, weekStreak, groupSets, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
+  setValue, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
@@ -588,4 +588,97 @@ test('history trends: weeks start Monday, totals, 12-week bars, streaks, and set
   assert.deepEqual(weekStreak(v, '2026-09-20'), { current: 3, best: 3 }, 'an untrained current week doesn’t break the run');
   const g = Object.fromEntries(groupSets(v, '2026-08-30', '2026-09-28').map((x) => [x.group, x.sets]));
   assert.deepEqual([g.Chest, g.Legs, g.Core, g.Back], [1, 3, 1, 0], 'warm-ups not counted; timed core still counts as a set');
+});
+
+test('a negative weight is kept only where it means assistance (bodyweight); anywhere else it becomes 0', () => {
+  let l = newLog('A', at(D1));
+  l = startWorkout(l, undefined, at(D1));
+  const w = addExercises(viewOf(l).active!, viewOf(l), [bench, 'pull-up']);
+  assert.equal(setValue(w, 0, 0, 'w', '-5').exercises[0].sets[0].w, 0, 'barbell: no minus');
+  assert.equal(setValue(w, 1, 0, 'w', '-20', true).exercises[1].sets[0].w, -20, 'assisted pull-up: minus kg');
+  assert.equal(setValue(w, 0, 0, 'r', '-3').exercises[0].sets[0].r, 0, 'reps never go below 0');
+});
+
+test('personal bests: one per exercise, the heaviest first, never on a first session or from warm-ups', () => {
+  let l = newLog('A', at(D1));
+  const did = (day: string, sets: { w: number; r: number; kind?: 'W' }[], ex = bench) => {
+    l = startWorkout(l, undefined, at(day));
+    const w = viewOf(l).active!;
+    l = putWorkout(l, { ...w, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, w.id, true, at(day) + 3_600_000).log;
+    return viewOf(l).workouts.find((x) => x.date === day && !x.active)!;
+  };
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-01', [{ w: 60, r: 5 }])), [], 'first session: nothing to beat');
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-03', [{ w: 62.5, r: 5 }])).map((r) => [r.kind, r.value]), [['weight', 62.5]]);
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-05', [{ w: 62.5, r: 8 }])).map((r) => r.kind), ['e1rm'], 'same weight, more reps');
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-07', [{ w: 100, r: 1, kind: 'W' }, { w: 50, r: 5 }])), [], 'warm-ups don’t count');
+  assert.equal(recordLabel({ exerciseId: bench, kind: 'weight', value: 62.5 }), 'Heaviest: 62.5 kg');
+});
+
+test('workout tools: notes, supersets, warm-ups, plates, RPE, and they all survive a backup', () => {
+  let l = newLog('A', at(D1));
+  l = startWorkout(l, undefined, at(D1));
+  let w = addExercises(viewOf(l).active!, viewOf(l), [bench, row, 'triceps-pushdown']);
+  w = setNote(w, 0, '  grip one finger wider  ');
+  assert.equal(w.exercises[0].note, 'grip one finger wider');
+  assert.equal(setNote(w, 0, '').exercises[0].note, undefined, 'blank removes it');
+  // Supersets: join 1+2, then 2+3 joins the same one; rest only after the last.
+  w = supersetWithNext(supersetWithNext(w, 0), 1);
+  assert.deepEqual(w.exercises.map((e) => e.group), [1, 1, 1]);
+  assert.deepEqual([0, 1, 2].map((i) => restsAfter(w, i)), [false, false, true]);
+  const two = leaveSuperset(leaveSuperset(w, 2), 1);
+  assert.deepEqual(two.exercises.map((e) => e.group), [undefined, undefined, undefined], 'a superset of one ends');
+  // Warm-ups up to 100 kg on a barbell: bar, 40, 60, 80; planned, in front, replacing earlier ones.
+  const ws = warmupsFor(getEx(viewOf(l), bench), 100);
+  assert.deepEqual(ws.map((s) => [s.w, s.r]), [[20, 10], [40, 5], [60, 3], [80, 2]]);
+  w = addWarmups(addWarmups(setValue(w, 0, 0, 'w', '100'), 0, ws), 0, ws);
+  assert.equal(w.exercises[0].sets.filter((s) => s.kind === 'W').length, 4);
+  assert.equal(w.exercises[0].sets[0].done, false);
+  assert.deepEqual(warmupsFor(getEx(viewOf(l), 'pull-up'), 20), [], 'none for bodyweight');
+  assert.deepEqual(platesFor(100), { side: [25, 15], left: 0 });
+  assert.deepEqual(platesFor(61), { side: [20], left: 1 }, 'an odd kilo can’t be made');
+  w = setRpe(setValue(w, 0, 4, 'r', '5'), 0, 4, 8.5);
+  assert.equal(w.exercises[0].sets[4].rpe, 8.5);
+  // Finish (warm-ups and the 100 kg set ticked) and round-trip through a backup.
+  w = setValue(setValue(w, 1, 0, 'r', '8'), 2, 0, 'r', '12');
+  l = putWorkout(l, { ...w, note: 'Slept badly' });
+  l = finishWorkout(l, w.id, true, at(D1) + 3_600_000).log;
+  const back = parseBackup(serialize(l)).log.workouts[0];
+  assert.equal(back.note, 'Slept badly');
+  assert.equal(back.exercises[0].note, 'grip one finger wider');
+  assert.deepEqual(back.exercises.map((e) => e.group), [1, 1, 1]);
+  assert.equal(back.exercises[0].sets.find((s) => s.rpe)?.rpe, 8.5);
+  assert.equal(lastNote(viewOf(l), bench), 'grip one finger wider');
+  assert.deepEqual(templateFrom(back).map((t) => t.group), [1, 1, 1], 'a template keeps the superset');
+});
+
+test('forgotten workouts, the Monday recap, what to do today, and when a backup is due', () => {
+  const h = 3_600_000;
+  const w = { active: true as const, startedAt: 0, updatedAt: 0 } as unknown as Workout;
+  assert.equal(isForgotten(w, 4 * h), true);
+  assert.equal(isForgotten({ ...w, updatedAt: 3 * h }, 4 * h), false, 'touched an hour ago: still going');
+  assert.equal(isForgotten(w, 2 * h), false);
+  let l = newLog('A', at('2026-08-01'));
+  const v0 = viewOf(l);
+  assert.equal(upNext(v0, '2026-09-28').templateId, 'starter-full-body', 'just starting');
+  assert.equal(weekRecap(v0, '2026-09-28'), null);
+  const did = (day: string, ex: string, n: number, templateId?: string) => {
+    l = startWorkout(l, templateId, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets: Array.from({ length: n }, () => ({ w: 50, r: 5 })) }] }, at(day));
+    l = finishWorkout(l, a.id, true, at(day) + h).log;
+  };
+  // Four weeks of legs and chest, then last week chest only: legs were light.
+  for (const d of ['2026-08-24', '2026-08-31', '2026-09-07', '2026-09-14']) { did(d, 'back-squat', 6); did(addDays(d, 2), bench, 6); }
+  did('2026-09-21', bench, 6); did('2026-09-23', bench, 6);
+  const r = weekRecap(viewOf(l), '2026-09-28')!;
+  assert.equal(r.start, '2026-09-21');
+  assert.deepEqual([r.last.workouts, r.before.workouts], [2, 2]);
+  assert.equal(r.light?.group, 'Legs');
+  assert.match(upNext(viewOf(l), '2026-09-28').templateId, /^starter-(back|shoulders|arms|core)$/, 'least trained, never touched groups first');
+  // Following a plan: the next one in turn.
+  did('2026-09-27', bench, 3, 'starter-push');
+  assert.deepEqual(upNext(viewOf(l), '2026-09-28'), { templateId: 'starter-pull', reason: 'Next in Push Pull Legs' });
+  assert.equal(backupDue(l, at('2026-09-28')), true, 'never backed up, plenty logged');
+  assert.equal(backupDue({ ...l, settings: { ...l.settings, backupChoice: 'local' } }, at('2026-09-28')), true, 'a week of changes still nudges');
 });

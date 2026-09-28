@@ -67,7 +67,7 @@ export default function Settings() {
       <Segmented<string> value={String(s.restSecs)} onChange={(x) => setSettings({ restSecs: Number(x) })} options={[
         { id: '0', label: 'Off' }, { id: '60', label: '1:00' }, { id: '90', label: '1:30' }, { id: '120', label: '2:00' }, { id: '180', label: '3:00' },
       ]} />
-      <T v="small" style={{ marginTop: space.xs }}>Starts when you enter reps for a set.</T>
+      <T v="small" style={{ marginTop: space.xs }}>Starts when you tick a set as done.</T>
       <Gap />
       <T v="label">People</T>
       <Gap h={space.sm} />
@@ -82,7 +82,10 @@ export default function Settings() {
         <Row left={icon('cloud-upload-outline')} title="Save an unlocked backup" subtitle="Plain file, readable by anyone who has it" right={chevron} onPress={backup.exportPlain} />
         <Row left={icon('document-text-outline')} title="Export as spreadsheet (CSV)" subtitle="One row per set, for Excel or Google Sheets" right={chevron} onPress={backup.exportCSV} />
         <Row left={icon('cloud-download-outline')} title="Restore from backup" subtitle="Replace data with a backup file" right={chevron} onPress={backup.restore} />
-        <Row left={icon('swap-vertical-outline')} title="Import from Strong" subtitle="Your history from a Strong CSV export (import again any time)" right={chevron} onPress={backup.importFromStrong} />
+        <Row left={icon('checkmark-done-outline')} title="Check a backup file" subtitle="Make sure a backup opens, without changing anything here" right={chevron} onPress={backup.verify} />
+        <Row left={icon('swap-vertical-outline')} title="Import from Strong" subtitle="Export a CSV from the Strong workout app’s settings, then pick it here" right={chevron} onPress={backup.importFromStrong} />
+        <Row left={icon('mail-outline')} title="Moving from another app?" subtitle="Another app or a spreadsheet? Email us and we’ll help move your history." right={chevron}
+          onPress={() => { window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Moving my workouts to Uplift')}`; }} />
         <Row left={icon('time-outline')} title="Undo history" subtitle="Go back to an earlier version (last 10, on this device)" right={chevron} onPress={() => router.push('/undo')} last />
       </Card>
       <Gap h={space.sm} />

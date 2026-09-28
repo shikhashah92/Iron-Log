@@ -6,12 +6,13 @@ import {
   bmi, bmiLabel, fmtHeight, fmtLength, fmtWeight, fromKg, healthyRange, googleCalendarURL, planCurve, planRate, planStatus, reminderFile, reminderICS, reminderStart,
   trendChange, trendOf, weighInDue, type WeighEvery,
 } from '../../body';
-import { ageOn, dateWithYear, dayKey, GENDERS, GOALS, imgKey, MEASURES, putProfile, today } from '../../model';
+import { ageOn, backupDue, dateWithYear, dayKey, daysAgo, GENDERS, GOALS, imgKey, MEASURES, plural, putProfile, today } from '../../model';
+import { useBackup } from '../../backupActions';
 import { useLog, useTheme } from '../../store';
 import { notify, saveFile } from '../../io';
 import { BASE, isAndroid, isIOS } from '../../pwa';
 import { Empty, RANGES, rangeLabel, rangeStart, Section, Stat, TimeChart, type Range } from '../../components';
-import { Button, Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
+import { Banner, Button, Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { font, sans, space } from '../../theme';
 
 /** You: weight, its trend and your target, body measurements, and settings. */
@@ -56,6 +57,7 @@ export default function Me() {
   return (
     <Screen>
       <Header title="Me" right={<IconButton icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />} />
+      <BackupDue />
 
       <Section title="Weight" right={<Button title="Log weigh-in" icon="add" kind={weighInDue(v.weighIns, every, iso) ? 'primary' : 'secondary'} onPress={() => router.push('/weigh-in')} style={{ minHeight: 40, paddingHorizontal: space.md }} />}>
         {now ? (
@@ -154,5 +156,20 @@ export default function Me() {
           right={<Ionicons name="chevron-forward" size={20} color={c.muted} />} onPress={() => router.push('/settings')} last />
       </Card>
     </Screen>
+  );
+}
+
+/** Why Me has a dot on it: a backup is due. One tap saves a locked one. */
+function BackupDue() {
+  const { log } = useLog();
+  const backup = useBackup();
+  if (!backupDue(log)) return null;
+  const days = log.settings.lastBackupAt ? daysAgo(dayKey(new Date(log.settings.lastBackupAt)), today()) : null;
+  return (
+    <>
+      <Banner text={days === null ? 'You haven’t saved a backup yet. If this phone is lost, so are your workouts.' : `Your last backup was ${plural(days, 'day')} ago.`} action="Back up" onPress={backup.exportLocked} />
+      {backup.modal}
+      <Gap h={space.md} />
+    </>
   );
 }

@@ -6,7 +6,7 @@ import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, ITERATIONS, new
 import { PassphraseModal } from './components';
 import { choose, confirm, notify, pickTextFile, saveFile } from './io';
 import { BUILT_IN } from './exercises';
-import { num, plural, today, type Images, type Log } from './model';
+import { dayKey, longDate, num, plural, today, type Images, type Log } from './model';
 import { importStrong } from './strong';
 import { useStore } from './store';
 
@@ -50,6 +50,21 @@ export function useBackup() {
       if (!isEnvelope(text)) return await restoreFrom(text);
       setPending({ mode: 'enter', onSubmit: async (pass) => { const plain = await decryptEnvelope(text, pass); setPending(null); await restoreFrom(plain); } });
     } catch (e) { notify('Could not restore', (e as Error).message); }
+  }
+  /** Open a backup file and say what's in it, without changing anything here: proof it can be restored. */
+  async function verify() {
+    const report = (plain: string) => {
+      const { log: b } = parseBackup(plain);
+      let when = '';
+      try { const at = JSON.parse(plain).exportedAt; if (typeof at === 'string' && !Number.isNaN(Date.parse(at))) when = ` It was saved on ${longDate(dayKey(new Date(at)))}.`; } catch { /* no date: fine */ }
+      notify('This backup opens fine', `${plural(b.workouts.length, 'workout')}, ${plural(b.weighIns.length, 'weigh-in')} and ${plural(b.templates.length, 'template')} for ${plural(b.profiles.length, 'person').replace('persons', 'people')}.${when} Nothing on this device was changed.`);
+    };
+    try {
+      const text = await pickTextFile();
+      if (!text) return;
+      if (!isEnvelope(text)) return report(text);
+      setPending({ mode: 'enter', onSubmit: async (pass) => { const plain = await decryptEnvelope(text, pass); setPending(null); try { report(plain); } catch (e) { notify('This file can’t be restored', (e as Error).message); } } });
+    } catch (e) { notify('This file can’t be restored', (e as Error).message); }
   }
   async function restoreFrom(text: string) {
     try {
@@ -108,5 +123,5 @@ export function useBackup() {
     } catch (e) { notify('Could not import', (e as Error).message); }
   }
 
-  return { exportLocked, exportPlain, exportCSV, restore, importFromStrong, bringIn, chooseLocal, modal };
+  return { exportLocked, exportPlain, exportCSV, restore, verify, importFromStrong, bringIn, chooseLocal, modal };
 }
