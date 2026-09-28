@@ -194,9 +194,13 @@ test('CSV: one row per set, formula injection neutralised', () => {
   assert.equal(csv[1], `${D1},Asha,Barbell Bench Press,1,60,8`);
 });
 
-test('built-in library: unique ids, every exercise has cues', () => {
+test('built-in library: unique ids, every exercise has cues and three illustration frames', () => {
   assert.equal(new Set(BUILT_IN.map((e) => e.id)).size, BUILT_IN.length);
-  for (const e of BUILT_IN) assert.ok(e.setup.length && e.exec.length && e.avoid.length, e.id);
+  for (const e of BUILT_IN) {
+    assert.ok(e.setup.length && e.exec.length && e.avoid.length, e.id);
+    for (const n of [1, 2, 3]) assert.ok(existsSync(`public/illustrations/${e.id}/${n}.svg`), `${e.id} frame ${n}`);
+  }
+  assert.ok(existsSync('public/illustrations/LICENSE.md'), 'the CC BY-SA credit ships with the images');
 });
 
 // The release gate (npm run check) builds first; make sure the built app would work from GitHub Pages' sub-folder.

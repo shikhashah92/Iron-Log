@@ -25,7 +25,7 @@ export default function Profiles() {
           <Row key={p.id} title={p.name} last={i === log.profiles.length - 1}
             left={<Ionicons name={p.id === cur ? 'person-circle' : 'person-circle-outline'} size={28} color={p.id === cur ? c.accent : c.muted} />}
             onPress={p.id === cur ? undefined : () => { update((l) => switchProfile(l, p.id)); goBack(); }}
-            right={
+            actions={
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
                 {p.id === cur && <Tag label="Current" tone="accent" />}
                 <IconButton icon="pencil-outline" label={`Rename ${p.name}`} size={20} onPress={async () => { const n = await ask('Rename profile', p.name); if (n) update((l) => putProfile(l, p.id, { name: n.slice(0, 40) })); }} />

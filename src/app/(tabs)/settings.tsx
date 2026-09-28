@@ -107,6 +107,10 @@ export default function Settings() {
       </Card>
       <Gap />
       <T v="small" center>Iron Log {Constants.expoConfig?.version ?? ''} · No account · No ads, no tracking</T>
+      <Gap h={space.sm} />
+      <T v="small" center style={{ fontSize: 12, lineHeight: 18 }}>
+        Exercise illustrations from Workout Guide by Bryl Lim, based on Everkinetic, used under CC BY-SA 4.0.
+      </T>
       {backup.modal}
     </Screen>
   );

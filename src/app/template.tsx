@@ -23,7 +23,7 @@ export default function TemplateEdit() {
       <Card pad={false} style={{ paddingHorizontal: space.md }}>
         {t.exerciseIds.length ? t.exerciseIds.map((x, i) => (
           <ExRow key={x} ex={getEx(v, x)} star={false} last={i === t.exerciseIds.length - 1}
-            right={<IconButton icon="remove-circle-outline" label={`Remove ${getEx(v, x).name}`} onPress={() => update((l) => putTemplate(l, { ...t, exerciseIds: t.exerciseIds.filter((y) => y !== x) }))} />} />
+            actions={<IconButton icon="remove-circle-outline" label={`Remove ${getEx(v, x).name}`} onPress={() => update((l) => putTemplate(l, { ...t, exerciseIds: t.exerciseIds.filter((y) => y !== x) }))} />} />
         )) : <View style={{ padding: space.md }}><T v="small">No exercises yet. Tap “Add exercise” below.</T></View>}
       </Card>
       <Button title="Add exercise" icon="add" style={{ marginTop: space.md }} onPress={() => router.push({ pathname: '/picker', params: { template: t.id } })} />

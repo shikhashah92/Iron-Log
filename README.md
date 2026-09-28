@@ -49,6 +49,9 @@ Once everyone has moved, delete `public/legacy/` and the Firebase project (`iron
 
 - `src/model.ts`: the data model and every change to it, as pure functions
 - `src/exercises.ts`: the built-in library (65 exercises)
+- `public/illustrations/`: 3-frame drawings for each built-in exercise, from
+  [Workout Guide](https://github.com/bryllim/workout-guide) / Everkinetic, **CC BY-SA 4.0** (credit in `LICENSE.md` there
+  and in Settings). Re-import with `node scripts/import-illustrations.mjs <workout-guide checkout>`.
 - `src/backup.ts`: backup validation, CSV export, and conversion from the old app's data
 - `src/store.tsx`: the IndexedDB write queue and undo snapshots
 - `src/app/`: screens (expo-router)

@@ -24,7 +24,7 @@ export default function Templates() {
         {v.templates.length ? v.templates.map((t, i) => (
           <Row key={t.id} title={t.name} subtitle={plural(t.exerciseIds.length, 'exercise')} last={i === v.templates.length - 1}
             onPress={() => router.push({ pathname: '/template', params: { id: t.id } })}
-            right={
+            actions={
               <View style={{ flexDirection: 'row', gap: space.xs }}>
                 <Button title="Start" kind="secondary" style={{ minHeight: 40, paddingHorizontal: space.md }}
                   onPress={() => { update((l) => startTemplate(l, t.exerciseIds)); router.dismissTo('/workout'); }} />

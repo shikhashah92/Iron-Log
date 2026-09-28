@@ -7,7 +7,7 @@ import {
 } from '../model';
 import { useLog, useTheme } from '../store';
 import { startRest } from '../timer';
-import { ExRow, goBack, RestBar } from '../components';
+import { ExRow, goBack, Illustration, RestBar } from '../components';
 import { Button, Card, Field, Gap, Header, IconButton, Screen, selectAll, T } from '../ui';
 import { condensed, mono, radius, space } from '../theme';
 
@@ -83,6 +83,7 @@ function SetStep({ ex, onChange }: { ex: Exercise; onChange: () => void }) {
     <>
       <Pressable accessibilityRole="button" accessibilityLabel={`${ex.name}. Change exercise`} onPress={onChange}
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.sm, borderBottomWidth: 1, borderBottomColor: c.border, opacity: pressed ? 0.6 : 1 })}>
+        <Illustration id={ex.id} size={56} animate />
         <T style={{ flex: 1, fontFamily: condensed, fontWeight: '600', fontSize: 22 }}>{ex.name}</T>
         <T v="small" color={c.accent}>Change</T>
       </Pressable>

@@ -1,9 +1,9 @@
 import { Image, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { addToWorkout, delExercise, getEx, historyOf, isCustom, num, prOf, WEIGHT_TYPES } from '../model';
+import { addToWorkout, delExercise, getEx, historyOf, isBuiltIn, isCustom, num, prOf, WEIGHT_TYPES } from '../model';
 import { useLog, useTheme } from '../store';
 import { confirm, notify, pickImage } from '../io';
-import { Empty, goBack, ProgressBlock, Star, Tag } from '../components';
+import { Empty, goBack, Illustration, ProgressBlock, Star, Tag } from '../components';
 import { Button, Gap, Header, IconButton, Screen, T } from '../ui';
 import { radius, space } from '../theme';
 
@@ -54,7 +54,17 @@ export default function ExerciseDetail() {
             <Button title="Remove" kind="ghost" onPress={async () => { if (await confirm('Remove this photo?', '', 'Remove', true)) setImage(id, null); }} style={{ minHeight: 40 }} />
           </View>
         </>
-      ) : <Button title="Add your own photo or GIF" icon="camera-outline" kind="ghost" onPress={addPhoto} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />}
+      ) : (
+        <>
+          {isBuiltIn(id) && (
+            <View style={{ alignItems: 'center', backgroundColor: c.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, paddingVertical: space.md }}>
+              <Illustration id={id} size={240} animate label={`${ex.name}, shown step by step`} />
+              <T v="small" style={{ fontSize: 11, marginTop: space.xs }}>Illustration: Workout Guide · Everkinetic · CC BY-SA 4.0</T>
+            </View>
+          )}
+          <Button title="Add your own photo or GIF" icon="camera-outline" kind="ghost" onPress={addPhoto} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />
+        </>
+      )}
       <Gap h={space.md} />
       {ex.setup.length || ex.exec.length || ex.avoid.length ? (
         <View style={{ gap: space.md }}>

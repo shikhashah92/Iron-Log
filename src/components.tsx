@@ -1,10 +1,10 @@
 // App-specific building blocks shared by screens.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  estOneRM, fmtSet, getEx, historyOf, isCustom, isFav, lastEntry, longDate, newId, num, prOf, putTemplate, shortDate, toggleFav, topLoad,
+  estOneRM, fmtSet, getEx, historyOf, isBuiltIn, isCustom, isFav, lastEntry, longDate, newId, num, prOf, putTemplate, shortDate, toggleFav, topLoad,
   type Entry, type Exercise, type View as LogView,
 } from './model';
 import { ask } from './io';
@@ -58,6 +58,38 @@ export function Thumb({ uri, size = 40 }: { uri?: string; size?: number }) {
   return <Image source={{ uri }} accessibilityIgnoresInvertColors style={{ width: size, height: size, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.chip }} />;
 }
 
+const REDUCED_MOTION = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * An exercise's drawing: three poses, looped like a GIF when `animate` (still when the phone asks for reduced motion).
+ * The SVGs are single-colour shapes used as a mask, so they take the theme's ink in light and dark mode. The paths are
+ * relative: every route is one level deep, so they resolve under the app's folder (e.g. /Iron-Log/illustrations/).
+ */
+/** `label` for screen readers; without one the drawing is decorative (e.g. next to the name in a list). */
+export function Illustration({ id, size, animate = false, label }: { id: string; size: number; animate?: boolean; label?: string }) {
+  const { c } = useTheme();
+  const [frame, setFrame] = useState(1);
+  const moving = animate && !REDUCED_MOTION;
+  useEffect(() => {
+    if (!moving) return;
+    const t = setInterval(() => setFrame((n) => (n % 3) + 1), 700);
+    return () => clearInterval(t);
+  }, [moving]);
+  if (!isBuiltIn(id)) return null;
+  const layer = (n: number): CSSProperties => {
+    const url = `url(illustrations/${id}/${n}.svg)`;
+    return { position: 'absolute', inset: 0, backgroundColor: c.text, opacity: n === (moving ? frame : 1) ? 1 : 0,
+      WebkitMaskImage: url, maskImage: url, WebkitMaskSize: 'contain', maskSize: 'contain',
+      WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center' };
+  };
+  // All three frames stay mounted while looping, so switching never waits on a download (no flicker).
+  return (
+    <div role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      {(moving ? [1, 2, 3] : [1]).map((n) => <div key={n} style={layer(n)} />)}
+    </div>
+  );
+}
+
 export function Star({ id }: { id: string }) {
   const { v, update } = useLog();
   const { c } = useTheme();
@@ -71,16 +103,24 @@ export function Star({ id }: { id: string }) {
 }
 
 /** One exercise in a list: name, tags, the last time it was done, and a tiny trend line. */
-export function ExRow({ ex, right, onPress, star = true, last }: { ex: Exercise; right?: ReactNode; onPress?: () => void; star?: boolean; last?: boolean }) {
+/** `right` sits inside the tap area; the star and `actions` are buttons of their own, so they sit beside it (no nested buttons). */
+export function ExRow({ ex, right, actions, onPress, star = true, last }: {
+  ex: Exercise; right?: ReactNode; actions?: ReactNode; onPress?: () => void; star?: boolean; last?: boolean;
+}) {
   const { v, photo } = useLog();
   const { c } = useTheme();
   const prev = lastEntry(v, ex.id);
   const best = prev ? fmtSet(prev.sets.reduce((a, b) => (b.w > a.w || (b.w === a.w && b.r > a.r) ? b : a)), ex) : null;
   return (
+    <View style={[st.rowWrap, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
+    {star && <Star id={ex.id} />}
     <Pressable accessibilityRole="button" accessibilityLabel={ex.name} onPress={onPress ?? (() => openExercise(ex.id))}
-      style={({ pressed }) => [st.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }, pressed && { opacity: 0.6 }]}>
-      {star && <Star id={ex.id} />}
-      <Thumb uri={photo(ex.id)} />
+      style={({ pressed }) => [st.row, { flex: 1 }, pressed && { opacity: 0.6 }]}>
+      {photo(ex.id) ? <Thumb uri={photo(ex.id)} /> : isBuiltIn(ex.id) ? (
+        <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
+          <Illustration id={ex.id} size={40} />
+        </View>
+      ) : null}
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18 }}>{ex.name}</T>
         <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
@@ -97,6 +137,8 @@ export function ExRow({ ex, right, onPress, star = true, last }: { ex: Exercise;
         </View>
       )}
     </Pressable>
+    {actions}
+    </View>
   );
 }
 
@@ -203,8 +245,8 @@ export function AddButton({ onPress, label }: { onPress: () => void; label: stri
   const { c } = useTheme();
   const resting = useRest() !== null; // the rest bar sits where the button would: move up above it
   return (
-    <View pointerEvents="box-none" style={[st.fabWrap, resting && { bottom: 24 + 72 }]}>
-      <View pointerEvents="box-none" style={{ width: '100%', maxWidth: MAX_WIDTH, alignItems: 'flex-end', paddingHorizontal: space.lg }}>
+    <View style={[st.fabWrap, resting && { bottom: 24 + 72 }]}>
+      <View style={{ width: '100%', maxWidth: MAX_WIDTH, alignItems: 'flex-end', paddingHorizontal: space.lg, pointerEvents: 'box-none' }}>
         <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
           style={({ pressed }) => [st.fab, { backgroundColor: c.accent, transform: [{ scale: pressed ? 0.96 : 1 }] }]}>
           <Ionicons name="add" size={32} color={c.onAccent} />
@@ -228,7 +270,7 @@ export function RestBar({ bottom = 12 }: { bottom?: number }) {
     </Pressable>
   );
   return (
-    <View pointerEvents="box-none" style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
+    <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
       <View accessibilityRole="timer" accessibilityLiveRegion="polite" style={[st.rest, { backgroundColor: c.card, borderColor: c.border }]}>
         <T v="label" style={{ fontSize: 11 }}>{done ? 'Go' : 'Rest'}</T>
         <T style={{ fontFamily: mono, fontSize: 24, minWidth: 64, color: done ? c.good : c.text }}>{clock}</T>
@@ -242,10 +284,11 @@ export function RestBar({ bottom = 12 }: { bottom?: number }) {
 }
 
 const st = StyleSheet.create({
+  rowWrap: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   row: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.sm },
-  fabWrap: { position: 'absolute', left: 0, right: 0, bottom: 24, alignItems: 'center' },
-  fab: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  rest: { width: '100%', maxWidth: MAX_WIDTH - 2 * space.lg, flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.sm + 2, borderRadius: radius.md, borderWidth: 1, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  fabWrap: { position: 'absolute', left: 0, right: 0, bottom: 24, alignItems: 'center', pointerEvents: 'box-none' },
+  fab: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' },
+  rest: { width: '100%', maxWidth: MAX_WIDTH - 2 * space.lg, flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.sm + 2, borderRadius: radius.md, borderWidth: 1, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' },
   tb: { minWidth: 44, minHeight: 40, paddingHorizontal: space.sm, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });
 

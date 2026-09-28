@@ -115,7 +115,7 @@ export function Segmented<K extends string>({ value, options, onChange }: { valu
         const on = o.id === value;
         return (
           <Pressable key={o.id} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(o.id)}
-            style={[s.segItem, on && { backgroundColor: c.card, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 }]}>
+            style={[s.segItem, on && { backgroundColor: c.card, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }]}>
             <Text style={{ color: on ? c.text : c.muted, fontSize: 16, fontWeight: on ? '700' : '500' }}>{o.label}</Text>
           </Pressable>
         );
@@ -124,20 +124,27 @@ export function Segmented<K extends string>({ value, options, onChange }: { valu
   );
 }
 
-export function Row({ left, title, subtitle, right, onPress, last }: {
-  left?: ReactNode; title: string; subtitle?: string; right?: ReactNode; onPress?: () => void; last?: boolean;
+/**
+ * A list row. `right` is shown inside the tap area (a chevron, a label); `actions` are buttons of their own, so they sit
+ * beside it: a button inside a button is invalid HTML and can swallow taps.
+ */
+export function Row({ left, title, subtitle, right, actions, onPress, last }: {
+  left?: ReactNode; title: string; subtitle?: string; right?: ReactNode; actions?: ReactNode; onPress?: () => void; last?: boolean;
 }) {
   const { c } = useTheme();
   return (
-    <Pressable disabled={!onPress} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined}
-      style={({ pressed }) => [s.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }, pressed && { opacity: 0.6 }]}>
-      {left}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <T numberOfLines={1} style={{ fontWeight: '500' }}>{title}</T>
-        {subtitle ? <T v="small" numberOfLines={1}>{subtitle}</T> : null}
-      </View>
-      {right}
-    </Pressable>
+    <View style={[s.rowWrap, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
+      <Pressable disabled={!onPress} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined}
+        style={({ pressed }) => [s.row, { flex: 1 }, pressed && { opacity: 0.6 }]}>
+        {left}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T numberOfLines={1} style={{ fontWeight: '500' }}>{title}</T>
+          {subtitle ? <T v="small" numberOfLines={1}>{subtitle}</T> : null}
+        </View>
+        {right}
+      </Pressable>
+      {actions}
+    </View>
   );
 }
 
@@ -193,6 +200,7 @@ const s = StyleSheet.create({
   chip: { minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6 },
   seg: { flexDirection: 'row', borderRadius: radius.md, padding: 4 },
   segItem: { flex: 1, minHeight: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  rowWrap: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm },
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: space.lg, paddingBottom: space.md, gap: space.sm, minHeight: 64 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.md },

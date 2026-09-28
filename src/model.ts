@@ -103,6 +103,8 @@ export function viewOf(l: Log): View {
 }
 
 const builtInById = new Map(BUILT_IN.map((e) => [e.id, e]));
+/** Built-in exercises ship with drawings (public/illustrations/<id>/1-3.svg); custom ones don't. */
+export const isBuiltIn = (id: string) => builtInById.has(id);
 export const allExercises = (v: View): Exercise[] => [...BUILT_IN, ...v.exercises];
 export function getEx(v: View, id: string): Exercise {
   return v.exercises.find((e) => e.id === id) ?? builtInById.get(id)
