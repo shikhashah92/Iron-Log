@@ -165,7 +165,7 @@ export function Row({ left, title, subtitle, right, actions, onPress, last }: {
         {left}
         <View style={{ flex: 1, minWidth: 0 }}>
           <T numberOfLines={1} style={{ fontWeight: '500' }}>{title}</T>
-          {subtitle ? <T v="small" numberOfLines={1}>{subtitle}</T> : null}
+          {subtitle ? <T v="small" numberOfLines={2}>{subtitle}</T> : null}
         </View>
         {right}
       </Pressable>
