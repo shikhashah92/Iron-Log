@@ -31,6 +31,8 @@ function close(v: string | boolean | null) {
 
 export const confirmDialog = (title: string, message: string, ok = 'OK', destructive = false) =>
   open<boolean>({ title, message, ok, cancel: 'Cancel', destructive });
+/** Two answers: resolves true for `a`, false for `b` (closing the dialog counts as `b`). */
+export const chooseDialog = (title: string, message: string, a: string, b: string) => open<boolean>({ title, message, ok: a, cancel: b });
 export const noticeDialog = (title: string, message?: string) => open<boolean>({ title, message, ok: 'OK' }).then(() => {});
 /** Resolves to the trimmed text, or null if cancelled or left empty. */
 export const askDialog = (title: string, value = '', placeholder?: string) =>

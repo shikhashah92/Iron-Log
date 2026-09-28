@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { parseBackup, toBackupJSON, toCSV } from './backup';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, ITERATIONS, newSalt } from './crypto';
 import { PassphraseModal } from './components';
-import { confirm, notify, pickTextFile, saveFile } from './io';
+import { choose, confirm, notify, pickTextFile, saveFile } from './io';
 import { BUILT_IN } from './exercises';
-import { plural, today, type Images, type Log } from './model';
+import { num, plural, today, type Images, type Log } from './model';
+import { importStrong } from './strong';
 import { useStore } from './store';
 
 type Pending = { mode: 'set' | 'enter'; onSubmit: (pass: string) => Promise<void> } | null;
@@ -82,5 +83,31 @@ export function useBackup() {
   }
 
   const modal = pending ? <PassphraseModal visible mode={pending.mode} onSubmit={pending.onSubmit} onClose={() => setPending(null)} /> : null;
-  return { exportLocked, exportPlain, exportCSV, restore, bringIn, chooseLocal, modal };
+  /** Strong's CSV export, merged into the current person (nothing already logged is changed). */
+  async function importFromStrong() {
+    if (!log) return;
+    try {
+      const text = await pickTextFile('text/csv,.csv');
+      if (!text) return;
+      // Strong exports in whatever unit you used in the app, and the file doesn't say which.
+      const kg = await choose('Which unit did you use in Strong?', 'Weights are converted to kilograms if you used pounds.', 'Kilograms', 'Pounds');
+      const { log: next, summary: s } = importStrong(log, text, kg ? 'kg' : 'lb');
+      const who = log.profiles.find((p) => p.id === log.settings.currentProfileId)?.name ?? 'you';
+      const msg = [
+        `${plural(s.sets, 'set')} over ${plural(s.days, 'day')} (${s.from} to ${s.to}), added to ${who}.`,
+        `${s.matched} exercises match Iron Log’s library; ${plural(s.newExercises, 'new custom exercise')}.`,
+        s.templates ? `${plural(s.templates, 'workout')} saved as templates.` : '',
+        `Heaviest set: ${num(s.heaviest)} kg.`,
+        s.skippedEntries ? `${plural(s.skippedEntries, 'exercise day')} you already have are left as they are.` : '',
+        s.notes ? `Set notes (${s.notes}) aren’t imported.` : '',
+        'Your current data is kept in Undo history first.',
+      ].filter(Boolean).join(' ');
+      if (!s.entries && !s.templates) return notify('Nothing new to import', `Everything in this file is already here. ${msg}`);
+      if (!(await confirm('Import from Strong?', msg, 'Import'))) return;
+      await replace({ log: next }, 'Before Strong import');
+      notify('Imported from Strong', `${plural(s.entries, 'exercise day')} added. See them in History.`);
+    } catch (e) { notify('Could not import', (e as Error).message); }
+  }
+
+  return { exportLocked, exportPlain, exportCSV, restore, importFromStrong, bringIn, chooseLocal, modal };
 }

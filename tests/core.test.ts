@@ -210,3 +210,43 @@ test('built app: served from /Iron-Log/, no third-party requests', { skip: !proc
   assert.ok(!/https?:\/\/(?!www\.w3\.org)/.test(html.replace(/<meta[^>]*>/g, '')), 'no external URLs in the shell');
   assert.ok(existsSync('dist/sw.js') && existsSync('dist/fonts/IBMPlexMono-400.woff2') && existsSync('dist/legacy/index.html'));
 });
+
+test('Strong import: maps names, keeps warm-up/drop sets, skips rest timers, converts lb, merges without overwriting', async () => {
+  const { importStrong, parseCSV, durationMs } = await import('../src/strong.ts');
+  const csv = [
+    'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE',
+    '2026-09-01 07:00:00,"Push, heavy",1h 5m,"Bench Press (Barbell)",W,20.0,10.0,0,0.0,"",,',
+    '2026-09-01 07:00:00,"Push, heavy",1h 5m,"Bench Press (Barbell)",1,100.0,5.0,0,0.0,"felt ""strong""",,',
+    '2026-09-01 07:00:00,"Push, heavy",1h 5m,"Bench Press (Barbell)",Rest Timer,0,0.0,0,120.0,,,',
+    '2026-09-01 07:00:00,"Push, heavy",1h 5m,"Bench Press (Barbell)",D,80.0,8.0,0,0.0,,,',
+    '2026-09-01 07:00:00,"Push, heavy",1h 5m,"Squat (Smith Machine)",1,60.0,8.0,0,0.0,,,',
+    '2026-09-01 07:00:00,"Push, heavy",1h 5m,"Plank",1,0,0.0,0,45.0,,,',
+    '2026-09-03 18:00:00,Legs,49m,"Leg Press",1,0,0.0,0,0.0,,,',
+  ].join('\r\n');
+  assert.deepEqual(parseCSV('a,"b,""c"""\r\n"x\ny",z\n'), [['a', 'b,"c"'], ['x\ny', 'z']]);
+  assert.equal(durationMs('1h 5m'), 65 * 60_000);
+
+  let l = addSet(newLog('Rohan'), 'bench-press-bb', '2026-09-01', 1, { w: 50, r: 5 }); // already logged: must be kept
+  const { log, summary } = importStrong(l, csv, 'lb', 99);
+  const v = viewOf(log);
+  assert.deepEqual(v.entries.find((e) => e.exerciseId === 'bench-press-bb')!.sets, [{ w: 50, r: 5 }], 'existing day untouched');
+  assert.equal(summary.skippedEntries, 1);
+  const smith = v.exercises.find((e) => e.name === 'Squat (Smith Machine)')!;
+  assert.equal(smith.weightType, 'machine');
+  assert.equal(smith.group, 'Legs');
+  assert.deepEqual(v.entries.find((e) => e.exerciseId === smith.id)!.sets, [{ w: 27.22, r: 8 }], 'pounds → kg');
+  assert.deepEqual(v.entries.find((e) => e.exerciseId === 'plank')!.sets, [{ w: 0, r: 45 }], 'timed sets are seconds');
+  assert.equal(summary.sets, 5, 'W and D kept; rest timer and the empty Leg Press row skipped');
+  assert.equal(summary.days, 1);
+  assert.equal(v.sessions.get('2026-09-01')!.startedAt, 1, 'an existing workout is left as it is');
+  const fresh = viewOf(importStrong(newLog(), csv, 'kg').log).sessions.get('2026-09-01')!;
+  assert.equal(fresh.endedAt! - fresh.startedAt!, 65 * 60_000, 'Strong duration becomes the workout clock');
+  assert.deepEqual(v.templates.map((t) => t.name), ['Push, heavy']);
+  parseBackup(serialize(log)); // the result is a valid log
+
+  const again = importStrong(log, csv, 'lb', 100);
+  assert.equal(again.summary.entries, 0);
+  assert.equal(again.summary.templates, 0);
+  assert.equal(again.summary.newExercises, 0, 'reuses the custom exercise it made last time');
+  assert.throws(() => importStrong(l, 'Date,Amount\n2026-01-01,5', 'kg'), /Strong export/);
+});
