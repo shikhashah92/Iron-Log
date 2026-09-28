@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
-  setValue, startWorkout, templateFrom, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
+  setValue, startWorkout, templateFrom, totals, weekly, weekStart, weekStreak, groupSets, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
@@ -561,4 +561,31 @@ test('ready-made templates: real exercises, startable, and editing one saves a p
   assert.equal(l.templates[0].starter, undefined);
   const v = viewOf(l).templates.filter((t) => t.id === 'starter-legs');
   assert.deepEqual(v.map((t) => [t.name, t.starter]), [['My legs', undefined]]);
+});
+
+test('history trends: weeks start Monday, totals, 12-week bars, streaks, and sets per muscle group', () => {
+  assert.equal(weekStart('2026-09-27'), '2026-09-21', 'Sunday belongs to the week before');
+  assert.equal(weekStart('2026-09-28'), '2026-09-28');
+  let l = newLog('A', at('2026-08-01'));
+  const did = (day: string, ex: string, sets: { w: number; r: number; kind?: 'W' }[]) => {
+    l = startWorkout(l, undefined, at(day));
+    const w = viewOf(l).active!;
+    l = putWorkout(l, { ...w, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, w.id, true, at(day) + 45 * 60_000).log;
+  };
+  // Weeks of 31 Aug, 7 Sep, 14 Sep trained; 21 Sep skipped; 28 Sep (this week) trained.
+  did('2026-08-31', bench, [{ w: 50, r: 5 }, { w: 20, r: 10, kind: 'W' }]);
+  did('2026-09-09', 'back-squat', [{ w: 80, r: 5 }]);
+  did('2026-09-16', 'back-squat', [{ w: 80, r: 5 }, { w: 80, r: 5 }]);
+  did('2026-09-28', 'plank', [{ w: 0, r: 60 }]);
+  const v = viewOf(l);
+  assert.deepEqual(totals(v, '2026-09-01', '2026-09-30'), { workouts: 3, days: 3, minutes: 135, sets: 4, volume: 1200 });
+  const weeks = weekly(v, '2026-09-28', 12);
+  assert.equal(weeks.length, 12);
+  assert.equal(weeks.at(-1)!.start, '2026-09-28');
+  assert.deepEqual(weeks.slice(-5).map((w) => w.workouts), [1, 1, 1, 0, 1]);
+  assert.deepEqual(weekStreak(v, '2026-09-28'), { current: 1, best: 3 });
+  assert.deepEqual(weekStreak(v, '2026-09-20'), { current: 3, best: 3 }, 'an untrained current week doesn’t break the run');
+  const g = Object.fromEntries(groupSets(v, '2026-08-30', '2026-09-28').map((x) => [x.group, x.sets]));
+  assert.deepEqual([g.Chest, g.Legs, g.Core, g.Back], [1, 3, 1, 0], 'warm-ups not counted; timed core still counts as a set');
 });

@@ -84,10 +84,15 @@ export default function StartWorkout() {
       {mine.length ? <Tiles list={mine} /> : (
         <Card><Empty>No templates yet. Start from a ready-made one below, build your own, or save a finished workout as a template from History.</Empty></Card>
       )}
-      <Gap />
-      <T v="label">Ready-made</T>
-      <T v="small" style={{ marginTop: 4, marginBottom: space.sm, fontSize: 12 }}>Tap one to see it, then start it or change it to suit you.</T>
-      <Tiles list={v.templates.filter((t) => t.starter)} />
+      {/* Ready-made ones sit in their own mint panel, so they never read as yours. */}
+      <View style={{ marginTop: space.xl, backgroundColor: c.accentSoft, borderRadius: radius.lg, padding: space.md, paddingTop: space.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <Ionicons name="sparkles-outline" size={20} color={c.accent} />
+          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 20 }}>Ready-made by Uplift</T>
+        </View>
+        <T v="small" style={{ marginTop: 4, marginBottom: space.md, color: c.text }}>Plans by muscle group to get you going. Open one to start it, or change it and it becomes yours.</T>
+        <Tiles list={v.templates.filter((t) => t.starter)} />
+      </View>
     </Screen>
   );
 }
