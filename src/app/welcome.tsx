@@ -8,7 +8,7 @@ import { addDays, GENDERS, newLog, putProfile, today, type Gender } from '../mod
 import { DateField } from '../DateField';
 import { isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
 import { InstallSteps } from '../components';
-import { BrandMark, Button, Field, Gap, IconButton, MAX_WIDTH, Screen, T } from '../ui';
+import { BrandMark, Button, Choice, Field, Gap, IconButton, MAX_WIDTH, Screen, T } from '../ui';
 import { font, radius, space } from '../theme';
 
 type Step = 'install' | 'name' | 'born' | 'gender';
@@ -141,14 +141,7 @@ export default function Welcome() {
         {step === 'gender' && (
           <>
             <View style={{ gap: space.sm }}>
-              {GENDERS.map((g) => (
-                <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={g.label} disabled={busy} onPress={() => finish(g.id)}
-                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingHorizontal: space.lg, borderRadius: radius.md,
-                    borderWidth: 2, borderColor: pressed ? c.brand : c.border, backgroundColor: pressed ? c.accentSoft : c.card })}>
-                  <T style={{ flex: 1, fontSize: 18, fontWeight: '600' }}>{g.label}</T>
-                  <Ionicons name="arrow-forward" size={20} color={c.muted} />
-                </Pressable>
-              ))}
+              {GENDERS.map((g) => <Choice key={g.id} label={g.label} disabled={busy} onPress={() => finish(g.id)} />)}
             </View>
             <Gap h={space.lg} />
             <Button title="Skip" kind="secondary" onPress={() => finish()} disabled={busy} />

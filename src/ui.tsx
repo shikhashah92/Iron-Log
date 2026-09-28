@@ -77,6 +77,23 @@ export function Button({ title, onPress, kind = 'primary', icon, disabled, style
   );
 }
 
+/** A full-width answer card: tap to choose and move on (onboarding, "How did that feel?"). */
+export function Choice({ label, hint, lead, onPress, disabled }: { label: string; hint?: string; lead?: string; onPress: () => void; disabled?: boolean }) {
+  const { c } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={hint ? `${label}. ${hint}` : label} disabled={disabled} onPress={onPress}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 64, paddingHorizontal: space.lg, paddingVertical: space.sm,
+        borderRadius: radius.md, borderWidth: 2, borderColor: pressed ? c.brand : c.border, backgroundColor: pressed ? c.accentSoft : c.card })}>
+      {lead ? <Text style={{ fontSize: 26 }}>{lead}</Text> : null}
+      <View style={{ flex: 1 }}>
+        <T style={{ fontSize: 18, fontWeight: '600' }}>{label}</T>
+        {hint ? <T v="small">{hint}</T> : null}
+      </View>
+      <Ionicons name="arrow-forward" size={20} color={c.muted} />
+    </Pressable>
+  );
+}
+
 export function IconButton({ icon, onPress, label, size = 24, color }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void; label: string; size?: number; color?: string }) {
   const { c } = useTheme();
   return (
