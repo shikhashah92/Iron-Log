@@ -94,6 +94,7 @@ function Root() {
         <Stack.Screen name="weigh-in" options={modal} />
         <Stack.Screen name="target" options={modal} />
         <Stack.Screen name="weigh-ins" />
+        <Stack.Screen name="about" options={modal} />
       </Stack.Protected>
       <Stack.Protected guard={!log}>
         <Stack.Screen name="welcome" />

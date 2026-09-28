@@ -6,7 +6,7 @@ import {
   bmi, bmiLabel, fmtHeight, fmtLength, fmtWeight, fromKg, healthyRange, parseHeight, planCurve, planRate, planStatus, reminderICS,
   trendChange, trendOf, weighInDue, type WeighEvery,
 } from '../../body';
-import { dateWithYear, imgKey, MEASURES, putProfile, today } from '../../model';
+import { ageOn, dateWithYear, GENDERS, GOALS, imgKey, MEASURES, putProfile, today } from '../../model';
 import { useLog, useTheme } from '../../store';
 import { ask, notify, saveFile } from '../../io';
 import { Empty, RANGES, rangeLabel, rangeStart, Section, Stat, TimeChart, type Range } from '../../components';
@@ -142,6 +142,9 @@ export default function Me() {
       </Card>
       <Gap />
       <Card pad={false} style={{ paddingHorizontal: space.lg }}>
+        <Row left={<Ionicons name="person-outline" size={22} color={c.accent} />} title="About you"
+          subtitle={[p.dob && `${ageOn(p.dob, iso)} years`, GENDERS.find((g) => g.id === p.gender)?.label, GOALS.find((g) => g.id === p.goal)?.label].filter(Boolean).join(' · ') || 'Name, date of birth, gender, goal'}
+          right={<Ionicons name="chevron-forward" size={20} color={c.muted} />} onPress={() => router.push('/about')} />
         <Row left={<Ionicons name="people-outline" size={22} color={c.accent} />} title="Profiles" subtitle={`Logging as ${p.name}`}
           right={<Ionicons name="chevron-forward" size={20} color={c.muted} />} onPress={() => router.push('/profiles')} />
         <Row left={<Ionicons name="settings-outline" size={22} color={c.accent} />} title="Settings" subtitle="Backups, rest timer, appearance, Strong import"
