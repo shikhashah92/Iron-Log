@@ -291,6 +291,50 @@ export function weekStats(v: View, date: string) {
   }
   return { sessions: workouts.size, sets, volume };
 }
+// ---- personal bests ----
+export type RecordKind = 'weight' | 'e1rm' | 'volume' | 'reps' | 'distance' | 'hold';
+export interface PersonalBest { exerciseId: string; kind: RecordKind; value: number }
+/**
+ * What this workout beat, per exercise (at most one each), against every earlier session of it: heaviest set, else best
+ * estimated 1RM, else most volume for weights; most reps for bodyweight; longest distance for cardio; longest hold for a pose. A first
+ * ever session isn't a record (nothing to beat), and warm-ups never count.
+ */
+export function recordsOf(v: View, w: Workout): PersonalBest[] {
+  const out: PersonalBest[] = [];
+  for (const e of w.exercises) {
+    const ex = getEx(v, e.exerciseId);
+    const sets = working(e.sets.filter((s) => s.done !== false));
+    const before = v.entries.filter((x) => x.exerciseId === e.exerciseId && x.workoutId !== w.id && x.startedAt < w.startedAt);
+    if (!sets.length || !before.length) continue;
+    const best = (f: (sets: SetRow[]) => number) => Math.max(0, ...before.map((x) => f(working(x.sets))));
+    // One record per exercise, the most telling one: they're checked in order and the first beaten wins.
+    let found = false;
+    const beat = (kind: RecordKind, f: (sets: SetRow[]) => number) => {
+      if (found) return;
+      const now = f(sets);
+      if (now > 0 && now > best(f) + 1e-9) { out.push({ exerciseId: e.exerciseId, kind, value: now }); found = true; }
+    };
+    if (ex.kind === 'cardio') beat('distance', (ss) => ss.reduce((t, s) => t + s.w, 0));
+    else if (ex.kind === 'yoga') { if (ex.yoga === 'hold') beat('hold', (ss) => Math.max(0, ...ss.map((s) => s.r))); }
+    else if (ex.kind) continue; // classes and sports: no records
+    else if (ex.metric === 'secs') beat('hold', (ss) => Math.max(0, ...ss.map((s) => s.r)));
+    else if (ex.weightType === 'bodyweight' && sets.every((s) => s.w === 0)) beat('reps', (ss) => Math.max(0, ...ss.map((s) => s.r)));
+    else {
+      const bw = v.bodyweight;
+      beat('weight', (ss) => Math.max(0, ...ss.map((s) => load(s, ex, bw))));
+      beat('e1rm', (ss) => Math.max(0, ...ss.map((s) => load(s, ex, bw) * (1 + s.r / 30))));
+      beat('volume', (ss) => volumeOf({ sets: ss }, ex, bw));
+    }
+  }
+  return out;
+}
+/** "Heaviest: 85 kg", "Most reps: 14"… for a record. */
+export function recordLabel(r: PersonalBest): string {
+  const kg = (n: number) => `${num(Math.round(n * 10) / 10)} kg`;
+  return r.kind === 'weight' ? `Heaviest: ${kg(r.value)}` : r.kind === 'e1rm' ? `Best est. 1RM: ${kg(r.value)}` : r.kind === 'volume' ? `Most volume: ${kg(r.value)}`
+    : r.kind === 'reps' ? `Most reps: ${r.value}` : r.kind === 'distance' ? `Longest: ${num(Math.round(r.value * 100) / 100)} km` : `Longest hold: ${fmtDur(r.value)}`;
+}
+
 // ---- history: calendar and trends ----
 /** Monday of the week `day` is in. */
 export const weekStart = (day: string) => addDays(day, -((new Date(`${day}T12:00:00`).getDay() + 6) % 7));

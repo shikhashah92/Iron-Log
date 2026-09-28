@@ -4,10 +4,11 @@ import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  addDays, clock, dateWithYear, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
-  type Entry, type Exercise, type TemplateExercise, type View as LogView,
+  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
+  type Entry, type Exercise, type TemplateExercise, type View as LogView, type Workout,
 } from './model';
-import { ask } from './io';
+import { drawWorkout, shareWorkout } from './share';
+import { ask, notify } from './io';
 import { useLog, useTheme } from './store';
 import { adjustRest, stopRest, useNow, useRest } from './timer';
 import { Button, Card, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
@@ -468,4 +469,39 @@ export function InstallSteps() {
       ))}
     </Card>
   );
+}
+
+/** The workout's new personal bests, one row per exercise (nothing when there are none). */
+export function Records({ v, w }: { v: LogView; w: Workout }) {
+  const { c } = useTheme();
+  const recs = recordsOf(v, w);
+  if (!recs.length) return null;
+  const ids = [...new Set(recs.map((r) => r.exerciseId))];
+  return (
+    <View style={{ backgroundColor: c.accentSoft, borderRadius: radius.md, padding: space.md, gap: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+        <Ionicons name="trophy" size={20} color={c.accent} />
+        <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 17 }}>{recs.length === 1 ? 'New personal best' : `${recs.length} new personal bests`}</T>
+      </View>
+      {ids.map((id) => (
+        <View key={id}>
+          <T style={{ fontWeight: '600' }}>{getEx(v, id).name}</T>
+          <T v="small" style={{ color: c.text }}>{recs.filter((r) => r.exerciseId === id).map(recordLabel).join(' · ')}</T>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Share a finished workout as a picture. It's drawn when this appears, so the share sheet opens right on the tap. */
+export function ShareWorkout({ w, primary }: { w: Workout; primary?: boolean }) {
+  const { v } = useLog();
+  const [blob, setBlob] = useState<Blob | null>(null);
+  useEffect(() => {
+    let on = true;
+    drawWorkout(v, w).then((b) => { if (on) setBlob(b); }, () => {});
+    return () => { on = false; };
+  }, [v, w]);
+  const share = () => shareWorkout(v, w, blob ?? undefined).catch(() => notify('Couldn’t make the picture', 'Try again in a moment.'));
+  return <Button title="Share workout" icon="share-social-outline" kind={primary ? 'primary' : 'secondary'} onPress={share} style={primary ? undefined : { minHeight: 40 }} />;
 }

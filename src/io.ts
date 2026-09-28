@@ -6,11 +6,11 @@ import { askDialog, confirmDialog, noticeDialog } from './dialog';
  * Phones: the system share sheet (Save to Files, iCloud Drive, Google Drive, Mail) in one tap.
  * Computers, or if sharing isn't allowed: a normal download. Returns false if the person cancelled.
  */
-export async function saveFile(name: string, content: string, mimeType: string): Promise<boolean> {
+export async function saveFile(name: string, content: BlobPart, mimeType: string, text?: string): Promise<boolean> {
   const file = new File([content], name, { type: mimeType });
   if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: name });
+      await navigator.share({ files: [file], ...(text ? { text } : { title: name }) });
       return true;
     } catch (e) {
       if ((e as Error).name === 'AbortError') return false;

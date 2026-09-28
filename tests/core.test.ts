@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
-  setValue, startWorkout, templateFrom, totals, weekly, weekStart, weekStreak, groupSets, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
+  setValue, startWorkout, templateFrom, recordsOf, recordLabel, totals, weekly, weekStart, weekStreak, groupSets, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
@@ -597,4 +597,20 @@ test('a negative weight is kept only where it means assistance (bodyweight); any
   assert.equal(setValue(w, 0, 0, 'w', '-5').exercises[0].sets[0].w, 0, 'barbell: no minus');
   assert.equal(setValue(w, 1, 0, 'w', '-20', true).exercises[1].sets[0].w, -20, 'assisted pull-up: minus kg');
   assert.equal(setValue(w, 0, 0, 'r', '-3').exercises[0].sets[0].r, 0, 'reps never go below 0');
+});
+
+test('personal bests: one per exercise, the heaviest first, never on a first session or from warm-ups', () => {
+  let l = newLog('A', at(D1));
+  const did = (day: string, sets: { w: number; r: number; kind?: 'W' }[], ex = bench) => {
+    l = startWorkout(l, undefined, at(day));
+    const w = viewOf(l).active!;
+    l = putWorkout(l, { ...w, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, w.id, true, at(day) + 3_600_000).log;
+    return viewOf(l).workouts.find((x) => x.date === day && !x.active)!;
+  };
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-01', [{ w: 60, r: 5 }])), [], 'first session: nothing to beat');
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-03', [{ w: 62.5, r: 5 }])).map((r) => [r.kind, r.value]), [['weight', 62.5]]);
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-05', [{ w: 62.5, r: 8 }])).map((r) => r.kind), ['e1rm'], 'same weight, more reps');
+  assert.deepEqual(recordsOf(viewOf(l), did('2026-09-07', [{ w: 100, r: 1, kind: 'W' }, { w: 50, r: 5 }])), [], 'warm-ups don’t count');
+  assert.equal(recordLabel({ exerciseId: bench, kind: 'weight', value: 62.5 }), 'Heaviest: 62.5 kg');
 });

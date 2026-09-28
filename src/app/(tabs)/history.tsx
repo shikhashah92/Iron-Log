@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, getEx, groupSets, longDate, matches, num, plural, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
+import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, getEx, groupSets, longDate, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
-import { Empty, ProgressBlock, Section, SetLines, useSaveAsTemplate } from '../../components';
+import { Empty, ProgressBlock, Records, Section, SetLines, ShareWorkout, useSaveAsTemplate } from '../../components';
 import { Button, Card, Field, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { sans, radius, space } from '../../theme';
 
@@ -188,6 +188,8 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
   const ago = daysAgo(w.date);
   const time = new Date(w.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const cal = workoutCalories(v, w);
+  const recs = recordsOf(v, w);
+  const prIds = new Set(recs.map((r) => r.exerciseId));
   const meta = [...(w.endedAt ? [duration(w.endedAt - w.startedAt)] : []), plural(sets, 'set'), ...(volume ? [`${num(volume)} kg`] : []),
     ...(cal ? [`≈${cal} kcal`] : []), ...(w.feeling ? [w.feeling] : [])].join(' · ');
   async function editIt() {
@@ -208,12 +210,19 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
         </View>
         <T v="small">{longDate(w.date)}, {time} · {ago === 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago}d ago`}</T>
         <T v="mono" style={{ fontSize: 12 }}>{meta}</T>
+        {recs.length ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: c.accentSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginVertical: 2 }}>
+            <Ionicons name="trophy" size={13} color={c.accent} />
+            <T style={{ fontSize: 12, fontWeight: '700' }} color={c.accent}>{recs.length === 1 ? '1 personal best' : `${recs.length} personal bests`}</T>
+          </View>
+        ) : null}
         {!open && w.exercises.map((e) => {
           const ex = getEx(v, e.exerciseId);
           const best = isTimed(ex) ? e.sets[0] : bestSet(e.sets.filter((x) => x.kind !== 'W').length ? e.sets.filter((x) => x.kind !== 'W') : e.sets);
           return (
             <View key={e.exerciseId} style={{ flexDirection: 'row', gap: space.sm }}>
               <T numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{isTimed(ex) ? ex.name : `${e.sets.length} × ${ex.name}`}</T>
+              {prIds.has(e.exerciseId) ? <Ionicons name="trophy" size={13} color={c.accent} accessibilityLabel="Personal best" /> : null}
               <T v="mono" style={{ fontSize: 12 }}>{best ? fmtSet(best, ex) : ''}</T>
             </View>
           );
@@ -223,8 +232,10 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
         <>
           <Gap h={space.sm} />
           <SetLines entries={v.entries.filter((e) => e.workoutId === w.id)} name />
+          {recs.length ? <><Gap h={space.sm} /><Records v={v} w={w} /></> : null}
           <Gap h={space.sm} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+            <ShareWorkout w={w} />
             <Button title="Edit" icon="create-outline" kind="secondary" style={{ minHeight: 40 }} onPress={editIt} />
             <Button title="Save as template" icon="star-outline" kind="secondary" style={{ minHeight: 40 }}
               onPress={() => saveAsTemplate(templateFrom(w), w.name)} />
