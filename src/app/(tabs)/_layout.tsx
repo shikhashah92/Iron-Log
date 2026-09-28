@@ -8,6 +8,7 @@ import { WorkoutBar } from '../../components';
 import { MAX_WIDTH } from '../../ui';
 import { TourOverlay } from '../../tour';
 import { stopRest } from '../../timer';
+import { backupDue } from '../../model';
 import { useForgottenWorkout } from '../../workout';
 import { sans } from '../../theme';
 
@@ -28,6 +29,7 @@ export default function TabsLayout() {
   const live = !!log?.workouts.some((w) => w.active && w.profileId === log.settings.currentProfileId);
   // A new person: onboarding's second step (optional), then the tour.
   const pending = !!log?.settings.setupPending;
+  const due = !!log && backupDue(log);
   useEffect(() => { if (pending) router.push({ pathname: '/about', params: { first: '1' } }); }, [pending]);
   // The rest timer belongs to the workout in progress: once it's saved, discarded or deleted, the timer goes too.
   useEffect(() => { if (!live) stopRest(); }, [live]);
@@ -49,6 +51,8 @@ export default function TabsLayout() {
       {TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{
           title: t.title,
+          // A dot on Me when a backup is overdue (Settings, from Me, is where you save one).
+          ...(t.name === 'me' && due ? { tabBarBadge: '', tabBarBadgeStyle: { backgroundColor: c.warnText, minWidth: 10, height: 10, borderRadius: 5, top: 4 } } : {}),
           tabBarIcon: ({ color, focused, size }) => <Ionicons name={focused ? t.on : t.icon} size={size} color={color} />,
         }} />
       ))}

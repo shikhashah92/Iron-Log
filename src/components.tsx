@@ -10,7 +10,7 @@ import {
 import { drawWorkout, shareWorkout } from './share';
 import { ask, notify } from './io';
 import { useLog, useTheme } from './store';
-import { adjustRest, stopRest, useNow, useRest } from './timer';
+import { adjustRest, stopRest, useNow, useRest, useRestLabel } from './timer';
 import { Button, Card, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
 import { sans, radius, space } from './theme';
 import { isAndroid, isIOS, isStandalone } from './pwa';
@@ -336,6 +336,7 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
 /** The rest countdown, floating above the tab bar on every screen while it runs. */
 export function RestBar({ bottom = 12 }: { bottom?: number }) {
   const left = useRest();
+  const label = useRestLabel();
   const { c } = useTheme();
   if (left === null) return null;
   const done = left <= 0;
@@ -349,7 +350,7 @@ export function RestBar({ bottom = 12 }: { bottom?: number }) {
   return (
     <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
       <View accessibilityRole="timer" accessibilityLiveRegion="polite" style={[st.rest, { backgroundColor: c.card, borderColor: c.border }]}>
-        <T v="label" style={{ fontSize: 11 }}>{done ? 'Go' : 'Rest'}</T>
+        <T v="label" numberOfLines={2} style={{ fontSize: 11, maxWidth: 72 }}>{done ? 'Go' : label}</T>
         <T style={{ fontFamily: sans, fontSize: 24, minWidth: 64, color: done ? c.good : c.text }}>{clock}</T>
         {btn('−15', () => adjustRest(-15), 'Rest 15 seconds less')}
         {btn('+15', () => adjustRest(15), 'Rest 15 seconds more')}

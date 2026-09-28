@@ -60,7 +60,7 @@ export async function drawWorkout(v: View, w: Workout): Promise<Blob> {
   y = 330;
   ctx.font = `800 104px ${FONT}`; ctx.fillStyle = TEXT;
   for (const line of wrap(ctx, w.name, W - PAD * 2, 2)) { ctx.fillText(line, PAD, y); y += 112; }
-  const mins = w.endedAt ? Math.round((w.endedAt - w.startedAt) / 60_000) : 0;
+  const mins = w.endedAt ? Math.max(1, Math.round((w.endedAt - w.startedAt) / 60_000)) : 0;
   ctx.font = `500 40px ${FONT}`; ctx.fillStyle = MUTED;
   ctx.fillText(longDate(w.date), PAD, y - 40);
   y += 30;

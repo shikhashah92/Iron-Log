@@ -32,15 +32,15 @@ export default function Plates() {
       {!ok ? <T v="small">Enter a weight.</T> : total < b ? <T v="small">That’s less than the bar ({b} kg) on its own.</T> : (
         <>
           <T v="label">Each side</T>
-          {/* The bar end with its plates, heaviest nearest the middle. */}
+          {/* One end of the bar: the sleeve, its plates (heaviest on the inside), the collar, then the bar towards the middle. */}
           <View accessibilityRole="image" accessibilityLabel={side.length ? `Each side: ${side.map((p) => `${num(p)} kg`).join(', ')}` : 'Just the bar'}
             style={{ flexDirection: 'row', alignItems: 'center', height: 170, marginVertical: space.md }}>
-            <View style={{ width: 40, height: 14, backgroundColor: c.muted, borderRadius: 3 }} />
-            <View style={{ width: 10, height: 40, backgroundColor: c.muted, borderRadius: 3 }} />
-            {side.map((p, i) => (
-              <View key={i} style={{ width: p >= 10 ? 22 : 16, height: HEIGHT[p], marginLeft: 2, borderRadius: 4, backgroundColor: COLOUR[p], borderWidth: 1, borderColor: 'rgba(0,0,0,0.25)' }} />
+            <View style={{ width: 24, height: 22, backgroundColor: c.muted, borderTopLeftRadius: 4, borderBottomLeftRadius: 4 }} />
+            {[...side].reverse().map((p, i) => (
+              <View key={i} style={{ width: p >= 10 ? 22 : 16, height: HEIGHT[p], marginLeft: i ? 2 : 0, borderRadius: 4, backgroundColor: COLOUR[p], borderWidth: 1, borderColor: 'rgba(0,0,0,0.25)' }} />
             ))}
-            <View style={{ flex: 1, height: 14, backgroundColor: c.muted, borderTopRightRadius: 3, borderBottomRightRadius: 3, marginLeft: 2 }} />
+            <View style={{ width: 12, height: 44, backgroundColor: c.muted, borderRadius: 3, marginLeft: 2 }} />
+            <View style={{ flex: 1, height: 14, backgroundColor: c.muted, marginLeft: 0 }} />
           </View>
           <T style={{ fontSize: 22, fontWeight: '700' }}>{side.length ? side.map((p) => num(p)).join(' + ') : 'Nothing: just the bar'}</T>
           {side.length ? <T v="small" style={{ marginTop: 2 }}>kg on each side, heaviest first, on a {b} kg bar.</T> : null}

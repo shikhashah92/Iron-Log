@@ -1,5 +1,5 @@
 // The data model and every change to it, as pure functions (no I/O), so it can be unit tested with node --test.
-import { BUILT_IN, GROUPS, STARTERS } from './exercises.ts';
+import { BUILT_IN, GROUPS, PLANS, STARTERS, type Plan } from './exercises.ts';
 
 export const SCHEMA_VERSION = 4;
 export type Theme = 'system' | 'light' | 'dark';
@@ -104,6 +104,8 @@ export interface Settings {
   units?: { weight: 'kg' | 'lb'; length: 'cm' | 'in' };
   /** A new person who hasn't seen the second onboarding step (starting point and goal) yet. */
   setupPending?: true;
+  /** The week (its Monday) whose recap card was closed on Home. */
+  recapSeen?: string;
 }
 export interface Log {
   schemaVersion: number; profiles: Profile[]; exercises: CustomExercise[]; favorites: Favorite[];
@@ -367,6 +369,36 @@ export function weekStreak(v: View, date: string) {
   for (const w of [...weeks].sort()) { run = prev && addDays(prev, 7) === w ? run + 1 : 1; best = Math.max(best, run); prev = w; }
   return { current, best };
 }
+/** The plan a template belongs to, and which one comes after it. */
+export const planFor = (templateId?: string): Plan | undefined => PLANS.find((p) => !!templateId && p.templates.includes(templateId));
+export const nextInPlan = (p: Plan, templateId?: string) => p.templates[(p.templates.indexOf(templateId ?? '') + 1) % p.templates.length];
+/**
+ * What to do today: the next workout of a plan you've been following (in the last 3 weeks), else a template for the
+ * muscle group you've trained least in the last 2 weeks, else (just starting) the full-body one.
+ */
+export function upNext(v: View, date: string): { templateId: string; reason: string } {
+  const recent = v.workouts.filter((w) => !w.active && daysAgo(w.date, date) <= 21);
+  const inPlan = recent.find((w) => planFor(w.templateId));
+  if (inPlan) { const p = planFor(inPlan.templateId)!; return { templateId: nextInPlan(p, inPlan.templateId), reason: `Next in ${p.name}` }; }
+  if (recent.length >= 2) {
+    const g = groupSets(v, addDays(date, -13), date).sort((a, b) => a.sets - b.sets)[0];
+    return { templateId: `starter-${g.group.toLowerCase()}`, reason: g.sets ? `${g.group}: your least-trained muscles in the last 2 weeks` : `No ${g.group.toLowerCase()} work in the last 2 weeks` };
+  }
+  return { templateId: 'starter-full-body', reason: 'A good place to start: the whole body in one session' };
+}
+/**
+ * Monday's look back at last week: its totals against the week before, and a muscle group that was light (well under
+ * its usual share over the four weeks before). Null when there's nothing to say (no workouts in either week).
+ */
+export function weekRecap(v: View, date: string) {
+  const start = addDays(weekStart(date), -7), end = addDays(start, 6);
+  const last = totals(v, start, end), before = totals(v, addDays(start, -7), addDays(start, -1));
+  if (!last.workouts && !before.workouts) return null;
+  const usual = groupSets(v, addDays(start, -28), addDays(start, -1)), now = groupSets(v, start, end);
+  const light = usual.map((g, k) => ({ group: g.group, avg: g.sets / 4, sets: now[k].sets }))
+    .filter((g) => g.avg >= 4 && g.sets < g.avg / 2).sort((a, b) => a.sets / a.avg - b.sets / b.avg)[0];
+  return { start, last, before, light: light ? { group: light.group, sets: light.sets, usual: Math.round(light.avg) } : undefined };
+}
 /** Working sets per muscle group (strength only) from `from` to `to`, in the library's group order. */
 export function groupSets(v: View, from: string, to: string) {
   const n = new Map<string, number>(GROUPS.map((g) => [g, 0]));
@@ -390,6 +422,9 @@ export function workoutStats(v: View, w: Workout) {
 }
 
 /** Nudge when work is at risk: something changed since the last backup, and that was over a week ago. */
+/** Time to back up: a week of changes since the last backup, or 3 workouts and never one (unless you chose device only). */
+export const backupDue = (l: Log, now = Date.now()) =>
+  needsBackupNudge(l, now) || (!l.settings.lastBackupAt && l.settings.backupChoice !== 'local' && l.workouts.filter((w) => !w.active).length >= 3);
 export function needsBackupNudge(l: Log, now = Date.now(), days = 7): boolean {
   const last = l.settings.lastBackupAt ?? 0;
   const changed = l.workouts.filter((w) => !w.active && w.updatedAt > last);

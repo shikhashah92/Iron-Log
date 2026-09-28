@@ -9,7 +9,7 @@ import {
   type Log, type SetRow, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
-import { startRest } from './timer';
+import { startRest, startSteps } from './timer';
 import { ask, choose, confirm, menu, notify } from './io';
 import { ExArt, openExercise } from './components';
 import { Button, Card, selectAll, T } from './ui';
@@ -151,6 +151,20 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
               </View>
             ) : null}
             <SetTable workout={workout} i={i} prev={prev?.sets ?? []} live={live} restSecs={log.settings.restSecs} />
+            {live && (ex.yoga === 'hold' || ex.metric === 'secs') && (() => {
+              const j = e.sets.findIndex((x) => x.done === false && x.r > 0);
+              if (j < 0) return null;
+              const set = e.sets[j], rounds = ex.yoga === 'hold' ? Math.max(1, Math.round(set.w)) : 1;
+              const sides = !!ex.exec?.some((t) => /other side/i.test(t));
+              // Get ready, then each round's hold with a short pause between (to switch sides, or breathe); the set ticks itself at the end.
+              const steps = [{ secs: 5, label: 'Get ready' }, ...Array.from({ length: rounds }, (_, k) => [
+                ...(k ? [{ secs: 8, label: sides ? 'Switch sides' : 'Breathe' }] : []),
+                { secs: set.r, label: rounds > 1 ? `Hold · ${k + 1} of ${rounds}` : 'Hold' }]).flat()];
+              return (
+                <Button title={`Time it: ${rounds > 1 ? `${rounds} × ` : ''}${fmtDur(set.r)}${sides && rounds > 1 ? ', sides' : ''}`} icon="timer-outline" kind="secondary" style={{ minHeight: 40, marginTop: space.sm }}
+                  onPress={() => startSteps(steps, () => edit((w) => (w.exercises[i]?.sets[j]?.done === false ? toggleDone(w, i, j, ex.yoga === 'rounds').workout : w)))} />
+              );
+            })()}
             {ex.kind === 'cardio' && (() => { const d = e.sets.reduce((t, x) => t + x.w, 0), secs = e.sets.reduce((t, x) => t + x.r, 0); const p = pace(d, secs); return p ? <T v="small" style={{ marginTop: 4 }}>Pace {p}</T> : null; })()}
             <Button title="Add set" icon="add" kind="secondary" onPress={() => edit((w) => addSetTo(w, i, !live))} style={{ minHeight: 40, marginTop: space.sm }} />
           </Card>

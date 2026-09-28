@@ -3,12 +3,12 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../../store';
 import { useBackup } from '../../backupActions';
-import { duration, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekStats, workoutStats } from '../../model';
+import { duration, fmtDur, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
 import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
 import { AddButton, Empty, ExRow, InstallNudge, Section, Stat } from '../../components';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
-import { sans, space } from '../../theme';
+import { radius, sans, space } from '../../theme';
 import { useNow } from '../../timer';
 
 export default function Home() {
@@ -76,6 +76,8 @@ export default function Home() {
           <><Banner text="It’s been a week since your last backup." action="Back up" onPress={backup.exportLocked} /><Gap h={space.md} /></>
         ) : null}
 
+        <Recap />
+
         {v.entries.length ? (
           <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
             <Stat k="This week" v={<>{week.sessions}<T v="mono"> sess</T></>} />
@@ -126,5 +128,41 @@ function WeightCard() {
         <Ionicons name="chevron-forward" size={20} color={c.muted} />
       </Card>
     </Pressable>
+  );
+}
+
+const kgT = (n: number) => (n >= 1000 ? `${num(Math.round(n / 100) / 10)}t` : `${num(Math.round(n))} kg`);
+/** Monday to Wednesday: last week in one card, with the group that was light and a template for it. Close it for the week. */
+function Recap() {
+  const { log, v, update } = useLog();
+  const { c } = useTheme();
+  const iso = today();
+  const monday = weekStart(iso);
+  if (new Date(`${iso}T12:00:00`).getDay() > 3 || new Date(`${iso}T12:00:00`).getDay() === 0 || log.settings.recapSeen === monday) return null;
+  const r = weekRecap(v, iso);
+  if (!r) return null;
+  const diff = r.last.workouts - r.before.workouts;
+  const tpl = r.light && v.templates.find((t) => t.id === `starter-${r.light!.group.toLowerCase()}`);
+  const close = () => update((l) => ({ ...l, settings: { ...l.settings, recapSeen: monday } }));
+  return (
+    <Card style={{ marginBottom: space.md, gap: space.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+        <Ionicons name="calendar-outline" size={20} color={c.accent} />
+        <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>Last week</T>
+        <Pressable accessibilityRole="button" accessibilityLabel="Hide last week’s recap" onPress={close} hitSlop={10}>
+          <Ionicons name="close" size={20} color={c.muted} />
+        </Pressable>
+      </View>
+      <T style={{ fontSize: 17 }}>
+        {plural(r.last.workouts, 'workout')}{r.last.minutes ? ` · ${fmtDur(r.last.minutes * 60)}` : ''}{r.last.volume ? ` · ${kgT(r.last.volume)}` : ''}
+      </T>
+      <T v="small">{!r.last.workouts ? 'A week off. This one’s a fresh start.' : diff > 0 ? `${plural(diff, 'more workout')} than the week before. Nice.` : diff < 0 ? `${plural(-diff, 'fewer workout')} than the week before.` : 'Same as the week before: steady.'}</T>
+      {r.light && (
+        <View style={{ backgroundColor: c.accentSoft, borderRadius: radius.md, padding: space.md, gap: space.sm }}>
+          <T style={{ color: c.text }}><T style={{ fontWeight: '700' }}>{r.light.group} {r.light.group === 'Core' ? 'was' : 'were'} light:</T> {plural(r.light.sets, 'set')}, when you usually do about {r.light.usual}.</T>
+          {tpl && <Button title={`Try the ${tpl.name} template`} icon="arrow-forward" kind="secondary" onPress={() => router.push({ pathname: '/template', params: { id: tpl.id } })} style={{ minHeight: 40 }} />}
+        </View>
+      )}
+    </Card>
   );
 }

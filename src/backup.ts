@@ -136,6 +136,7 @@ export function parseBackup(text: string): { log: Log; images: Images } {
       ...(isTime(s.lastBackupAt) ? { lastBackupAt: s.lastBackupAt } : {}),
       ...(s.backupChoice === 'file' || s.backupChoice === 'local' ? { backupChoice: s.backupChoice } : {}),
       ...(s.setupPending === true ? { setupPending: true as const } : {}),
+      ...(isRealDay(s.recapSeen) ? { recapSeen: s.recapSeen } : {}),
       ...(s.units && ['kg', 'lb'].includes(s.units.weight) && ['cm', 'in'].includes(s.units.length) ? { units: { weight: s.units.weight, length: s.units.length } } : {}),
     },
   };

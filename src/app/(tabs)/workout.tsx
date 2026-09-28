@@ -1,7 +1,8 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { daysAgo, duration, getEx, newId, putTemplate, today, type Template } from '../../model';
+import { daysAgo, duration, getEx, newId, nextInPlan, putTemplate, today, upNext, type Template } from '../../model';
+import { PLANS } from '../../exercises';
 import { useLog, useTheme } from '../../store';
 import { useNow } from '../../timer';
 import { ask } from '../../io';
@@ -68,9 +69,10 @@ export default function StartWorkout() {
           </Card>
         </Pressable>
       )}
+      {!v.active && <UpNext />}
       <T v="label">Quick start</T>
       <Gap h={space.sm} />
-      <Button title="Start an empty workout" icon="add" onPress={() => flow.start()} kind={v.active ? 'secondary' : 'primary'} />
+      <Button title="Start an empty workout" icon="add" onPress={() => flow.start()} kind="secondary" />
       <Gap h={space.sm} />
       <Button title={v.active ? 'Add an activity to your workout' : 'Log an activity'} icon="walk-outline" kind="secondary"
         onPress={() => router.push({ pathname: '/picker', params: { activity: '1', ...(v.active ? { workout: v.active.id } : {}) } })} />
@@ -91,8 +93,51 @@ export default function StartWorkout() {
           <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 20 }}>Ready-made by Uplift</T>
         </View>
         <T v="small" style={{ marginTop: 4, marginBottom: space.md, color: c.text }}>Plans by muscle group to get you going. Open one to start it, or change it and it becomes yours.</T>
+        <T v="label" style={{ marginBottom: space.sm }}>Plans · one template per session, in turn</T>
+        <View style={{ gap: space.sm, marginBottom: space.lg }}>
+          {PLANS.map((p) => {
+            const last = v.workouts.find((w) => !w.active && w.templateId && p.templates.includes(w.templateId));
+            const next = last ? nextInPlan(p, last.templateId) : p.templates[0];
+            const names = p.templates.map((id) => v.templates.find((t) => t.id === id)?.name ?? id);
+            return (
+              <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.name} plan. Next: ${v.templates.find((t) => t.id === next)?.name}`}
+                onPress={() => router.push({ pathname: '/template', params: { id: next } })}
+                style={({ pressed }) => ({ backgroundColor: c.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: space.md, gap: 2, opacity: pressed ? 0.7 : 1 })}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.sm }}>
+                  <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>{p.name}</T>
+                  <T v="small" style={{ fontSize: 12 }}>{p.days}</T>
+                </View>
+                <T v="small" style={{ fontSize: 13 }}>{p.about}</T>
+                <T style={{ fontSize: 14, marginTop: 2 }}>{names.join(' → ')}</T>
+                <T style={{ fontSize: 13, fontWeight: '700', marginTop: 2 }} color={c.accent}>{last ? `Next up: ${v.templates.find((t) => t.id === next)?.name}` : `Start with ${names[0]}`} →</T>
+              </Pressable>
+            );
+          })}
+        </View>
+        <T v="label" style={{ marginBottom: space.sm }}>Single workouts</T>
         <Tiles list={v.templates.filter((t) => t.starter)} />
       </View>
     </Screen>
+  );
+}
+
+/** What to do today: the next workout of your plan, or one for the muscles you've skipped. */
+function UpNext() {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const flow = useWorkoutFlow();
+  const n = upNext(v, today());
+  const t = v.templates.find((x) => x.id === n.templateId);
+  if (!t) return null;
+  return (
+    <View style={{ backgroundColor: c.accentSoft, borderRadius: radius.lg, padding: space.md, marginBottom: space.lg, gap: 4 }}>
+      <T v="label" color={c.accent}>What to do today</T>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t.name}: see the template`} onPress={() => router.push({ pathname: '/template', params: { id: t.id } })}>
+        <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 22 }}>{t.name}</T>
+        <T v="small" style={{ color: c.text }}>{n.reason}</T>
+        <T v="small" numberOfLines={2} style={{ marginTop: 2 }}>{t.exercises.map((e) => getEx(v, e.exerciseId).name).join(', ')}</T>
+      </Pressable>
+      <Button title={`Start ${t.name}`} icon="play" onPress={() => flow.start(t.id)} style={{ marginTop: space.sm }} />
+    </View>
   );
 }
