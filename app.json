@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Iron Log",
+    "slug": "iron-log",
+    "scheme": "ironlog",
+    "version": "2.0.0",
+    "userInterfaceStyle": "automatic",
+    "web": {
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "Iron Log",
+      "shortName": "Iron Log",
+      "backgroundColor": "#e7e4de"
+    },
+    "experiments": { "baseUrl": "/Iron-Log" },
+    "plugins": ["expo-router", "expo-font"]
+  }
+}
