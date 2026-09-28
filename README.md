@@ -1,7 +1,7 @@
 # Iron Log
 
-A private strength-training log: an exercise library with form cues, set-by-set logging, a rest timer, templates,
-several people on one phone, and progress charts. It installs to your phone's home screen and works offline.
+A private training log: strength workouts with form cues and set-by-set logging, cardio, yoga and sports, body
+weight with a trend and a target plan, templates, several people on one phone, and progress charts. It installs to your phone's home screen and works offline.
 
 **Your data stays on your phone.** There's no account and no server, and nothing is uploaded. Backups are files you
 save yourself, to Files, iCloud Drive, Google Drive or email, and they can be locked with a passphrase
@@ -50,6 +50,8 @@ Once everyone has moved, delete `public/legacy/` and the Firebase project (`iron
 - `src/model.ts`: the data model and every change to it, as pure functions (workouts, planned and ticked sets)
 - `src/workout.tsx`: the live workout's set table (shared with "Edit workout") and the start / finish flow
 - `src/strong.ts`: import from a Strong CSV export
+- `src/body.ts`: weight trend (smoothed), the target plan (steady % per week), BMI, units, weigh-in reminders (.ics)
+- `src/calories.ts`: calorie estimates (MET × kg × hours, Compendium of Physical Activities)
 - `src/exercises.ts`: the built-in library (65 exercises)
 - `public/illustrations/`: 3-frame drawings for each built-in exercise, from
   [Workout Guide](https://github.com/bryllim/workout-guide) / Everkinetic, **CC BY-SA 4.0** (credit in `LICENSE.md` there

@@ -12,7 +12,7 @@ const TABS: { name: string; title: string; icon: Icon; on: Icon }[] = [
   { name: 'exercises', title: 'Exercises', icon: 'list-outline', on: 'list' },
   { name: 'workout', title: 'Workout', icon: 'barbell-outline', on: 'barbell' },
   { name: 'history', title: 'History', icon: 'stats-chart-outline', on: 'stats-chart' },
-  { name: 'settings', title: 'Settings', icon: 'settings-outline', on: 'settings' },
+  { name: 'me', title: 'Me', icon: 'person-circle-outline', on: 'person-circle' },
 ];
 
 export default function TabsLayout() {

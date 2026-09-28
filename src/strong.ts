@@ -1,12 +1,14 @@
 // Import a Strong app export (Settings → Export data → CSV) into the current profile. Pure, so it's unit tested.
 // Columns: Date, Workout Name, Duration, Exercise Name, Set Order, Weight, Reps, Distance, Seconds, Notes, Workout Notes, RPE
-import { GROUPS } from './exercises.ts';
+import { BUILT_IN as ALL_BUILT_IN, GROUPS } from './exercises.ts';
 import {
   isRealDay, MAX_R, MAX_W, newId, timeOfDayName, type CustomExercise, type Log, type Template, type WeightType, type Workout,
 } from './model.ts';
 
+const LIBRARY = new Map(ALL_BUILT_IN.map((e) => [e.id, e]));
+
 /** Strong's standard names → our built-ins, only where the weight means the same thing (total vs per dumbbell). */
-const BUILT_IN: Record<string, string> = {
+export const STRONG_BUILT_IN: Record<string, string> = {
   'bench press (barbell)': 'bench-press-bb', 'incline bench press (barbell)': 'incline-barbell-press',
   'bench press (dumbbell)': 'flat-db-press', 'incline bench press (dumbbell)': 'incline-db-press',
   'bench press - close grip (barbell)': 'close-grip-bench', 'chest press (machine)': 'machine-chest-press',
@@ -31,6 +33,11 @@ const BUILT_IN: Record<string, string> = {
   'rope push down (triceps)': 'rope-pushdown', 'triceps pushdown (cable - rope)': 'rope-pushdown',
   'triceps extension (cable)': 'overhead-triceps-ext', 'skullcrusher (barbell)': 'ez-skull-crusher', 'bench dip': 'bench-dips',
   'plank': 'plank', 'hanging leg raise': 'hanging-leg-raise', 'cable crunch': 'cable-crunch', 'russian twist': 'russian-twist',
+  // cardio and activities (time, and distance for cardio)
+  'running': 'run', 'running (outdoor)': 'run', 'running (treadmill)': 'treadmill', 'walking': 'walk', 'hiking': 'hike',
+  'cycling': 'cycle', 'cycling (outdoor)': 'cycle', 'cycling (indoor)': 'indoor-cycle', 'swimming': 'swim', 'rowing (machine)': 'row-erg',
+  'elliptical machine': 'elliptical', 'stair climber': 'stair-climber', 'stair machine': 'stair-climber', 'jump rope': 'jump-rope',
+  'yoga': 'hatha-yoga', 'stretching': 'stretching', 'hiit': 'hiit', 'boxing': 'boxing', 'climbing': 'climbing',
 };
 
 /** RFC 4180 CSV: quoted fields, doubled quotes, commas and newlines inside quotes, CRLF. */
@@ -97,7 +104,7 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
   const [head, ...rows] = parseCSV(text.replace(/^\uFEFF/, ''));
   const col = (k: string) => head?.indexOf(k) ?? -1;
   const C = { date: col('Date'), workout: col('Workout Name'), dur: col('Duration'), ex: col('Exercise Name'), order: col('Set Order'),
-    w: col('Weight'), r: col('Reps'), secs: col('Seconds'), notes: col('Notes') };
+    w: col('Weight'), r: col('Reps'), secs: col('Seconds'), dist: col('Distance'), notes: col('Notes') };
   if ([C.date, C.ex, C.order, C.w, C.r].some((i) => i < 0)) throw new Error('This doesn’t look like a Strong export. In Strong: Settings → Export data.');
   const pid = l.settings.currentProfileId;
   const factor = unit === 'lb' ? 0.45359237 : 1;
@@ -116,7 +123,7 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
   const exFor = (name: string) => {
     let id = idOf.get(name);
     if (id) return id;
-    id = BUILT_IN[name.toLowerCase()] ?? byName.get(name.toLowerCase());
+    id = STRONG_BUILT_IN[name.toLowerCase()] ?? byName.get(name.toLowerCase());
     if (!id) {
       id = `u_strong_${slug(name)}`;
       const { weightType, equip } = weightTypeOf(name);
@@ -136,10 +143,14 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
     const date = r[C.date]?.slice(0, 10);
     if (!name || !order || order === 'Rest Timer' || !isRealDay(date)) continue;
     const exId = exFor(name);
-    const secs = timed.get(name);
-    const w = Math.round(Math.max(-MAX_W, Math.min(MAX_W, (Number(r[C.w]) || 0) * factor)) * 100) / 100;
+    const kind = LIBRARY.get(exId)?.kind;
+    const secs = kind ? true : timed.get(name);
+    // Cardio: w is distance (km; Strong's miles when the export is in pounds). Activities: w is intensity, moderate.
+    const dist = (Number(C.dist >= 0 ? r[C.dist] : 0) || 0) * (unit === 'lb' ? 1.609344 : 1);
+    const w = kind === 'cardio' ? Math.round(Math.min(MAX_W, dist) * 100) / 100 : kind === 'activity' ? 2
+      : Math.round(Math.max(-MAX_W, Math.min(MAX_W, (Number(r[C.w]) || 0) * factor)) * 100) / 100;
     const reps = Math.round(Math.max(0, Math.min(MAX_R, Number(secs ? r[C.secs] : r[C.r]) || 0)));
-    if (!w && !reps) continue;
+    if (!reps && (kind || !w)) continue;
     if (r[C.notes]?.trim()) notes++;
     let wk = byStart.get(r[C.date]);
     if (!wk) {
@@ -154,7 +165,7 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
     if (!ex) { ex = { exerciseId: exId, sets: [] }; wk.exercises.push(ex); }
     if (ex.sets.length < 200) ex.sets.push({ w, r: reps, ...(order === 'W' || order === 'D' ? { kind: order } : {}) });
     sets++;
-    heaviest = Math.max(heaviest, w);
+    if (!kind) heaviest = Math.max(heaviest, w);
     if (!from || date < from) from = date;
     if (!to || date > to) to = date;
   }

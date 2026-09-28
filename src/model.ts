@@ -1,7 +1,7 @@
 // The data model and every change to it, as pure functions (no I/O), so it can be unit tested with node --test.
 import { BUILT_IN } from './exercises.ts';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export type Theme = 'system' | 'light' | 'dark';
 export type WeightType = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight';
 export const WEIGHT_TYPES: { id: WeightType; label: string; unit: string }[] = [
@@ -15,12 +15,40 @@ export const FEELINGS = [
   { id: 'Easy', emoji: '😌' }, { id: 'Moderate', emoji: '🙂' }, { id: 'Hard', emoji: '😓' }, { id: 'Max effort', emoji: '🥵' },
 ] as const;
 
+/**
+ * `kind`: strength (absent: weight × reps), `cardio` (time + distance: a set's `w` is km, `r` seconds) or `activity`
+ * (time + intensity: `w` is 1 light / 2 moderate / 3 vigorous, `r` seconds). `met`: energy cost at light / moderate /
+ * vigorous effort (Compendium of Physical Activities), for calorie estimates. `icon` / `art: false`: activities without
+ * a drawing show an icon instead.
+ */
 export interface Exercise {
   id: string; name: string; group: string; equip: string; weightType: WeightType; metric?: 'secs';
   setup: string[]; exec: string[]; avoid: string[];
+  kind?: 'cardio' | 'activity'; met?: [number, number, number]; icon?: string; art?: false;
 }
+export const INTENSITIES = ['', 'Light', 'Moderate', 'Vigorous'] as const;
+export const ACTIVITY_GROUPS = ['Cardio', 'Yoga & mobility', 'Sports', 'Classes'] as const;
+export const isTimed = (ex: Exercise) => ex.kind === 'cardio' || ex.kind === 'activity';
 export interface CustomExercise extends Exercise { profileId: string; updatedAt: number }
-export interface Profile { id: string; name: string; bodyweight: number; createdAt: number }
+export interface Profile {
+  id: string; name: string; createdAt: number;
+  /** Bodyweight to use before any weigh-in is logged (after that, the weigh-in trend is used). */
+  bodyweight: number;
+  height?: number; // cm
+  target?: WeightTarget;
+  weighEvery?: 'daily' | '3x' | 'weekly' | 'off';
+}
+/** A target weight by a date. The plan starts from the trend when it was set. */
+export interface WeightTarget { weight: number; date: string; startWeight: number; startDate: string }
+/** One weigh-in (kg, cm). Everything but the weight is optional; a photo is kept with the other photos. */
+export interface WeighIn {
+  id: string; profileId: string; date: string; weight: number; at: number;
+  fat?: number; waist?: number; chest?: number; hips?: number; arm?: number; thigh?: number; photo?: true;
+}
+export const MEASURES = [
+  { id: 'waist', label: 'Waist' }, { id: 'chest', label: 'Chest' }, { id: 'hips', label: 'Hips' }, { id: 'arm', label: 'Arm' }, { id: 'thigh', label: 'Thigh' },
+] as const;
+export type MeasureId = (typeof MEASURES)[number]['id'];
 export type SetKind = 'W' | 'D'; // warm-up, drop set
 /**
  * One set: weight (kg, may be negative for assisted bodyweight) and reps (or seconds for holds).
@@ -48,10 +76,12 @@ export interface Settings {
   lastBackupAt?: number;
   /** What the person chose on first run: back up to a file, or keep everything on this device only. */
   backupChoice?: 'file' | 'local';
+  /** Units for body weight and measurements (lifts are always kg). */
+  units?: { weight: 'kg' | 'lb'; length: 'cm' | 'in' };
 }
 export interface Log {
   schemaVersion: number; profiles: Profile[]; exercises: CustomExercise[]; favorites: Favorite[];
-  templates: Template[]; workouts: Workout[]; settings: Settings;
+  templates: Template[]; workouts: Workout[]; weighIns: WeighIn[]; settings: Settings;
 }
 /** Exercise photos, by `${profileId}:${exerciseId}`: kept apart from the log so everyday saves stay small. */
 export type Images = Record<string, string>;
@@ -78,8 +108,12 @@ export const daysAgo = (day: string, from = today()) => {
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const shortDate = (day: string) => `${day.slice(8)} ${MONTHS[Number(day.slice(5, 7)) - 1]}`;
-export const longDate = (day: string) =>
-  new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+/** "Mon, 28 Sep", with the year when it isn't this year ("Thu, 7 May 2025"). */
+export const longDate = (day: string, now = today()) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', ...(day.slice(0, 4) !== now.slice(0, 4) ? { year: 'numeric' } : {}) });
+/** "14 Jul 2022": for chart axes and ranges, where the year always matters. */
+export const dateWithYear = (day: string) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 export function duration(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
@@ -93,7 +127,7 @@ export const newId = (prefix: string) => `${prefix}_${Date.now().toString(36)}${
 export function newLog(name = 'Me', now = Date.now()): Log {
   const p: Profile = { id: newId('p'), name, bodyweight: 0, createdAt: now };
   return {
-    schemaVersion: SCHEMA_VERSION, profiles: [p], exercises: [], favorites: [], templates: [], workouts: [],
+    schemaVersion: SCHEMA_VERSION, profiles: [p], exercises: [], favorites: [], templates: [], workouts: [], weighIns: [],
     settings: { theme: 'system', restSecs: 90, currentProfileId: p.id },
   };
 }
@@ -106,6 +140,10 @@ export interface View {
   workouts: Workout[]; active?: Workout;
   /** Oldest first: one per exercise per workout, logged sets only (the workout in progress counts what's ticked). */
   entries: Entry[];
+  /** Oldest first. */
+  weighIns: WeighIn[];
+  /** For volume, bodyweight exercises and calories: the latest weigh-in, else the profile's number (0 if unknown). */
+  bodyweight: number;
 }
 export function viewOf(l: Log): View {
   const pid = l.settings.currentProfileId;
@@ -116,16 +154,20 @@ export function viewOf(l: Log): View {
     const sets = e.sets.filter((x) => x.done !== false);
     if (sets.length) entries.push({ profileId: pid, date: w.date, exerciseId: e.exerciseId, sets, updatedAt: w.updatedAt, workoutId: w.id, startedAt: w.startedAt });
   }
+  const profile = l.profiles.find((p) => p.id === pid) ?? l.profiles[0];
+  const weighIns = mine(l.weighIns).sort((a, b) => (a.date === b.date ? a.at - b.at : a.date < b.date ? -1 : 1));
   return {
-    profile: l.profiles.find((p) => p.id === pid) ?? l.profiles[0],
-    exercises: mine(l.exercises), favorites: mine(l.favorites).sort((a, b) => b.at - a.at), templates: mine(l.templates),
-    workouts, active: workouts.find((w) => w.active), entries,
+    profile, exercises: mine(l.exercises), favorites: mine(l.favorites).sort((a, b) => b.at - a.at), templates: mine(l.templates),
+    workouts, active: workouts.find((w) => w.active), entries, weighIns,
+    bodyweight: weighIns.at(-1)?.weight ?? profile.bodyweight,
   };
 }
 
 const builtInById = new Map(BUILT_IN.map((e) => [e.id, e]));
 /** Built-in exercises ship with drawings (public/illustrations/<id>/1-3.svg); custom ones don't. */
 export const isBuiltIn = (id: string) => builtInById.has(id);
+/** Has a 3-frame drawing (the built-ins, except the activities that show an icon instead). */
+export const hasArt = (id: string) => builtInById.get(id)?.art !== false && builtInById.has(id);
 export const allExercises = (v: View): Exercise[] => [...BUILT_IN, ...v.exercises];
 export function getEx(v: View, id: string): Exercise {
   return v.exercises.find((e) => e.id === id) ?? builtInById.get(id)
@@ -151,19 +193,42 @@ export function lastEntry(v: View, exerciseId: string, except?: string): Entry |
 }
 const working = (sets: SetRow[]) => sets.filter((s) => s.kind !== 'W');
 export const bestSet = (sets: SetRow[]) => [...sets].sort((a, b) => b.w - a.w || b.r - a.r)[0];
-/** Heaviest working set ever (warm-ups don't count). */
-export const prOf = (v: View, exerciseId: string) =>
-  historyOf(v, exerciseId).reduce((m, e) => Math.max(m, ...working(e.sets).map((s) => s.w)), 0);
+/** Heaviest working set ever (warm-ups don't count). Cardio and activities don't have one. */
+export const prOf = (v: View, exerciseId: string) => (isTimed(getEx(v, exerciseId)) ? 0
+  : historyOf(v, exerciseId).reduce((m, e) => Math.max(m, ...working(e.sets).map((s) => s.w)), 0));
 const load = (s: SetRow, ex: Exercise, bw: number) => (ex.weightType === 'bodyweight' ? (bw > 0 ? bw + s.w : s.w) : s.w);
-export const topLoad = (e: Entry, ex: Exercise, bw: number) => working(e.sets).reduce((m, s) => Math.max(m, load(s, ex, bw)), 0);
+/** What a chart plots per session: top load for strength; distance (km, else minutes) for cardio; minutes for activities. */
+export function topLoad(e: Entry, ex: Exercise, bw: number): number {
+  if (ex.kind === 'cardio') { const km = e.sets.reduce((t, s) => t + s.w, 0); return km || e.sets.reduce((t, s) => t + s.r, 0) / 60; }
+  if (ex.kind === 'activity') return e.sets.reduce((t, s) => t + s.r, 0) / 60;
+  return working(e.sets).reduce((m, s) => Math.max(m, load(s, ex, bw)), 0);
+}
 export function volumeOf(e: { sets: SetRow[] }, ex: Exercise, bw: number): number {
-  if (ex.metric === 'secs') return 0;
+  if (ex.metric === 'secs' || isTimed(ex)) return 0;
   return e.sets.reduce((t, s) => t + Math.max(0, load(s, ex, bw)) * s.r * (ex.weightType === 'dumbbell' ? 2 : 1), 0);
 }
 /** Epley estimate of the best one-rep max across these days. */
-export const estOneRM = (entries: Entry[], ex: Exercise, bw: number) =>
+export const estOneRM = (entries: Entry[], ex: Exercise, bw: number) => isTimed(ex) ? 0 :
   entries.reduce((m, e) => Math.max(m, ...working(e.sets).map((s) => load(s, ex, bw) * (1 + s.r / 30))), 0);
+/** 1800 → "30:00", 3900 → "1:05:00". */
+export function clock(secs: number): string {
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), sec = Math.round(secs % 60);
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+/** "30" (minutes), "30:15" (m:ss) or "1:05:00" (h:mm:ss) → seconds; null if it isn't a time. */
+export function parseClock(text: string): number | null {
+  const t = text.trim();
+  if (!t) return null;
+  const parts = t.split(':').map((x) => (x === '' ? NaN : Number(x)));
+  if (parts.some((x) => !Number.isFinite(x) || x < 0)) return null;
+  const secs = parts.length === 1 ? parts[0] * 60 : parts.length === 2 ? parts[0] * 60 + parts[1] : parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : NaN;
+  return Number.isFinite(secs) && secs <= MAX_R ? Math.round(secs) : null;
+}
+/** Minutes per km, e.g. "5:30 /km". */
+export const pace = (km: number, secs: number) => (km > 0 && secs > 0 ? `${clock(secs / km)} /km` : '');
 export function fmtSet(s: SetRow, ex: Exercise): string {
+  if (ex.kind === 'cardio') return [s.w ? `${num(s.w)} km` : '', clock(s.r)].filter(Boolean).join(' · ');
+  if (ex.kind === 'activity') return `${Math.round(s.r / 60)} min${s.w ? ` · ${INTENSITIES[s.w] ?? ''}` : ''}`;
   const rep = ex.metric === 'secs' ? `${s.r}s` : String(s.r);
   if (ex.weightType === 'bodyweight') return s.w ? `BW${s.w > 0 ? '+' : ''}${num(s.w)}×${rep}` : `BW×${rep}`;
   if (!s.w) return ex.metric === 'secs' ? rep : `${rep} reps`;
@@ -183,7 +248,7 @@ export function weekStats(v: View, date: string) {
     if (e.date < since || e.date > date) continue;
     workouts.add(e.workoutId);
     sets += e.sets.length;
-    volume += volumeOf(e, getEx(v, e.exerciseId), v.profile.bodyweight);
+    volume += volumeOf(e, getEx(v, e.exerciseId), v.bodyweight);
   }
   return { sessions: workouts.size, sets, volume };
 }
@@ -193,7 +258,7 @@ export function workoutStats(v: View, w: Workout) {
   for (const e of w.exercises) {
     const done = e.sets.filter((s) => s.done !== false);
     sets += done.length;
-    volume += volumeOf({ sets: done }, getEx(v, e.exerciseId), v.profile.bodyweight);
+    volume += volumeOf({ sets: done }, getEx(v, e.exerciseId), v.bodyweight);
   }
   return { sets, volume };
 }
@@ -242,8 +307,10 @@ export function timeOfDayName(ms: number): string {
  */
 export function planSets(v: View, exerciseId: string, count?: number, except?: string): SetRow[] {
   const prev = lastEntry(v, exerciseId, except)?.sets ?? [];
-  const n = Math.max(1, Math.min(50, count ?? (prev.length || 3)));
-  const hint = (s?: SetRow): SetRow => ({ w: s?.w ?? 0, r: s?.r ?? 0, done: false, ...(s?.kind ? { kind: s.kind } : {}) });
+  const ex = getEx(v, exerciseId);
+  const n = Math.max(1, Math.min(50, count ?? (prev.length || (isTimed(ex) ? 1 : 3))));
+  const fresh = ex.kind === 'activity' ? 2 : 0; // a new activity starts at moderate intensity
+  const hint = (s?: SetRow): SetRow => ({ w: s?.w ?? fresh, r: s?.r ?? 0, done: false, ...(s?.kind ? { kind: s.kind } : {}) });
   return Array.from({ length: n }, (_, i) => hint(prev[i] ?? (prev.length ? { w: prev.at(-1)!.w, r: prev.at(-1)!.r } : undefined)));
 }
 /** Start a workout (from a template, or empty). No-op if one is already in progress: resume that instead. */
@@ -276,7 +343,11 @@ export function finishWorkout(l: Log, id: string, markDone: boolean, now = Date.
     .filter((e) => e.sets.length);
   if (!exercises.length) return { log: delWorkout(l, id) };
   const { active: _a, ...rest } = w;
-  const done: Workout = { ...rest, exercises, endedAt: Math.max(now, w.startedAt), updatedAt: now };
+  const end = Math.max(now, w.startedAt);
+  // Logged after the fact (a 45-minute class entered in a minute): the workout lasted as long as its activities.
+  const v = viewOf(l);
+  const timed = exercises.every((e) => isTimed(getEx(v, e.exerciseId))) ? exercises.reduce((t, e) => t + e.sets.reduce((u, s) => u + s.r, 0), 0) * 1000 : 0;
+  const done: Workout = { ...rest, exercises, startedAt: Math.min(w.startedAt, end - timed), endedAt: end, updatedAt: now };
   return { log: { ...l, workouts: l.workouts.map((x) => (x.id === id ? done : x)) }, workout: done };
 }
 /** Did this workout add or drop exercises, or change set counts, compared with what its template planned? */
@@ -319,6 +390,11 @@ export function setValue(w: Workout, i: number, j: number, field: 'w' | 'r', raw
   const val = t === '' || !Number.isFinite(n) ? 0 : Math.max(field === 'w' ? -MAX_W : 0, Math.min(field === 'w' ? MAX_W : MAX_R, n));
   return mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => (k !== j ? s : { ...s, [field]: val, ...(s.done === false ? { typed: true as const } : {}) })) }));
 }
+/** Set a timed set's duration from "30", "30:15" or "1:05:00" (blank: 0). */
+export function setTime(w: Workout, i: number, j: number, raw: string): Workout {
+  const secs = parseClock(raw) ?? 0;
+  return mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => (k !== j ? s : { ...s, r: secs, ...(s.done === false ? { typed: true as const } : {}) })) }));
+}
 /** Tick (log it as shown) or untick a set. A set needs reps (or seconds) to be ticked. */
 export function toggleDone(w: Workout, i: number, j: number): { workout: Workout; ticked: boolean } {
   const s = w.exercises[i]?.sets[j];
@@ -340,8 +416,20 @@ export function addProfile(l: Log, name: string, now = Date.now()): Log {
   const p: Profile = { id: newId('p'), name, bodyweight: 0, createdAt: now };
   return { ...l, profiles: [...l.profiles, p], settings: { ...l.settings, currentProfileId: p.id } };
 }
-export const putProfile = (l: Log, id: string, patch: Partial<Pick<Profile, 'name' | 'bodyweight'>>) =>
-  ({ ...l, profiles: l.profiles.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
+export const putProfile = (l: Log, id: string, patch: Partial<Omit<Profile, 'id' | 'createdAt'>>) =>
+  ({ ...l, profiles: l.profiles.map((p) => {
+    if (p.id !== id) return p;
+    const next = { ...p, ...patch };
+    for (const k of ['height', 'target', 'weighEvery'] as const) if (next[k] === undefined) delete next[k];
+    return next;
+  }) });
+
+// ---- weigh-ins ----
+export function putWeighIn(l: Log, w: Omit<WeighIn, 'profileId'>): Log {
+  const pid = pidOf(l);
+  return { ...l, weighIns: [...l.weighIns.filter((x) => !(x.profileId === pid && x.id === w.id)), { ...w, profileId: pid }] };
+}
+export const delWeighIn = (l: Log, id: string): Log => ({ ...l, weighIns: l.weighIns.filter((w) => !(w.profileId === pidOf(l) && w.id === id)) });
 export const switchProfile = (l: Log, id: string) => ({ ...l, settings: { ...l.settings, currentProfileId: id } });
 /** Removes the person and everything of theirs. There is always at least one profile. */
 export function delProfile(l: Log, id: string): Log {
@@ -349,7 +437,7 @@ export function delProfile(l: Log, id: string): Log {
   const keep = <T extends { profileId: string }>(xs: T[]) => xs.filter((x) => x.profileId !== id);
   const profiles = l.profiles.filter((p) => p.id !== id);
   return {
-    ...l, profiles, exercises: keep(l.exercises), favorites: keep(l.favorites), templates: keep(l.templates), workouts: keep(l.workouts),
+    ...l, profiles, exercises: keep(l.exercises), favorites: keep(l.favorites), templates: keep(l.templates), workouts: keep(l.workouts), weighIns: keep(l.weighIns),
     settings: { ...l.settings, currentProfileId: l.settings.currentProfileId === id ? profiles[0].id : l.settings.currentProfileId },
   };
 }

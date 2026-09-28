@@ -5,7 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { daysAgo, delTemplate, getEx, planSets, plural, putTemplate, today, type Template } from '../model';
 import { useLog, useTheme } from '../store';
 import { ask, confirm } from '../io';
-import { Empty, goBack, Illustration } from '../components';
+import { Empty, ExArt, goBack } from '../components';
 import { useWorkoutFlow } from '../workout';
 import { Button, Card, Gap, Header, IconButton, Screen, T } from '../ui';
 import { condensed, mono, space } from '../theme';
@@ -55,7 +55,7 @@ export default function TemplateScreen() {
           return (
             <View key={e.exerciseId} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 64, paddingVertical: space.sm,
               borderBottomWidth: i === t.exercises.length - 1 ? 0 : 1, borderBottomColor: c.border }}>
-              <Illustration id={e.exerciseId} size={40} />
+              <ExArt id={e.exerciseId} size={40} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18 }}>{editing ? ex.name : `${count(i)} × ${ex.name}`}</T>
                 <T v="small" numberOfLines={1}>{ex.group}{e.sets ? '' : ' · sets as last time'}</T>

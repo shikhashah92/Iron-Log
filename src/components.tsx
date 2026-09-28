@@ -4,13 +4,13 @@ import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  duration, estOneRM, fmtSet, getEx, historyOf, isBuiltIn, isCustom, isFav, lastEntry, longDate, newId, num, prOf, putTemplate, shortDate, toggleFav, topLoad,
+  addDays, clock, dateWithYear, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
   type Entry, type Exercise, type TemplateExercise, type View as LogView,
 } from './model';
 import { ask } from './io';
 import { useLog, useTheme } from './store';
 import { adjustRest, stopRest, useNow, useRest } from './timer';
-import { Button, Card, Field, Gap, MAX_WIDTH, T } from './ui';
+import { Button, Card, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
 import { condensed, mono, radius, space } from './theme';
 import { isIOS } from './pwa';
 
@@ -75,7 +75,7 @@ export function Illustration({ id, size, animate = false, label }: { id: string;
     const t = setInterval(() => setFrame((n) => (n % 3) + 1), 700);
     return () => clearInterval(t);
   }, [moving]);
-  if (!isBuiltIn(id)) return null;
+  if (!hasArt(id)) return null;
   const layer = (n: number): CSSProperties => {
     const url = `url(illustrations/${id}/${n}.svg)`;
     return { position: 'absolute', inset: 0, backgroundColor: c.text, opacity: n === (moving ? frame : 1) ? 1 : 0,
@@ -87,6 +87,20 @@ export function Illustration({ id, size, animate = false, label }: { id: string;
     <div role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       {(moving ? [1, 2, 3] : [1]).map((n) => <div key={n} style={layer(n)} />)}
     </div>
+  );
+}
+
+/** An exercise's picture: its drawing, or (for activities without one) its icon in a soft circle. */
+export function ExArt({ id, size, animate, label }: { id: string; size: number; animate?: boolean; label?: string }) {
+  const { v } = useLog();
+  const { c } = useTheme();
+  if (hasArt(id)) return <Illustration id={id} size={size} animate={animate} label={label} />;
+  const icon = getEx(v, id).icon;
+  if (!icon) return null;
+  return (
+    <View accessibilityLabel={label} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={Math.round(size * 0.5)} color={c.accent} />
+    </View>
   );
 }
 
@@ -116,11 +130,11 @@ export function ExRow({ ex, right, actions, onPress, star = true, last }: {
     {star && <Star id={ex.id} />}
     <Pressable accessibilityRole="button" accessibilityLabel={ex.name} onPress={onPress ?? (() => openExercise(ex.id))}
       style={({ pressed }) => [st.row, { flex: 1 }, pressed && { opacity: 0.6 }]}>
-      {photo(ex.id) ? <Thumb uri={photo(ex.id)} /> : isBuiltIn(ex.id) ? (
+      {photo(ex.id) ? <Thumb uri={photo(ex.id)} /> : hasArt(ex.id) ? (
         <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
           <Illustration id={ex.id} size={40} />
         </View>
-      ) : null}
+      ) : ex.icon ? <ExArt id={ex.id} size={44} /> : null}
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18 }}>{ex.name}</T>
         <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
@@ -147,7 +161,7 @@ export function Spark({ id }: { id: string }) {
   const { v } = useLog();
   const { c } = useTheme();
   const ex = getEx(v, id);
-  const pts = historyOf(v, id).map((e) => topLoad(e, ex, v.profile.bodyweight)).filter((x) => x > 0).slice(-12);
+  const pts = historyOf(v, id).map((e) => topLoad(e, ex, v.bodyweight)).filter((x) => x > 0).slice(-12);
   if (pts.length < 2) return null;
   const w = 70, h = 22, p = 3, mn = Math.min(...pts), rg = Math.max(...pts) - mn || 1;
   const xy = pts.map((val, i) => [p + (i * (w - 2 * p)) / (pts.length - 1), h - p - ((val - mn) / rg) * (h - 2 * p)]);
@@ -160,26 +174,50 @@ export function Spark({ id }: { id: string }) {
   );
 }
 
-/** Top load per session over time. */
-export function LineChart({ series }: { series: { label: string; val: number }[] }) {
+export type Range = '3m' | '1y' | 'all';
+export const RANGES: { id: Range; label: string }[] = [{ id: '3m', label: '3M' }, { id: '1y', label: '1Y' }, { id: 'all', label: 'All' }];
+/** First day in the range (inclusive), or '' for all time. */
+export const rangeStart = (r: Range, today: string) => (r === 'all' ? '' : addDays(today, r === '3m' ? -91 : -365));
+export const rangeLabel = (r: Range) => (r === '3m' ? 'Last 3 months' : r === '1y' ? 'Last 12 months' : 'All time');
+const dayMs = (d: string) => new Date(`${d}T12:00:00`).getTime();
+
+export interface ChartSeries { points: { date: string; v: number }[]; style: 'dots' | 'line' | 'dash'; color?: string; label?: string }
+/**
+ * Values over real time: the x-axis is dates (a long break shows as a gap), labelled with years. Several series share
+ * the axes (e.g. weigh-in dots, the trend line, the planned curve); `band` shades a y-range (e.g. healthy BMI weights).
+ */
+export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in this range.' }: {
+  series: ChartSeries[]; band?: { lo: number; hi: number }; unit?: string; empty?: string;
+}) {
   const { c } = useTheme();
-  if (series.length < 2) return <T v="small" style={{ fontStyle: 'italic', marginVertical: space.sm }}>Log this exercise at least twice to see a trend.</T>;
-  const W = 300, H = 118, pl = 6, pr = 26, pt = 10, pb = 18;
-  const vals = series.map((s) => s.val), mn = Math.min(...vals), mx = Math.max(...vals);
-  const lo = mn - (mx - mn) * 0.15 || mn * 0.9, hi = mx + (mx - mn) * 0.15 || mx * 1.1 + 1, rg = hi - lo || 1;
-  const X = (i: number) => pl + (i * (W - pl - pr)) / (series.length - 1), Y = (val: number) => pt + (1 - (val - lo) / rg) * (H - pt - pb);
-  const line = series.map((s, i) => `${X(i).toFixed(1)},${Y(s.val).toFixed(1)}`);
-  const area = `M${X(0).toFixed(1)},${H - pb} L${line.join(' L ')} L${X(series.length - 1).toFixed(1)},${H - pb} Z`;
+  const all = series.flatMap((s) => s.points);
+  // A line needs two different days (one weigh-in plus its own trend point is still one day).
+  if (new Set(all.map((p) => p.date)).size < 2) return <T v="small" style={{ fontStyle: 'italic', marginVertical: space.sm }}>{all.length ? 'Log this on at least two days to see a trend.' : empty}</T>;
+  const W = 320, H = 150, pl = 4, pr = 34, pt = 10, pb = 20;
+  const xs = all.map((p) => dayMs(p.date)), vs = all.map((p) => p.v);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), span = x1 - x0 || 1;
+  const mn = Math.min(...vs), mx = Math.max(...vs), pad = (mx - mn) * 0.12 || Math.max(1, mx * 0.05);
+  const lo = mn - pad, hi = mx + pad;
+  const X = (d: string) => pl + ((dayMs(d) - x0) / span) * (W - pl - pr);
+  const Y = (v: number) => pt + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - pt - pb);
   const text = { fontSize: 9, fill: c.muted, fontFamily: mono };
+  const first = all.reduce((m, p) => (p.date < m ? p.date : m), all[0].date), last = all.reduce((m, p) => (p.date > m ? p.date : m), all[0].date);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Progress chart" style={{ width: '100%', height: 'auto', margin: `${space.sm}px 0` }}>
-      <path d={area} fill={c.accentSoft} opacity={0.55} />
-      <polyline points={line.join(' ')} fill="none" stroke={c.accent} strokeWidth={2} strokeLinejoin="round" />
-      {series.map((s, i) => <circle key={i} cx={X(i)} cy={Y(s.val)} r={2.4} fill={c.accent} />)}
-      <text x={W - pr + 3} y={Y(mx) + 3} {...text}>{num(mx)}</text>
-      <text x={W - pr + 3} y={Y(mn) + 3} {...text}>{num(mn)}</text>
-      <text x={pl} y={H - 4} {...text}>{series[0].label}</text>
-      <text x={W - pr} y={H - 4} textAnchor="end" {...text}>{series[series.length - 1].label}</text>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Chart from ${dateWithYear(first)} to ${dateWithYear(last)}`} style={{ width: '100%', height: 'auto', margin: `${space.sm}px 0` }}>
+      {band && band.hi > lo && band.lo < hi && (
+        <rect x={pl} width={W - pl - pr} y={Y(Math.min(hi, band.hi))} height={Math.max(0, Y(Math.max(lo, band.lo)) - Y(Math.min(hi, band.hi)))} fill={c.goodSoft} opacity={0.6} />
+      )}
+      {series.map((s, i) => {
+        const pts = [...s.points].sort((a, b) => (a.date < b.date ? -1 : 1));
+        const color = s.color ?? c.accent;
+        if (s.style === 'dots') return <g key={i}>{pts.map((p, j) => <circle key={j} cx={X(p.date)} cy={Y(p.v)} r={2.2} fill={color} opacity={0.55} />)}</g>;
+        return <polyline key={i} points={pts.map((p) => `${X(p.date).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')} fill="none" stroke={color}
+          strokeWidth={s.style === 'dash' ? 1.5 : 2} strokeDasharray={s.style === 'dash' ? '4 3' : undefined} strokeLinejoin="round" strokeLinecap="round" />;
+      })}
+      <text x={W - pr + 3} y={Y(mx) + 3} {...text}>{num(mx)}{unit}</text>
+      <text x={W - pr + 3} y={Y(mn) + 3} {...text}>{num(mn)}{unit}</text>
+      <text x={pl} y={H - 5} {...text}>{dateWithYear(first)}</text>
+      <text x={W - pr} y={H - 5} textAnchor="end" {...text}>{dateWithYear(last)}</text>
     </svg>
   );
 }
@@ -199,27 +237,44 @@ export function SetLines({ entries, name }: { entries: Entry[]; name?: boolean }
   });
 }
 
-/** Sessions / best / 1RM, the trend, and the last 10 days: used here and on each exercise's page. */
+/** Sessions / best / 1RM for a range, the trend over real time, and the latest sessions: exercise page and Progress. */
 export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
+  const [range, setRange] = useState<Range>('1y');
+  const [all, setAll] = useState(false);
   const ex = getEx(v, id);
-  const h = historyOf(v, id);
-  const bw = v.profile.bodyweight;
-  const series = h.map((e) => ({ label: shortDate(e.date), val: topLoad(e, ex, bw) })).filter((x) => x.val > 0);
+  const since = rangeStart(range, today());
+  const everything = historyOf(v, id);
+  const h = everything.filter((e) => e.date >= since);
+  const bw = v.bodyweight;
+  const series = h.map((e) => ({ date: e.date, v: topLoad(e, ex, bw) })).filter((x) => x.v > 0);
+  const best = h.reduce((m, e) => Math.max(m, ...e.sets.filter((x) => x.kind !== 'W').map((x) => x.w)), 0);
+  const list = [...everything].reverse();
+  const mins = (e: Entry) => e.sets.reduce((t, x) => t + x.r, 0) / 60;
+  const km = (e: Entry) => e.sets.reduce((t, x) => t + x.w, 0);
+  // Strength: sessions, heaviest, 1RM. Cardio: sessions, longest, fastest pace. Activities: sessions, total and longest time.
+  const stats: [string, string | number][] = ex.kind === 'cardio'
+    ? [['Sessions', h.length], ['Longest', h.some((e) => km(e) > 0) ? `${num(Math.max(...h.map(km)))} km` : `${Math.round(Math.max(0, ...h.map(mins)))} min`],
+      ['Best pace', (() => { const ps = h.filter((e) => km(e) > 0).map((e) => (mins(e) * 60) / km(e)); return ps.length ? clock(Math.min(...ps)) : '—'; })()]]
+    : ex.kind === 'activity'
+    ? [['Sessions', h.length], ['Total', `${Math.round(h.reduce((t, e) => t + mins(e), 0) / 60 * 10) / 10} h`], ['Longest', `${Math.round(Math.max(0, ...h.map(mins)))} min`]]
+    : [['Sessions', h.length], ['Best load', num(best)], ['Est. 1RM', num(estOneRM(h, ex, bw))]];
   return (
     <>
+      <Segmented<Range> value={range} onChange={setRange} options={RANGES} />
+      <T v="small" style={{ marginTop: space.sm }}>{rangeLabel(range)} · {plural(h.length, 'session')}{h.length < everything.length ? ` (${everything.length} in all)` : ''}</T>
       <View style={{ flexDirection: 'row', gap: space.sm, marginVertical: space.sm }}>
-        <Stat k="Sessions" v={h.length} />
-        <Stat k="Best load" v={num(prOf(v, id))} />
-        <Stat k="Est. 1RM" v={num(estOneRM(h, ex, bw))} />
+        {stats.map(([k, val]) => <Stat key={k} k={k} v={val} />)}
       </View>
-      <LineChart series={series} />
-      <T v="small" style={{ fontSize: 13 }}>
+      <TimeChart series={[{ points: series, style: 'line' }, { points: series, style: 'dots' }]} empty={`No sessions in the ${rangeLabel(range).toLowerCase()}.`} />
+      {isTimed(ex) ? <T v="small" style={{ fontSize: 13 }}>{ex.kind === 'cardio' ? 'The chart shows distance per session (or minutes when no distance was logged).' : 'The chart shows minutes per session.'}</T> : <T v="small" style={{ fontSize: 13 }}>
         {ex.weightType === 'dumbbell' ? 'Values are per dumbbell. ' : ''}
-        {ex.weightType === 'bodyweight' ? (bw ? `Bodyweight ${num(bw)} kg included. ` : 'Set your bodyweight on Home for loaded estimates. ') : ''}
-        Est. 1RM uses the Epley formula.
-      </T>
-      <Gap h={space.sm} />
-      <SetLines entries={[...h].reverse().slice(0, 10)} />
+        {ex.weightType === 'bodyweight' ? (bw ? `Bodyweight ${num(bw)} kg included. ` : 'Log your weight in the Me tab for loaded estimates. ') : ''}
+        Est. 1RM uses the Epley formula; warm-ups don’t count.
+      </T>}
+      <Gap h={space.md} />
+      <T v="label">{all ? `All sessions (${list.length})` : `Last ${Math.min(10, list.length)} sessions`}</T>
+      <SetLines entries={all ? list : list.slice(0, 10)} />
+      {list.length > 10 && <Button title={all ? 'Show fewer' : `Show all ${list.length}`} kind="ghost" onPress={() => setAll(!all)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />}
     </>
   );
 }

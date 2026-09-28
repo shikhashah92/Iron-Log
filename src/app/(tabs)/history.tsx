@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { bestSet, daysAgo, delWorkout, duration, fmtSet, getEx, longDate, num, plural, templateFrom, workoutStats, type Workout } from '../../model';
+import { bestSet, isTimed, daysAgo, delWorkout, duration, fmtSet, getEx, longDate, num, plural, templateFrom, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
+import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
 import { Empty, ProgressBlock, SetLines, useSaveAsTemplate } from '../../components';
 import { Button, Card, Chip, Gap, Header, Screen, Segmented, T } from '../../ui';
@@ -43,7 +44,9 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
   const { sets, volume } = workoutStats(v, w);
   const ago = daysAgo(w.date);
   const time = new Date(w.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  const meta = [...(w.endedAt ? [duration(w.endedAt - w.startedAt)] : []), plural(sets, 'set'), `${num(volume)} kg`, ...(w.feeling ? [w.feeling] : [])].join(' · ');
+  const cal = workoutCalories(v, w);
+  const meta = [...(w.endedAt ? [duration(w.endedAt - w.startedAt)] : []), plural(sets, 'set'), ...(volume ? [`${num(volume)} kg`] : []),
+    ...(cal ? [`≈${cal} kcal`] : []), ...(w.feeling ? [w.feeling] : [])].join(' · ');
   async function editIt() {
     try { await replace({ log }, 'Before editing a workout'); } catch { /* the undo copy is best effort here */ }
     router.push({ pathname: '/edit-workout', params: { id: w.id } });
@@ -64,10 +67,10 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
         <T v="mono" style={{ fontSize: 12 }}>{meta}</T>
         {!open && w.exercises.map((e) => {
           const ex = getEx(v, e.exerciseId);
-          const best = bestSet(e.sets.filter((x) => x.kind !== 'W').length ? e.sets.filter((x) => x.kind !== 'W') : e.sets);
+          const best = isTimed(ex) ? e.sets[0] : bestSet(e.sets.filter((x) => x.kind !== 'W').length ? e.sets.filter((x) => x.kind !== 'W') : e.sets);
           return (
             <View key={e.exerciseId} style={{ flexDirection: 'row', gap: space.sm }}>
-              <T numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{e.sets.length} × {ex.name}</T>
+              <T numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{isTimed(ex) ? ex.name : `${e.sets.length} × ${ex.name}`}</T>
               <T v="mono" style={{ fontSize: 12 }}>{best ? fmtSet(best, ex) : ''}</T>
             </View>
           );
