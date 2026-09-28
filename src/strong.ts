@@ -95,7 +95,7 @@ export interface StrongSummary {
 }
 
 /**
- * Bring a Strong export into the current profile, one Iron Log workout per Strong workout (its name, start time,
+ * Bring a Strong export into the current profile, one Uplift workout per Strong workout (its name, start time,
  * duration, warm-up and drop sets). Workouts already on the days this file covers are replaced, so importing again
  * (or after an older import) never doubles anything; same-named templates are kept. Throws a readable Error if this
  * isn't a Strong export.

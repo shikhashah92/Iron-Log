@@ -165,12 +165,12 @@ export function Badge({ icon, size = 40 }: { icon: string; size?: number }) {
   );
 }
 
-/** The Iron Log wordmark: "IRON" in rust, "LOG" in ink. */
+/** The Uplift wordmark (a stand-in until the logo is in): "UP" in the accent colour, "LIFT" in ink. */
 export function BrandMark({ size = 28 }: { size?: number }) {
   const { c } = useTheme();
   return (
     <Text accessibilityRole="header" style={{ fontFamily: condensed, fontWeight: '700', fontSize: size, textTransform: 'uppercase', letterSpacing: 0.5, color: c.text }}>
-      <Text style={{ color: c.accent }}>Iron</Text> Log
+      <Text style={{ color: c.accent }}>Up</Text>lift
     </Text>
   );
 }

@@ -63,7 +63,7 @@ const REDUCED_MOTION = typeof matchMedia !== 'undefined' && matchMedia('(prefers
 /**
  * An exercise's drawing: three poses, looped like a GIF when `animate` (still when the phone asks for reduced motion).
  * The SVGs are single-colour shapes used as a mask, so they take the theme's ink in light and dark mode. The paths are
- * relative: every route is one level deep, so they resolve under the app's folder (e.g. /Iron-Log/illustrations/).
+ * relative: every route is one level deep, so they resolve under the app's folder (e.g. /illustrations/, or <folder>/illustrations/).
  */
 /** `label` for screen readers; without one the drawing is decorative (e.g. next to the name in a list). */
 export function Illustration({ id, size, animate = false, label }: { id: string; size: number; animate?: boolean; label?: string }) {
@@ -394,7 +394,7 @@ export function PassphraseModal({ visible, mode, onSubmit, onClose }: {
           <T v="title">{mode === 'set' ? 'Lock this backup' : 'Enter the backup passphrase'}</T>
           <T v="small" style={{ lineHeight: 20 }}>
             {mode === 'set'
-              ? 'The backup file is locked with this passphrase on your phone, before you save it anywhere. Nobody else can open it, not even Iron Log. If you forget it, the backup cannot be recovered, so write it down somewhere safe.'
+              ? 'The backup file is locked with this passphrase on your phone, before you save it anywhere. Nobody else can open it, not even Uplift. If you forget it, the backup cannot be recovered, so write it down somewhere safe.'
               : 'This backup is locked. Enter the passphrase you chose when you saved it.'}
           </T>
           <Field label="Passphrase" value={pass} onChangeText={(t) => { setPass(t); setError(''); }} {...MASKED} autoFocus
@@ -413,9 +413,9 @@ export function PassphraseModal({ visible, mode, onSubmit, onClose }: {
   );
 }
 
-const NUDGE_KEY = 'ironlog.installNudgeAt';
+const NUDGE_KEY = 'uplift.installNudgeAt';
 /**
- * In a phone's browser (not the installed app): a card asking to add Iron Log to the Home Screen, with a "how" sheet
+ * In a phone's browser (not the installed app): a card asking to add Uplift to the Home Screen, with a "how" sheet
  * for this phone. "Not now" hides it for two weeks. Once installed it never shows (the app runs standalone).
  */
 export function InstallNudge() {
@@ -427,7 +427,7 @@ export function InstallNudge() {
     <Card style={{ marginBottom: space.md, gap: space.sm, borderColor: c.accent }}>
       <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>
         <Ionicons name="phone-portrait-outline" size={20} color={c.accent} />
-        <T style={{ fontWeight: '600', flex: 1 }}>Add Iron Log to your Home Screen</T>
+        <T style={{ fontWeight: '600', flex: 1 }}>Add Uplift to your Home Screen</T>
       </View>
       <T v="small">It opens like an app, works offline, and keeps your data safer. Takes 20 seconds.</T>
       <View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -445,11 +445,11 @@ export function InstallSteps() {
     ? [['menu-outline', 'In Safari, tap the ≡ button at the left of the address bar, then Share. (On older iPhones: the Share button, a square with an arrow.)'],
       ['add-circle-outline', 'Tap “View More”, then “Add to Home Screen”.'],
       ['checkmark-circle-outline', 'Leave “Open as Web App” on, then tap Add.'],
-      ['apps-outline', 'Open Iron Log from your Home Screen from now on.']]
+      ['apps-outline', 'Open Uplift from your Home Screen from now on.']]
     : [['ellipsis-vertical', 'Tap the ⋮ menu at the top right of Chrome.'],
       ['add-circle-outline', 'Tap “Add to Home screen” (or “Install app”).'],
       ['checkmark-circle-outline', 'Tap Install.'],
-      ['apps-outline', 'Open Iron Log from your Home Screen from now on.']];
+      ['apps-outline', 'Open Uplift from your Home Screen from now on.']];
   return (
     <Card style={{ gap: space.md }}>
       {steps.map(([icon, text], i) => (

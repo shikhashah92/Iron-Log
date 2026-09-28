@@ -49,7 +49,7 @@ export default function Me() {
       return;
     }
     if (isAndroid()) return void window.open(googleCalendarURL(every, start), '_blank');
-    try { await saveFile('iron-log-weigh-in.ics', reminderICS(every, start), 'text/calendar'); }
+    try { await saveFile('uplift-weigh-in.ics', reminderICS(every, start), 'text/calendar'); }
     catch (e) { notify('Could not create the reminder', (e as Error).message); }
   }
 
@@ -139,7 +139,7 @@ export default function Me() {
           <T v="small">Weigh-in reminder</T>
           <Segmented<WeighEvery> value={every} onChange={(weighEvery) => update((l) => putProfile(l, p.id, { weighEvery }))}
             options={[{ id: 'daily', label: 'Daily' }, { id: '3x', label: '3×/week' }, { id: 'weekly', label: 'Weekly' }, { id: 'off', label: 'Off' }]} />
-          <T v="small" style={{ fontSize: 12 }}>Iron Log shows “Weigh-in due” on Home. To get a notification too, add a repeating reminder to your calendar.</T>
+          <T v="small" style={{ fontSize: 12 }}>Uplift shows “Weigh-in due” on Home. To get a notification too, add a repeating reminder to your calendar.</T>
           <Button title="Add reminder to calendar" icon="calendar-outline" kind="secondary" onPress={addReminder} disabled={every === 'off'} />
         </View>
       </Card>

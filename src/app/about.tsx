@@ -107,10 +107,10 @@ export default function About() {
     };
     const Q = { goal: 'What’s your main goal?', height: 'How tall are you?', weight: 'What do you weigh today?', target: 'Where would you like to get to?' }[step];
     const hint = {
-      goal: 'It shapes what Iron Log shows you first. Change it any time.',
+      goal: 'It shapes what Uplift shows you first. Change it any time.',
       height: 'Used for BMI and the healthy range on your weight chart.',
       weight: 'Your first weigh-in: the start of your trend line.',
-      target: 'A target weight and date. Iron Log plans a steady weekly pace and shows it against your trend.',
+      target: 'A target weight and date. Uplift plans a steady weekly pace and shows it against your trend.',
     }[step];
     return (
       <Screen edges={['top', 'bottom']}>

@@ -36,7 +36,7 @@ export function pickTextFile(accept = 'application/json,.json'): Promise<string 
     input.onchange = () => {
       const f = input.files?.[0];
       if (!f) return resolve(null);
-      if (f.size > MAX_IMPORT_BYTES) return reject(new Error('File is too large to be an Iron Log backup.'));
+      if (f.size > MAX_IMPORT_BYTES) return reject(new Error('File is too large to be an Uplift backup.'));
       f.text().then(resolve, reject);
     };
     input.click();

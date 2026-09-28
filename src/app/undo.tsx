@@ -37,7 +37,7 @@ export default function Undo() {
   return (
     <Screen>
       <Header title="Undo history" left={<IconButton icon="chevron-back" label="Back" onPress={() => goBack()} />} />
-      <T v="small">Iron Log keeps your last 10 versions on this device: one at the start of each day you make changes, and one before every restore or erase.</T>
+      <T v="small">Uplift keeps your last 10 versions on this device: one at the start of each day you make changes, and one before every restore or erase.</T>
       <Gap />
       <Card pad={false} style={{ paddingHorizontal: space.lg }}>
         {list === null ? <View style={{ paddingVertical: space.lg }}><T v="small">Loading…</T></View>

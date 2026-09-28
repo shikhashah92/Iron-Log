@@ -7,8 +7,6 @@ import { useColors } from './theme';
 
 const LOG_KEY = 'log:v1';
 const IMG_KEY = 'images:v1';
-/** Where the old app leaves its data when moving over (see legacy/index.html). */
-export const HANDOFF_KEY = 'handoff:v1';
 
 /** Stored data that failed validation, kept untouched so it can be downloaded, never silently overwritten. */
 export interface Corrupt { raw: string; error: string }

@@ -1,6 +1,6 @@
 {
-  "name": "Iron Log",
-  "short_name": "Iron Log",
+  "name": "Uplift",
+  "short_name": "Uplift",
   "description": "A private, offline-first strength-training log.",
   "start_url": "./",
   "scope": "./",

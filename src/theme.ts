@@ -1,7 +1,7 @@
 import { useColorScheme } from 'react-native';
 import type { Theme } from './model';
 
-// Iron Log's chalk-and-rust palette, carried over from the original app.
+// Uplift's chalk-and-rust palette, carried over from the original app.
 const light = {
   bg: '#e7e4de', card: '#f6f4ef', text: '#1c1a16', muted: '#6c675d', border: '#d3cec3', chip: '#efece5',
   accent: '#a23b23', onAccent: '#FFFFFF', accentSoft: '#f0e0d8',

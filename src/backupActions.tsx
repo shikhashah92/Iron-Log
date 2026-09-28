@@ -1,5 +1,5 @@
 // Backups the person saves themselves (Files, iCloud Drive, Google Drive, email): shared by Home, Settings and Welcome.
-// Nothing is ever uploaded by Iron Log; the file goes wherever the share sheet sends it.
+// Nothing is ever uploaded by Uplift; the file goes wherever the share sheet sends it.
 import { useState } from 'react';
 import { parseBackup, toBackupJSON, toCSV } from './backup';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, ITERATIONS, newSalt } from './crypto';
@@ -26,20 +26,20 @@ export function useBackup() {
         const salt = newSalt();
         const file = await encryptWithKey(await deriveKey(pass, salt), salt, ITERATIONS, toBackupJSON(log, images));
         setPending(null);
-        if (await saveFile(`ironlog-backup-locked-${today()}.json`, file, 'application/json')) saved();
+        if (await saveFile(`uplift-backup-locked-${today()}.json`, file, 'application/json')) saved();
       },
     });
   }
   async function exportPlain() {
     if (!log) return;
-    try { if (await saveFile(`ironlog-backup-${today()}.json`, toBackupJSON(log, images), 'application/json')) saved(); }
+    try { if (await saveFile(`uplift-backup-${today()}.json`, toBackupJSON(log, images), 'application/json')) saved(); }
     catch (e) { notify('Export failed', (e as Error).message); }
   }
   async function exportCSV() {
     if (!log) return;
     const custom = new Map(log.exercises.map((e) => [`${e.profileId}:${e.id}`, e.name]));
     const builtIn = new Map(BUILT_IN.map((e) => [e.id, e.name]));
-    try { await saveFile(`ironlog-sets-${today()}.csv`, toCSV(log, (p, id) => custom.get(`${p}:${id}`) ?? builtIn.get(id) ?? id), 'text/csv'); }
+    try { await saveFile(`uplift-sets-${today()}.csv`, toCSV(log, (p, id) => custom.get(`${p}:${id}`) ?? builtIn.get(id) ?? id), 'text/csv'); }
     catch (e) { notify('Export failed', (e as Error).message); }
   }
 
@@ -76,7 +76,7 @@ export function useBackup() {
 
   async function chooseLocal() {
     const ok = await confirm('Keep data on this device only?',
-      'Nothing is saved anywhere else. If this phone is lost, reset, or the browser clears its data, your Iron Log data is gone for good. Iron Log will remind you every week to save a backup. You can save one any time in Settings.',
+      'Nothing is saved anywhere else. If this phone is lost, reset, or the browser clears its data, your Uplift data is gone for good. Uplift will remind you every week to save a backup. You can save one any time in Settings.',
       'Keep on this device');
     if (ok) update((l) => ({ ...l, settings: { ...l.settings, backupChoice: 'local' } }));
     return ok;
@@ -95,7 +95,7 @@ export function useBackup() {
       const who = log.profiles.find((p) => p.id === log.settings.currentProfileId)?.name ?? 'you';
       const msg = [
         `${plural(s.workouts, 'workout')} (${plural(s.sets, 'set')}) from ${s.from} to ${s.to}, added to ${who}.`,
-        `${s.matched} exercises match Iron Log’s library; ${plural(s.newExercises, 'new custom exercise')}.`,
+        `${s.matched} exercises match Uplift’s library; ${plural(s.newExercises, 'new custom exercise')}.`,
         s.templates ? `${plural(s.templates, 'workout name')} saved as templates.` : '',
         `Heaviest set: ${num(s.heaviest)} kg.`,
         s.replaced ? `${plural(s.replaced, 'workout')} already on those ${plural(s.days, 'day')} (e.g. an earlier import) will be replaced.` : '',

@@ -1,5 +1,5 @@
 // Web storage: IndexedDB (no 5 MB localStorage cap). Other tabs are notified via BroadcastChannel.
-const DB = 'ironlog';
+const DB = 'uplift';
 const STORE = 'kv';
 
 let dbp: Promise<IDBDatabase> | null = null;
@@ -31,7 +31,7 @@ export async function requestPersistence(): Promise<void> {
   try { await navigator.storage?.persist?.(); } catch { /* best effort */ }
 }
 
-const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('ironlog') : null;
+const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('uplift') : null;
 export const notifyChange = () => channel?.postMessage('changed');
 export function onExternalChange(cb: () => void): () => void {
   if (!channel) return () => {};

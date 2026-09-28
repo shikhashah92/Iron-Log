@@ -1,9 +1,9 @@
-// Iron Log service worker: the app opens instantly and works offline. Data itself lives in IndexedDB, not here.
-// Everything is relative to the worker's scope, so it works from a sub-folder (GitHub Pages: /Iron-Log/).
+// Uplift service worker: the app opens instantly and works offline. Data itself lives in IndexedDB, not here.
+// Everything is relative to the worker's scope, so it works at a domain's root or in a sub-folder.
 // ponytail: old hashed bundles are dropped only when CACHE is bumped; fine for a few-MB app.
-const CACHE = 'ironlog-v2';
+const CACHE = 'uplift-v1';
 importScripts('reminder-ics.js'); // self.reminderICS
-const ROOT = new URL(self.registration.scope).pathname; // e.g. "/Iron-Log/"
+const ROOT = new URL(self.registration.scope).pathname; // "/" on the app's own domain
 const at = (p) => ROOT + p;
 const SHELL = ['', 'manifest.webmanifest', 'icon-192.png', 'apple-touch-icon.png',
   'fonts/BarlowCondensed-600.woff2', 'fonts/BarlowCondensed-700.woff2', 'fonts/IBMPlexMono-400.woff2', 'fonts/IBMPlexMono-500.woff2'].map(at);
@@ -25,7 +25,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k); // includes the old app's shell cache
+    for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -33,8 +33,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  // The old app (kept for moving data over) talks to Firebase: leave it and everything cross-origin alone.
-  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith(at('legacy/'))) return;
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
   // "Add to calendar": the event is made right here, starting on the day asked for, so nothing goes over the network.
   // (Without this worker the request reaches the static fallback in reminders/, which starts in January 2026.)
   if (url.pathname.startsWith(at('reminders/'))) {

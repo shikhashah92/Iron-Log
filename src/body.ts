@@ -91,9 +91,9 @@ export function reminderICS(every: Exclude<WeighEvery, 'off'>, start: Date, time
   const stamp = (x: Date) => `${dayKey(x).replace(/-/g, '')}T${String(x.getHours()).padStart(2, '0')}${String(x.getMinutes()).padStart(2, '0')}00`;
   const rule = RULE[every];
   const end = new Date(d.getTime() + 5 * 60_000);
-  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Iron Log//Weigh-in//EN', 'BEGIN:VEVENT',
-    `UID:ironlog-weigh-in-${every}@ironlog`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(d)}`, `DTEND:${stamp(end)}`, `RRULE:${rule}`,
-    'SUMMARY:Weigh in (Iron Log)', 'DESCRIPTION:Before breakfast: Iron Log > Me > Log weigh-in', // under 75 bytes per line (RFC 5545)
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Uplift//Weigh-in//EN', 'BEGIN:VEVENT',
+    `UID:uplift-weigh-in-${every}@uplift`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(d)}`, `DTEND:${stamp(end)}`, `RRULE:${rule}`,
+    'SUMMARY:Weigh in (Uplift)', 'DESCRIPTION:Before breakfast: Uplift > Me > Log weigh-in', // under 75 bytes per line (RFC 5545)
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Weigh in', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
 }
 
@@ -114,7 +114,7 @@ export const reminderFile = (every: Exclude<WeighEvery, 'off'>) => `reminders/we
 /** Android: Google Calendar's "new event" page, pre-filled and repeating (the phone's calendar app syncs it). */
 export function googleCalendarURL(every: Exclude<WeighEvery, 'off'>, start: Date): string {
   const day = dayKey(start).replace(/-/g, '');
-  const q = new URLSearchParams({ action: 'TEMPLATE', text: 'Weigh in (Iron Log)', details: 'Before breakfast: Iron Log > Me > Log weigh-in',
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: 'Weigh in (Uplift)', details: 'Before breakfast: Uplift > Me > Log weigh-in',
     dates: `${day}T073000/${day}T073500`, recur: `RRULE:${RULE[every]}` });
   return `https://calendar.google.com/calendar/render?${q}`;
 }
