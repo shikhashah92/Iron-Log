@@ -5,6 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../../store';
 import { RestBar, WorkoutBar } from '../../components';
+import { MAX_WIDTH } from '../../ui';
 import { TourOverlay } from '../../tour';
 import { sans } from '../../theme';
 
@@ -31,7 +32,9 @@ export default function TabsLayout() {
       headerShown: false,
       tabBarActiveTintColor: c.accent,
       tabBarInactiveTintColor: c.muted,
-      tabBarStyle: { backgroundColor: c.card, borderTopColor: c.border, height: 70 + bottom, paddingBottom: bottom },
+      // On a wide screen the bar stays as wide as the content column above it.
+      tabBarStyle: { backgroundColor: c.card, borderTopColor: c.border, height: 70 + bottom, paddingBottom: bottom, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
+      tabBarLabelPosition: 'below-icon',
       tabBarItemStyle: { paddingTop: 6, paddingBottom: 8 },
       tabBarLabelStyle: { fontSize: 13, lineHeight: 18, fontWeight: '600', fontFamily: sans },
       sceneStyle: { backgroundColor: c.bg },
