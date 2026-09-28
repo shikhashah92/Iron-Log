@@ -2,22 +2,22 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { bestSet, isTimed, daysAgo, delWorkout, duration, fmtSet, getEx, longDate, matches, num, plural, templateFrom, workoutStats, type Workout } from '../../model';
+import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, getEx, groupSets, longDate, matches, num, plural, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
-import { Empty, ProgressBlock, SetLines, useSaveAsTemplate } from '../../components';
-import { Button, Card, Field, Gap, Header, Row, Screen, Segmented, T } from '../../ui';
+import { Empty, ProgressBlock, Section, SetLines, useSaveAsTemplate } from '../../components';
+import { Button, Card, Field, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { sans, radius, space } from '../../theme';
 
 export default function History() {
-  const [tab, setTab] = useState<'sessions' | 'progress'>('sessions');
+  const [tab, setTab] = useState<'sessions' | 'trends' | 'progress'>('sessions');
   return (
     <Screen>
       <Header title="History" />
-      <Segmented value={tab} onChange={setTab} options={[{ id: 'sessions', label: 'Workouts' }, { id: 'progress', label: 'Progress' }]} />
+      <Segmented value={tab} onChange={setTab} options={[{ id: 'sessions', label: 'Workouts' }, { id: 'trends', label: 'Trends' }, { id: 'progress', label: 'Progress' }]} />
       <Gap h={space.md} />
-      {tab === 'sessions' ? <Sessions /> : <Progress />}
+      {tab === 'sessions' ? <Sessions /> : tab === 'trends' ? <Trends /> : <Progress />}
     </Screen>
   );
 }
@@ -26,12 +26,155 @@ function Sessions() {
   const { v } = useLog();
   const [open, setOpen] = useState<string | null>(null);
   const [shown, setShown] = useState(30);
+  const [day, setDay] = useState<string | null>(null);
   const done = v.workouts.filter((w) => !w.active);
   if (!done.length) return <Card><Empty>No workouts logged yet.</Empty></Card>;
+  const list = day ? done.filter((w) => w.date === day) : done.slice(0, shown);
   return (
     <>
-      {done.slice(0, shown).map((w) => <WorkoutCard key={w.id} w={w} open={open === w.id} onToggle={() => setOpen(open === w.id ? null : w.id)} />)}
-      {shown < done.length && <Button title={`Show more (${done.length - shown})`} kind="ghost" onPress={() => setShown(shown + 30)} />}
+      <Calendar trained={new Set(done.map((w) => w.date))} day={day} onDay={(d) => setDay(d === day ? null : d)} />
+      {day && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm }}>
+          <T v="label">{longDate(day)} · {plural(list.length, 'workout')}</T>
+          <Button title="Show all" kind="ghost" onPress={() => setDay(null)} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
+        </View>
+      )}
+      {list.map((w) => <WorkoutCard key={w.id} w={w} open={open === w.id} onToggle={() => setOpen(open === w.id ? null : w.id)} />)}
+      {!day && shown < done.length && <Button title={`Show more (${done.length - shown})`} kind="ghost" onPress={() => setShown(shown + 30)} />}
+    </>
+  );
+}
+
+const monthName = (m: string) => new Date(`${m}-01T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+const shiftMonth = (m: string, by: number) => { const d = new Date(`${m}-01T12:00:00`); d.setMonth(d.getMonth() + by); return d.toISOString().slice(0, 7); };
+
+/** A month at a glance (Monday first): training days filled mint, today ringed. Tap a training day to see just that day. */
+function Calendar({ trained, day, onDay }: { trained: Set<string>; day: string | null; onDay: (d: string) => void }) {
+  const { c } = useTheme();
+  const now = today();
+  const [month, setMonth] = useState(now.slice(0, 7));
+  const first = `${month}-01`;
+  const lead = (new Date(`${first}T12:00:00`).getDay() + 6) % 7;
+  const count = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: count }, (_, i) => addDays(first, i))];
+  while (cells.length % 7) cells.push(null);
+  const days = [...trained].filter((d) => d.startsWith(month)).length;
+  return (
+    <Card style={{ marginBottom: space.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.sm }}>
+        <IconButton icon="chevron-back" label="Previous month" onPress={() => setMonth(shiftMonth(month, -1))} size={20} />
+        <T center style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 17 }}>{monthName(month)}</T>
+        {month < now.slice(0, 7) ? <IconButton icon="chevron-forward" label="Next month" onPress={() => setMonth(shiftMonth(month, 1))} size={20} /> : <View style={{ width: 44 }} />}
+      </View>
+      <View style={{ flexDirection: 'row' }}>
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <T key={i} v="small" center style={{ flex: 1, fontSize: 11 }}>{d}</T>)}
+      </View>
+      {Array.from({ length: cells.length / 7 }, (_, r) => (
+        <View key={r} style={{ flexDirection: 'row' }}>
+          {cells.slice(r * 7, r * 7 + 7).map((d, i) => {
+            const on = !!d && trained.has(d), picked = d === day;
+            return (
+              <View key={i} style={{ flex: 1, alignItems: 'center', paddingVertical: 3 }}>
+                {d && (
+                  <Pressable disabled={!on} onPress={() => onDay(d)} accessibilityRole="button" accessibilityLabel={`${longDate(d)}${on ? ', trained' : ''}`}
+                    accessibilityState={{ selected: picked, disabled: !on }}
+                    style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.brand : 'transparent',
+                      borderWidth: 2, borderColor: picked ? c.text : d === now ? c.accent : 'transparent', opacity: d > now ? 0.35 : 1 }}>
+                    <T style={{ fontSize: 14, fontWeight: on ? '700' : '400' }} color={on ? c.onAccent : c.text}>{Number(d.slice(8))}</T>
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      ))}
+      <T v="small" center style={{ marginTop: space.sm }}>{days ? `Trained on ${plural(days, 'day')} in ${monthName(month).split(' ')[0]}` : 'No workouts this month'}</T>
+    </Card>
+  );
+}
+
+const kg = (n: number) => (n >= 1000 ? `${num(Math.round(n / 100) / 10)}t` : `${num(Math.round(n))} kg`);
+const mins = (m: number) => (m ? fmtDur(m * 60) : '0m');
+
+/** This month against the same point last month, the weekly streak, twelve weeks of bars, and sets per muscle group. */
+function Trends() {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const [metric, setMetric] = useState<'workouts' | 'minutes' | 'volume'>('workouts');
+  const now = today();
+  if (!v.workouts.some((w) => !w.active)) return <Card><Empty>Log a few workouts and your trends show up here.</Empty></Card>;
+  const first = `${now.slice(0, 7)}-01`;
+  const prevFirst = `${shiftMonth(now.slice(0, 7), -1)}-01`;
+  const prevTo = addDays(prevFirst, Math.min(daysAgo(first, now), daysAgo(prevFirst, first) - 1));
+  const month = totals(v, first, now), before = totals(v, prevFirst, prevTo);
+  const streak = weekStreak(v, now);
+  const weeks = weekly(v, now, 12);
+  const val = (w: (typeof weeks)[number]) => w[metric];
+  const max = Math.max(1, ...weeks.map(val));
+  const top = weeks.findLastIndex((w) => val(w) === max); // label the highest bar once, and this week
+  const avg = weeks.slice(0, -1).reduce((t, w) => t + val(w), 0) / 11;
+  const fmt = (n: number) => (metric === 'workouts' ? num(Math.round(n * 10) / 10) : metric === 'minutes' ? mins(Math.round(n)) : kg(n));
+  const short = (n: number) => (metric === 'minutes' && n >= 60 ? `${num(Math.round(n / 6) / 10)}h` : fmt(n)); // fits over a bar
+  const groups = groupSets(v, addDays(now, -29), now);
+  const gmax = Math.max(1, ...groups.map((g) => g.sets));
+  const vs = (a: number, b: number, f: (n: number) => string) => (b || a ? `${a >= b ? '▲' : '▼'} ${f(b)} last month` : '');
+  return (
+    <>
+      <Section title={`This month · ${monthName(now.slice(0, 7)).split(' ')[0]}`}>
+        <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
+          {[['Workouts', num(month.workouts), vs(month.workouts, before.workouts, num)], ['Time', mins(month.minutes), vs(month.minutes, before.minutes, mins)],
+            ['Volume', kg(month.volume), vs(month.volume, before.volume, kg)]].map(([k, value, delta]) => (
+            <View key={k} style={{ flex: 1, backgroundColor: c.chip, borderRadius: 10, padding: space.sm + 2 }}>
+              <T v="label" style={{ fontSize: 11 }}>{k}</T>
+              <T style={{ fontFamily: sans, fontSize: 20, marginTop: 2 }}>{value}</T>
+              {delta ? <T v="small" style={{ fontSize: 11 }}>{delta}</T> : null}
+            </View>
+          ))}
+        </View>
+        <T v="small" style={{ marginTop: space.sm, fontSize: 12 }}>Last month is counted up to the same day, so it’s a fair comparison.</T>
+      </Section>
+
+      <Card style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="flame-outline" size={26} color={c.accent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 20 }}>{streak.current ? `${plural(streak.current, 'week')} in a row` : 'No streak yet'}</T>
+          <T v="small">{streak.current ? 'Weeks with at least one workout.' : 'Train this week to start one.'}{streak.best > streak.current ? ` Best: ${plural(streak.best, 'week')}.` : streak.best > 1 ? ' Your best yet.' : ''}</T>
+        </View>
+      </Card>
+
+      <Section title="Last 12 weeks">
+        <Segmented value={metric} onChange={setMetric} options={[{ id: 'workouts', label: 'Workouts' }, { id: 'minutes', label: 'Time' }, { id: 'volume', label: 'Volume' }]} />
+        <View accessibilityRole="image" accessibilityLabel={`Per week: ${weeks.map((w) => fmt(val(w))).join(', ')}`}
+          style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 140, marginTop: space.md }}>
+          {weeks.map((w, i) => (
+            <View key={w.start} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' }}>
+              {i === weeks.length - 1 || i === top ? <T v="small" numberOfLines={1} style={{ fontSize: 10 }}>{short(val(w))}</T> : null}
+              <View style={{ width: '100%', height: `${Math.max(val(w) ? 4 : 1, (val(w) / max) * 82)}%`, borderRadius: 4,
+                backgroundColor: val(w) ? c.brand : c.border, opacity: i === weeks.length - 1 ? 1 : 0.7 }} />
+            </View>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+          <T v="small" style={{ fontSize: 11 }}>{longDate(weeks[0].start).replace(/^\w+,? /, '')}</T>
+          <T v="small" style={{ fontSize: 11 }}>This week</T>
+        </View>
+        <T v="small" style={{ marginTop: space.sm }}>Average {fmt(avg)} a week over the 11 weeks before this one.</T>
+      </Section>
+
+      <Section title="Muscle groups · last 30 days">
+        <T v="small" style={{ marginBottom: space.sm, fontSize: 12 }}>Working sets per group. A short bar is what you’ve been skipping.</T>
+        {groups.map((g) => (
+          <View key={g.group} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: 6 }}>
+            <T style={{ width: 78, fontSize: 14 }}>{g.group}</T>
+            <View style={{ flex: 1, height: 14, borderRadius: 7, backgroundColor: c.chip, overflow: 'hidden' }}>
+              <View style={{ width: `${(g.sets / gmax) * 100}%`, height: '100%', borderRadius: 7, backgroundColor: c.brand }} />
+            </View>
+            <T v="mono" style={{ width: 28, textAlign: 'right', fontSize: 12 }}>{g.sets}</T>
+          </View>
+        ))}
+      </Section>
     </>
   );
 }

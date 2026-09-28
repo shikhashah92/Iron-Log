@@ -1,5 +1,5 @@
 // The data model and every change to it, as pure functions (no I/O), so it can be unit tested with node --test.
-import { BUILT_IN, STARTERS } from './exercises.ts';
+import { BUILT_IN, GROUPS, STARTERS } from './exercises.ts';
 
 export const SCHEMA_VERSION = 4;
 export type Theme = 'system' | 'light' | 'dark';
@@ -291,6 +291,47 @@ export function weekStats(v: View, date: string) {
   }
   return { sessions: workouts.size, sets, volume };
 }
+// ---- history: calendar and trends ----
+/** Monday of the week `day` is in. */
+export const weekStart = (day: string) => addDays(day, -((new Date(`${day}T12:00:00`).getDay() + 6) % 7));
+/** Finished workouts, minutes, working sets and volume from `from` to `to` (inclusive). */
+export function totals(v: View, from: string, to: string) {
+  const done = v.workouts.filter((w) => !w.active && w.date >= from && w.date <= to);
+  let sets = 0, volume = 0;
+  for (const e of v.entries) {
+    if (e.date < from || e.date > to) continue;
+    sets += working(e.sets).length;
+    volume += volumeOf(e, getEx(v, e.exerciseId), v.bodyweight);
+  }
+  const minutes = Math.round(done.reduce((t, w) => t + (w.endedAt ? (w.endedAt - w.startedAt) / 60_000 : 0), 0));
+  return { workouts: done.length, days: new Set(done.map((w) => w.date)).size, minutes, sets, volume };
+}
+/** The last `weeks` weeks (Monday start), oldest first, ending with the week of `date`. */
+export const weekly = (v: View, date: string, weeks = 12) => Array.from({ length: weeks }, (_, i) => {
+  const start = addDays(weekStart(date), -7 * (weeks - 1 - i));
+  return { start, ...totals(v, start, addDays(start, 6)) };
+});
+/** Weeks in a row with at least one workout. This week counts once you've trained; until then it doesn't break the run. */
+export function weekStreak(v: View, date: string) {
+  const weeks = new Set(v.workouts.filter((w) => !w.active && w.date <= date).map((w) => weekStart(w.date)));
+  let wk = weekStart(date), current = 0;
+  if (!weeks.has(wk)) wk = addDays(wk, -7);
+  while (weeks.has(wk)) { current++; wk = addDays(wk, -7); }
+  let best = 0, run = 0, prev = '';
+  for (const w of [...weeks].sort()) { run = prev && addDays(prev, 7) === w ? run + 1 : 1; best = Math.max(best, run); prev = w; }
+  return { current, best };
+}
+/** Working sets per muscle group (strength only) from `from` to `to`, in the library's group order. */
+export function groupSets(v: View, from: string, to: string) {
+  const n = new Map<string, number>(GROUPS.map((g) => [g, 0]));
+  for (const e of v.entries) {
+    const ex = getEx(v, e.exerciseId);
+    if (e.date < from || e.date > to || ex.kind || !n.has(ex.group)) continue;
+    n.set(ex.group, n.get(ex.group)! + working(e.sets).length);
+  }
+  return [...n].map(([group, sets]) => ({ group, sets }));
+}
+
 /** Sets and volume of one workout (logged sets only). */
 export function workoutStats(v: View, w: Workout) {
   let sets = 0, volume = 0;
