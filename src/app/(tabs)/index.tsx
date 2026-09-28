@@ -1,13 +1,14 @@
-import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../../store';
 import { useBackup } from '../../backupActions';
-import { duration, getEx, longDate, needsBackupNudge, num, plural, putProfile, recentExIds, today, weekStats, workoutStats } from '../../model';
+import { duration, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekStats, workoutStats } from '../../model';
+import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
+import { workoutCalories } from '../../calories';
 import { AddButton, Empty, ExRow, Section, Stat } from '../../components';
-import { Banner, BrandMark, Button, Card, Field, Gap, Screen, selectAll, T } from '../../ui';
-import { condensed, mono, space } from '../../theme';
+import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
+import { condensed, space } from '../../theme';
 import { useNow } from '../../timer';
 
 export default function Home() {
@@ -49,7 +50,7 @@ export default function Home() {
             return (
               <View key={w.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: c.border }}>
                 <T numberOfLines={1} style={{ flex: 1, fontFamily: condensed, fontWeight: '600', fontSize: 17 }}>{w.name}</T>
-                <T v="mono" style={{ fontSize: 12 }}>{[w.endedAt ? duration(w.endedAt - w.startedAt) : '', plural(sets, 'set'), `${num(volume)} kg`].filter(Boolean).join(' · ')}</T>
+                <T v="mono" style={{ fontSize: 12 }}>{[w.endedAt ? duration(w.endedAt - w.startedAt) : '', plural(sets, 'set'), volume ? `${num(volume)} kg` : '', (() => { const k = workoutCalories(v, w); return k ? `≈${k} kcal` : ''; })()].filter(Boolean).join(' · ')}</T>
               </View>
             );
           })}
@@ -97,7 +98,7 @@ export default function Home() {
           </Section>
         ) : null}
 
-        <Bodyweight key={v.profile.id} />
+        <WeightCard />
       </Screen>
       <AddButton label={live ? 'Resume workout' : 'Start a workout'} onPress={openWorkout} />
       {backup.modal}
@@ -105,21 +106,24 @@ export default function Home() {
   );
 }
 
-/** Each person's bodyweight, for volume and 1RM on bodyweight exercises. Keyed by profile so switching resets it. */
-function Bodyweight() {
-  const { v, update } = useLog();
-  const [bw, setBw] = useState(v.profile.bodyweight ? String(v.profile.bodyweight) : '');
-  const save = () => {
-    const n = parseFloat(bw.replace(',', '.'));
-    update((l) => putProfile(l, v.profile.id, { bodyweight: Number.isFinite(n) && n > 0 && n < 500 ? n : 0 }));
-  };
+/** The latest trend, and a nudge when a weigh-in is due (the Me tab has the rest). */
+function WeightCard() {
+  const { log, v } = useLog();
+  const { c } = useTheme();
+  const units = log.settings.units ?? { weight: 'kg', length: 'cm' };
+  const now = trendOf(v.weighIns).at(-1);
+  const due = weighInDue(v.weighIns, v.profile.weighEvery ?? '3x', today());
+  const status = v.profile.target && now ? planStatus(v.profile.target, now.trend, today()).label : '';
   return (
-    <Card>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-        <T v="small" style={{ flex: 1 }}>Bodyweight, for volume and 1RM estimates on bodyweight exercises</T>
-        <Field value={bw} onChangeText={setBw} onBlur={save} onSubmitEditing={save} placeholder="kg" inputMode="decimal"
-          accessibilityLabel="Bodyweight in kg" onFocus={selectAll} style={{ width: 88, textAlign: 'center', fontFamily: mono }} />
-      </View>
-    </Card>
+    <Pressable accessibilityRole="button" accessibilityLabel={due ? 'Weigh-in due. Log it' : 'Weight'} onPress={() => router.push(due ? '/weigh-in' : '/me')}>
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderColor: due ? c.accent : c.border }}>
+        <Ionicons name="scale-outline" size={24} color={c.accent} />
+        <View style={{ flex: 1 }}>
+          <T style={{ fontWeight: '600' }}>{now ? `${fmtWeight(now.trend, units.weight)} trend` : 'Log your weight'}</T>
+          <T v="small">{due ? 'Weigh-in due' : status || 'See your trend in Me'}</T>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={c.muted} />
+      </Card>
+    </Pressable>
   );
 }

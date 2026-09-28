@@ -45,6 +45,10 @@ export default function StartWorkout() {
       <T v="label">Quick start</T>
       <Gap h={space.sm} />
       <Button title="Start an empty workout" icon="add" onPress={() => flow.start()} kind={v.active ? 'secondary' : 'primary'} />
+      <Gap h={space.sm} />
+      <Button title={v.active ? 'Add an activity to your workout' : 'Log an activity'} icon="walk-outline" kind="secondary"
+        onPress={() => router.push({ pathname: '/picker', params: { activity: '1', ...(v.active ? { workout: v.active.id } : {}) } })} />
+      <T v="small" style={{ marginTop: 4, fontSize: 12 }}>A run, a yoga class, a match: time, distance or intensity, and calories.</T>
       <Gap />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <T v="label">My templates ({v.templates.length})</T>

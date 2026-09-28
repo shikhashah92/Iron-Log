@@ -4,14 +4,14 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  addSetTo, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, lastEntry, moveExercise, num, plural, putTemplate,
-  putWorkout, removeExercise, setKind, setLabels, setValue, startWorkout, templateFrom, toggleDone, unfinished,
+  addSetTo, clock, pace, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
+  putWorkout, removeExercise, setKind, setLabels, setTime, setValue, startWorkout, templateFrom, toggleDone, unfinished,
   type Log, type SetRow, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
 import { startRest } from './timer';
 import { choose, confirm, menu, notify } from './io';
-import { Illustration, openExercise } from './components';
+import { ExArt, openExercise } from './components';
 import { Button, Card, selectAll, T } from './ui';
 import { condensed, mono, radius, space } from './theme';
 
@@ -104,7 +104,7 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
         return (
           <Card key={`${e.exerciseId}-${i}`} style={{ marginBottom: space.md, paddingBottom: space.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-              <Illustration id={e.exerciseId} size={36} />
+              <ExArt id={e.exerciseId} size={36} />
               <Pressable accessibilityRole="button" accessibilityLabel={`${ex.name}: form and history`} onPress={() => openExercise(e.exerciseId)} style={{ flex: 1 }}>
                 <T numberOfLines={2} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 20 }} color={c.accent}>{ex.name}</T>
               </Pressable>
@@ -113,6 +113,7 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
               </Pressable>
             </View>
             <SetTable workout={workout} i={i} prev={prev?.sets ?? []} live={live} restSecs={log.settings.restSecs} />
+            {ex.kind === 'cardio' && (() => { const d = e.sets.reduce((t, x) => t + x.w, 0), secs = e.sets.reduce((t, x) => t + x.r, 0); const p = pace(d, secs); return p ? <T v="small" style={{ marginTop: 4 }}>Pace {p}</T> : null; })()}
             <Button title="Add set" icon="add" kind="secondary" onPress={() => edit((w) => addSetTo(w, i, !live))} style={{ minHeight: 40, marginTop: space.sm }} />
           </Card>
         );
@@ -128,8 +129,9 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   const e = workout.exercises[i];
   const ex = getEx(v, e.exerciseId);
   const labels = setLabels(e.sets);
-  const unit = ex.weightType === 'bodyweight' ? '+kg' : ex.weightType === 'dumbbell' ? 'kg/DB' : 'kg';
-  const reps = ex.metric === 'secs' ? 'Secs' : 'Reps';
+  const unit = ex.kind === 'cardio' ? 'km' : ex.kind === 'activity' ? 'Effort' : ex.weightType === 'bodyweight' ? '+kg' : ex.weightType === 'dumbbell' ? 'kg/DB' : 'kg';
+  const reps = isTimed(ex) ? 'Time' : ex.metric === 'secs' ? 'Secs' : 'Reps';
+  const cols = isTimed(ex) ? [reps, unit] : [unit, reps]; // time first for cardio and activities
   let working = -1; // index into last time's sets, matching by position
 
   async function setMenu(j: number) {
@@ -141,9 +143,9 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   }
   function tick(j: number) {
     const s = e.sets[j];
-    if (s.done === false && s.r <= 0) return notify(`Enter ${reps.toLowerCase()} first`);
+    if (s.done === false && s.r <= 0) return notify(`Enter ${isTimed(ex) ? 'the time' : reps.toLowerCase()} first`);
     edit((w) => toggleDone(w, i, j).workout);
-    if (s.done === false) startRest(restSecs); // ticked (not unticked): rest starts
+    if (s.done === false && !isTimed(ex)) startRest(restSecs); // ticked a lifting set (not unticked, not a run or class): rest starts
   }
 
   return (
@@ -151,8 +153,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
       <View style={st.row}>
         <T v="label" style={{ ...st.head, width: 30, minHeight: 0, textAlign: 'center' }}>Set</T>
         <T v="label" style={{ ...st.head, ...st.prevCol }}>Previous</T>
-        <T v="label" style={{ ...st.head, ...st.cell, textAlign: 'center' }}>{unit}</T>
-        <T v="label" style={{ ...st.head, ...st.cell, textAlign: 'center' }}>{reps}</T>
+        {cols.map((h) => <T key={h} v="label" style={{ ...st.head, ...st.cell, textAlign: 'center' }}>{h}</T>)}
         {live && <View style={st.tick}><Ionicons name="checkmark" size={16} color={c.muted} /></View>}
       </View>
       {e.sets.map((s, j) => {
@@ -166,8 +167,23 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               <T style={{ fontFamily: mono, fontWeight: '600', textAlign: 'center', color: s.kind === 'W' ? c.warnText : s.kind === 'D' ? c.accent : c.text }}>{labels[j]}</T>
             </Pressable>
             <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex)}</T>
-            <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} weight`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', t))} />
-            <SetInput value={s.r} hint={hint} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setValue(w, i, j, 'r', t))} />
+            {isTimed(ex) ? (
+              <>
+                <SetInput value={s.r} hint={hint} fmt={clock} label={`Set ${labels[j]} time`} onCommit={(t) => edit((w) => setTime(w, i, j, t))} />
+                {ex.kind === 'cardio'
+                  ? <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} distance in km`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', t))} />
+                  : <Pressable accessibilityRole="button" accessibilityLabel={`Set ${labels[j]} intensity: ${INTENSITIES[s.w] || 'Moderate'}. Change`}
+                      onPress={() => edit((w) => setValue(w, i, j, 'w', String((s.w % 3) + 1)))}
+                      style={[st.cell, st.input, { alignItems: 'center', justifyContent: 'center', backgroundColor: c.field, borderColor: c.fieldBorder }]}>
+                      <T numberOfLines={1} style={{ fontSize: 12, fontWeight: '600' }} color={hint ? c.hint : c.text}>{INTENSITIES[s.w] || 'Moderate'}</T>
+                    </Pressable>}
+              </>
+            ) : (
+              <>
+                <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} weight`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', t))} />
+                <SetInput value={s.r} hint={hint} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setValue(w, i, j, 'r', t))} />
+              </>
+            )}
             {live && (
               <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Set ${labels[j]} done`} onPress={() => tick(j)}
                 style={[st.tick, { backgroundColor: done ? c.good : c.chip, borderRadius: radius.sm }]}>
@@ -185,15 +201,17 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
  * A number field that keeps what's being typed and saves on blur / enter. Planned sets show last time's number as a
  * grey hint (tick to accept it, or type to change it). The text is selected on focus, so typing replaces it.
  */
-function SetInput({ value, hint, decimal, label, onCommit }: { value: number; hint: boolean; decimal?: boolean; label: string; onCommit: (text: string) => void }) {
+function SetInput({ value, hint, decimal, label, onCommit, fmt = num }: {
+  value: number; hint: boolean; decimal?: boolean; label: string; onCommit: (text: string) => void; fmt?: (n: number) => string;
+}) {
   const { c } = useTheme();
-  const shown = value ? num(value) : '';
+  const shown = value ? fmt(value) : '';
   const [text, setText] = useState<string | null>(null); // null: not editing, show the stored value
   const [focused, setFocused] = useState(false);
   const commit = () => { if (text !== null && text !== (hint ? '' : shown)) onCommit(text); setText(null); };
   return (
     <TextInput value={text ?? (hint ? '' : shown)} placeholder={hint ? shown || '0' : ''} placeholderTextColor={c.hint}
-      onChangeText={setText} inputMode={decimal ? 'decimal' : 'numeric'} accessibilityLabel={label}
+      onChangeText={setText} inputMode={decimal ? 'decimal' : fmt === num ? 'numeric' : 'text'} accessibilityLabel={label}
       onFocus={(e) => { setFocused(true); selectAll(e); }} onBlur={() => { setFocused(false); commit(); }} onSubmitEditing={commit}
       style={[st.cell, st.input, { color: c.text, backgroundColor: c.field, borderColor: focused ? c.accent : c.fieldBorder, outlineWidth: 0 }]} />
   );

@@ -1,9 +1,9 @@
 import { Image, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { addExercises, delExercise, getEx, historyOf, isBuiltIn, isCustom, num, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
+import { addExercises, delExercise, getEx, hasArt, historyOf, isCustom, isTimed, num, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
 import { useLog, useTheme } from '../store';
 import { confirm, notify, pickImage } from '../io';
-import { Empty, goBack, Illustration, ProgressBlock, Star, Tag } from '../components';
+import { Empty, ExArt, goBack, Illustration, ProgressBlock, Star, Tag } from '../components';
 import { Button, Gap, Header, IconButton, Screen, T } from '../ui';
 import { radius, space } from '../theme';
 
@@ -49,7 +49,7 @@ export default function ExerciseDetail() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
         <Tag label={ex.group} />
         {ex.equip ? <Tag label={ex.equip} /> : null}
-        <Tag label={WEIGHT_TYPES.find((t) => t.id === ex.weightType)?.unit ?? ex.weightType} />
+        {!isTimed(ex) && <Tag label={WEIGHT_TYPES.find((t) => t.id === ex.weightType)?.unit ?? ex.weightType} />}
         {custom && <Tag label="Custom" tone="accent" />}
         {pr > 0 && <Tag label={`PR ${num(pr)}`} />}
       </View>
@@ -65,7 +65,7 @@ export default function ExerciseDetail() {
         </>
       ) : (
         <>
-          {isBuiltIn(id) && (
+          {hasArt(id) && (
             <View style={{ alignItems: 'center', backgroundColor: c.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, paddingVertical: space.md }}>
               <Illustration id={id} size={240} animate label={`${ex.name}, shown step by step`} />
               <T v="small" style={{ fontSize: 11, marginTop: space.xs }}>Illustration: Workout Guide · Everkinetic · CC BY-SA 4.0</T>
@@ -75,7 +75,16 @@ export default function ExerciseDetail() {
         </>
       )}
       <Gap h={space.md} />
-      {ex.setup.length || ex.exec.length || ex.avoid.length ? (
+      {isTimed(ex) ? (
+        <View style={{ gap: space.sm }}>
+          {!hasArt(id) && <View style={{ alignItems: 'center', paddingVertical: space.md }}><ExArt id={id} size={96} /></View>}
+          <T v="label">Intensity, by the talk test</T>
+          {[['Light', 'you could sing'], ['Moderate', 'you can talk, not sing'], ['Vigorous', 'only a few words at a time']].map(([k, d]) => (
+            <T key={k} style={{ fontSize: 15 }}>• <T style={{ fontWeight: '600', fontSize: 15 }}>{k}</T>: {d}</T>
+          ))}
+          <T v="small">{ex.kind === 'cardio' ? 'Log time and distance; pace and calories are worked out for you.' : 'Log the time and how hard it felt; calories are worked out for you.'}</T>
+        </View>
+      ) : ex.setup.length || ex.exec.length || ex.avoid.length ? (
         <View style={{ gap: space.md }}>
           {cue('Set up', ex.setup, c.text)}
           {cue('Execute', ex.exec, c.accent)}

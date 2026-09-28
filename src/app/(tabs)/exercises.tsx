@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { GROUPS } from '../../exercises';
-import { allExercises, isCustom, isFav, matches } from '../../model';
+import { ACTIVITY_GROUPS, allExercises, isCustom, isFav, matches } from '../../model';
 import { useLog } from '../../store';
 import { Empty, ExRow } from '../../components';
 import { Button, Card, Chip, Field, Header, Screen, T } from '../../ui';
@@ -16,11 +16,11 @@ export default function Exercises() {
   const query = q.trim().toLowerCase();
   const items = all.filter((e) => (group === 'All' ? true : group === 'Favorites' ? isFav(v, e.id) : group === 'Custom' ? isCustom(v, e.id) : e.group === group) && matches(e, query))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const chips = ['All', ...(v.favorites.length ? ['Favorites'] : []), ...GROUPS, ...(v.exercises.length ? ['Custom'] : [])];
+  const chips = ['All', ...(v.favorites.length ? ['Favorites'] : []), ...GROUPS, ...ACTIVITY_GROUPS, ...(v.exercises.length ? ['Custom'] : [])];
   // Grouped by muscle when browsing everything; a flat list when searching or filtered.
   const sections = query || group !== 'All'
     ? [{ title: '', list: items }]
-    : [...GROUPS.map((g) => ({ title: g, list: items.filter((e) => e.group === g && !isCustom(v, e.id)) })),
+    : [...[...GROUPS, ...ACTIVITY_GROUPS].map((g) => ({ title: g, list: items.filter((e) => e.group === g && !isCustom(v, e.id)) })),
       { title: 'Custom', list: items.filter((e) => isCustom(v, e.id)) }].filter((s) => s.list.length);
 
   return (

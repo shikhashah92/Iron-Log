@@ -90,6 +90,10 @@ function Root() {
         <Stack.Screen name="profiles" options={modal} />
         <Stack.Screen name="feeling" options={modal} />
         <Stack.Screen name="undo" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="weigh-in" options={modal} />
+        <Stack.Screen name="target" options={modal} />
+        <Stack.Screen name="weigh-ins" />
       </Stack.Protected>
       <Stack.Protected guard={!log}>
         <Stack.Screen name="welcome" />

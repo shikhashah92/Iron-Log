@@ -3,7 +3,7 @@ import type { Exercise } from "./model";
 
 export const GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core"] as const;
 
-export const BUILT_IN: readonly Exercise[] = [
+const STRENGTH: readonly Exercise[] = [
  {
   "id": "bench-press-bb",
   "name": "Barbell Bench Press",
@@ -1286,3 +1286,639 @@ export const BUILT_IN: readonly Exercise[] = [
   ]
  }
 ];
+
+/** Cardio (time + distance) and activities (time + intensity). MET: light / moderate / vigorous (Compendium of Physical Activities). */
+const ACTIVITIES: readonly Exercise[] = [
+ {
+  "id": "run",
+  "name": "Running",
+  "group": "Cardio",
+  "equip": "Outdoor",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   7,
+   9.8,
+   11.5
+  ],
+  "icon": "walk",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "treadmill",
+  "name": "Treadmill run",
+  "group": "Cardio",
+  "equip": "Treadmill",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   7,
+   9.8,
+   11.5
+  ],
+  "icon": "walk",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "walk",
+  "name": "Walking",
+  "group": "Cardio",
+  "equip": "Outdoor",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   2.8,
+   3.5,
+   5
+  ],
+  "icon": "walk",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "treadmill-walk",
+  "name": "Incline treadmill walk",
+  "group": "Cardio",
+  "equip": "Treadmill",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   4.5,
+   6,
+   8
+  ],
+  "icon": "trending-up",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "hike",
+  "name": "Hiking",
+  "group": "Cardio",
+  "equip": "Outdoor",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   5.3,
+   6,
+   7.8
+  ],
+  "icon": "trail-sign",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "cycle",
+  "name": "Cycling",
+  "group": "Cardio",
+  "equip": "Bike",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   5.8,
+   8,
+   10
+  ],
+  "icon": "bicycle",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "indoor-cycle",
+  "name": "Indoor cycling",
+  "group": "Cardio",
+  "equip": "Stationary bike",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   4.8,
+   6.8,
+   8.8
+  ],
+  "icon": "bicycle",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "swim",
+  "name": "Swimming",
+  "group": "Cardio",
+  "equip": "Pool",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   5.8,
+   7,
+   9.8
+  ],
+  "icon": "water",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "row-erg",
+  "name": "Rowing machine",
+  "group": "Cardio",
+  "equip": "Rower",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   4.8,
+   7,
+   8.5
+  ],
+  "icon": "boat",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "elliptical",
+  "name": "Elliptical",
+  "group": "Cardio",
+  "equip": "Machine",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   4.6,
+   5,
+   7
+  ],
+  "icon": "infinite",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "stair-climber",
+  "name": "Stair climber",
+  "group": "Cardio",
+  "equip": "Machine",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   5,
+   9,
+   9.5
+  ],
+  "icon": "stats-chart",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "jump-rope",
+  "name": "Jump rope",
+  "group": "Cardio",
+  "equip": "Rope",
+  "weightType": "bodyweight",
+  "kind": "cardio",
+  "met": [
+   8.8,
+   11.8,
+   12.3
+  ],
+  "icon": "pulse",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "hatha-yoga",
+  "name": "Hatha yoga",
+  "group": "Yoga & mobility",
+  "equip": "Mat",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   2,
+   2.5,
+   3
+  ],
+  "icon": "leaf",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "vinyasa-yoga",
+  "name": "Vinyasa yoga",
+  "group": "Yoga & mobility",
+  "equip": "Mat",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   3,
+   4,
+   5
+  ],
+  "icon": "leaf",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "power-yoga",
+  "name": "Power yoga",
+  "group": "Yoga & mobility",
+  "equip": "Mat",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   3.5,
+   4,
+   5.5
+  ],
+  "icon": "leaf",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "yin-yoga",
+  "name": "Yin / restorative yoga",
+  "group": "Yoga & mobility",
+  "equip": "Mat",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   1.8,
+   2.3,
+   2.5
+  ],
+  "icon": "leaf",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "pilates",
+  "name": "Pilates",
+  "group": "Yoga & mobility",
+  "equip": "Mat",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   2.8,
+   3,
+   4
+  ],
+  "icon": "body",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "stretching",
+  "name": "Stretching & mobility",
+  "group": "Yoga & mobility",
+  "equip": "Mat",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   2.3,
+   2.3,
+   2.8
+  ],
+  "icon": "body",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "breathwork",
+  "name": "Meditation & breathwork",
+  "group": "Yoga & mobility",
+  "equip": "None",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   1.3,
+   1.3,
+   1.5
+  ],
+  "icon": "cloud",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "football",
+  "name": "Football",
+  "group": "Sports",
+  "equip": "Ball",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   5,
+   7,
+   10
+  ],
+  "icon": "football",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "cricket",
+  "name": "Cricket",
+  "group": "Sports",
+  "equip": "Bat & ball",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   4,
+   4.8,
+   6
+  ],
+  "icon": "baseball",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "badminton",
+  "name": "Badminton",
+  "group": "Sports",
+  "equip": "Racket",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   4.5,
+   5.5,
+   7
+  ],
+  "icon": "tennisball",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "tennis",
+  "name": "Tennis",
+  "group": "Sports",
+  "equip": "Racket",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   5,
+   7.3,
+   8
+  ],
+  "icon": "tennisball",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "squash",
+  "name": "Squash",
+  "group": "Sports",
+  "equip": "Racket",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   7.3,
+   9,
+   12
+  ],
+  "icon": "tennisball",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "basketball",
+  "name": "Basketball",
+  "group": "Sports",
+  "equip": "Ball",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   4.5,
+   6.5,
+   8
+  ],
+  "icon": "basketball",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "table-tennis",
+  "name": "Table tennis",
+  "group": "Sports",
+  "equip": "Paddle",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   3,
+   4,
+   5
+  ],
+  "icon": "tennisball",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "padel",
+  "name": "Padel",
+  "group": "Sports",
+  "equip": "Racket",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   5,
+   6,
+   7.5
+  ],
+  "icon": "tennisball",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "hiit",
+  "name": "HIIT",
+  "group": "Classes",
+  "equip": "None",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   6,
+   8,
+   10
+  ],
+  "icon": "flash",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "circuit",
+  "name": "Circuit training",
+  "group": "Classes",
+  "equip": "Mixed",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   4.3,
+   6,
+   8
+  ],
+  "icon": "repeat",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "wod",
+  "name": "CrossFit-style WOD",
+  "group": "Classes",
+  "equip": "Mixed",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   6,
+   8,
+   10
+  ],
+  "icon": "barbell",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ },
+ {
+  "id": "boxing",
+  "name": "Boxing / kickboxing",
+  "group": "Classes",
+  "equip": "Gloves",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   5.5,
+   7.8,
+   12.8
+  ],
+  "icon": "hand-left",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "martial-arts",
+  "name": "Martial arts",
+  "group": "Classes",
+  "equip": "None",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   5.3,
+   7.8,
+   10.3
+  ],
+  "icon": "hand-right",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "dance",
+  "name": "Dance",
+  "group": "Classes",
+  "equip": "None",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   4.5,
+   5.5,
+   7.8
+  ],
+  "icon": "musical-notes",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "zumba",
+  "name": "Zumba",
+  "group": "Classes",
+  "equip": "None",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   5.5,
+   6.5,
+   7.8
+  ],
+  "icon": "musical-notes",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "climbing",
+  "name": "Climbing / bouldering",
+  "group": "Classes",
+  "equip": "Wall",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   5.8,
+   7.3,
+   8
+  ],
+  "icon": "trending-up",
+  "setup": [],
+  "exec": [],
+  "avoid": [],
+  "art": false
+ },
+ {
+  "id": "spin",
+  "name": "Spin class",
+  "group": "Classes",
+  "equip": "Stationary bike",
+  "weightType": "bodyweight",
+  "kind": "activity",
+  "met": [
+   6.8,
+   8.5,
+   11
+  ],
+  "icon": "bicycle",
+  "setup": [],
+  "exec": [],
+  "avoid": []
+ }
+];
+
+export const BUILT_IN: readonly Exercise[] = [...STRENGTH, ...ACTIVITIES];

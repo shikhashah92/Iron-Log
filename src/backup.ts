@@ -1,8 +1,10 @@
 // Pure backup logic (no platform I/O) so it can be unit tested with node --test.
 import {
-  isRealDay, MAX_R, MAX_W, SCHEMA_VERSION, WEIGHT_TYPES, imgKey, timeOfDayName,
-  type CustomExercise, type Images, type Log, type SetRow, type Template, type Workout,
+  isRealDay, MAX_R, MAX_W, MEASURES, SCHEMA_VERSION, WEIGHT_TYPES, imgKey, timeOfDayName,
+  type CustomExercise, type Images, type Log, type SetRow, type Template, type WeighIn, type Workout,
 } from './model.ts';
+import { BUILT_IN } from './exercises.ts';
+import { STRONG_BUILT_IN } from './strong.ts';
 
 export const BACKUP_APP = 'ironlog';
 export const LEGACY_APP = 'ironlog-legacy';
@@ -19,6 +21,7 @@ const isStr = (v: unknown, max = 200): v is string => typeof v === 'string' && v
 const isName = (v: unknown, max = 80): v is string => isStr(v, max) && v.trim().length > 0;
 const isId = (v: unknown): v is string => isStr(v, 100) && v.length > 0;
 const isTime = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
+const isKg = (v: unknown): v is number => Number.isFinite(v) && (v as number) >= 20 && (v as number) <= 400;
 const time = (v: unknown) => (isTime(v) ? v : 0);
 const lines = (v: unknown) => (Array.isArray(v) ? v.filter((x) => isStr(x, 500)).slice(0, 30) : []);
 const TYPES = new Set(WEIGHT_TYPES.map((t) => t.id));
@@ -36,8 +39,9 @@ export function parseBackup(text: string): { log: Log; images: Images } {
   if (!Number.isInteger(raw.schemaVersion) || raw.schemaVersion < 1) throw new Error('Unknown backup version.');
   if (raw.schemaVersion > SCHEMA_VERSION) throw new Error('This backup is from a newer version of the app. Please update the app first.');
   if (raw.schemaVersion === 1) raw = fromV1(raw);
+  if (raw.schemaVersion === 2) raw = fromV2(raw);
   const fail = (what: string, i: number): never => { throw new Error(`Backup is damaged: ${what} #${i + 1} is invalid.`); };
-  for (const k of ['profiles', 'exercises', 'favorites', 'templates', 'workouts'] as const)
+  for (const k of ['profiles', 'exercises', 'favorites', 'templates', 'workouts', 'weighIns'] as const)
     if (!Array.isArray(raw[k])) throw new Error(`Backup is damaged: missing ${k}.`);
 
   const seen = new Set<string>();
@@ -47,7 +51,13 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     if (!isId(p?.id) || !isName(p.name, 40)) fail('profile', i);
     unique(`p:${p.id}`, 'profile', i);
     const bw = Number.isFinite(p.bodyweight) && p.bodyweight >= 0 && p.bodyweight <= 500 ? p.bodyweight : 0;
-    return { id: p.id, name: p.name, bodyweight: bw, createdAt: time(p.createdAt) };
+    const t = p.target;
+    const target = t && isKg(t.weight) && isKg(t.startWeight) && isRealDay(t.date) && isRealDay(t.startDate) && t.date > t.startDate
+      ? { weight: t.weight, date: t.date, startWeight: t.startWeight, startDate: t.startDate } : undefined;
+    return { id: p.id, name: p.name, bodyweight: bw, createdAt: time(p.createdAt),
+      ...(Number.isFinite(p.height) && p.height >= 50 && p.height <= 272 ? { height: p.height } : {}),
+      ...(target ? { target } : {}),
+      ...(['daily', '3x', 'weekly', 'off'].includes(p.weighEvery) ? { weighEvery: p.weighEvery } : {}) };
   });
   if (!profiles.length) throw new Error('Backup is damaged: it has no profiles.');
   const pids = new Set<string>(profiles.map((p: any) => p.id));
@@ -57,8 +67,8 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     if (!owned(e) || !isId(e.id) || !isName(e.name) || !isStr(e.group, 40) || !isStr(e.equip ?? '', 60) || !TYPES.has(e.weightType)) fail('exercise', i);
     unique(`e:${e.profileId}:${e.id}`, 'exercise', i);
     return { id: e.id, profileId: e.profileId, name: e.name, group: e.group || 'Other', equip: e.equip ?? '', weightType: e.weightType,
-      ...(e.metric === 'secs' ? { metric: 'secs' as const } : {}), setup: lines(e.setup), exec: lines(e.exec), avoid: lines(e.avoid),
-      updatedAt: time(e.updatedAt) };
+      ...(e.metric === 'secs' ? { metric: 'secs' as const } : {}), ...(e.kind === 'cardio' || e.kind === 'activity' ? { kind: e.kind } : {}),
+      setup: lines(e.setup), exec: lines(e.exec), avoid: lines(e.avoid), updatedAt: time(e.updatedAt) };
   });
   const favorites = raw.favorites.map((f: any, i: number) => {
     if (!owned(f) || !isId(f.exerciseId)) fail('favorite', i);
@@ -97,15 +107,27 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     return out;
   }).filter((w: Workout) => w.active || w.exercises.length);
 
+  const cm = (v: unknown) => Number.isFinite(v) && (v as number) > 0 && (v as number) <= 300;
+  const weighIns: WeighIn[] = raw.weighIns.map((w: any, i: number) => {
+    if (!owned(w) || !isId(w.id) || !isRealDay(w.date) || !isKg(w.weight)) fail('weigh-in', i);
+    unique(`b:${w.profileId}:${w.id}`, 'weigh-in', i);
+    const out: WeighIn = { id: w.id, profileId: w.profileId, date: w.date, weight: w.weight, at: time(w.at) };
+    if (Number.isFinite(w.fat) && w.fat > 0 && w.fat < 80) out.fat = w.fat;
+    for (const k of MEASURES.map((m) => m.id)) if (cm(w[k])) out[k] = w[k];
+    if (w.photo === true) out.photo = true;
+    return out;
+  });
+
   const s = raw.settings ?? {};
   const log: Log = {
-    schemaVersion: SCHEMA_VERSION, profiles, exercises, favorites, templates, workouts,
+    schemaVersion: SCHEMA_VERSION, profiles, exercises, favorites, templates, workouts, weighIns,
     settings: {
       theme: ['system', 'light', 'dark'].includes(s.theme) ? s.theme : 'system',
       restSecs: Number.isInteger(s.restSecs) && s.restSecs >= 0 && s.restSecs <= 600 ? s.restSecs : 90,
       currentProfileId: pids.has(s.currentProfileId) ? s.currentProfileId : profiles[0].id,
       ...(isTime(s.lastBackupAt) ? { lastBackupAt: s.lastBackupAt } : {}),
       ...(s.backupChoice === 'file' || s.backupChoice === 'local' ? { backupChoice: s.backupChoice } : {}),
+      ...(s.units && ['kg', 'lb'].includes(s.units.weight) && ['cm', 'in'].includes(s.units.length) ? { units: { weight: s.units.weight, length: s.units.length } } : {}),
     },
   };
   return { log, images: parseImages(raw.images, pids) };
@@ -142,6 +164,35 @@ function fromV1(raw: any): any {
   const templates = (Array.isArray(raw.templates) ? raw.templates : [])
     .map((t: any) => ({ ...t, exercises: (Array.isArray(t?.exerciseIds) ? t.exerciseIds : []).map((id: unknown) => ({ exerciseId: id })) }));
   return { ...raw, schemaVersion: 2, templates, workouts };
+}
+
+/**
+ * Version 3 added weigh-ins and built-in cardio / activities. Strong imports made before that turned cardio into custom
+ * exercises ("Running (Treadmill)" as seconds): those move to the matching built-in (time kept; activities get
+ * moderate intensity), and the custom copies go.
+ */
+function fromV2(raw: any): any {
+  const lib = new Map(BUILT_IN.map((e) => [e.id, e]));
+  const to = new Map<string, string>(); // `${profileId}|${custom id}` → built-in id
+  for (const e of Array.isArray(raw.exercises) ? raw.exercises : []) {
+    const b = typeof e?.id === 'string' && e.id.startsWith('u_strong_') ? STRONG_BUILT_IN[String(e.name ?? '').toLowerCase()] : undefined;
+    if (b && lib.get(b)?.kind) to.set(`${e.profileId}|${e.id}`, b);
+  }
+  const map = (pid: unknown, id: unknown) => to.get(`${pid}|${id}`) ?? id;
+  const workouts = (Array.isArray(raw.workouts) ? raw.workouts : []).map((w: any) => !Array.isArray(w?.exercises) ? w : {
+    ...w, exercises: w.exercises.map((e: any) => {
+      const id = map(w.profileId, e?.exerciseId);
+      if (id === e?.exerciseId) return e;
+      const activity = lib.get(id as string)?.kind === 'activity';
+      return { ...e, exerciseId: id, sets: Array.isArray(e.sets) ? e.sets.map((s: any) => (activity ? { ...s, w: 2 } : { ...s, w: 0 })) : e.sets };
+    }),
+  });
+  const templates = (Array.isArray(raw.templates) ? raw.templates : []).map((t: any) => !Array.isArray(t?.exercises) ? t :
+    { ...t, exercises: t.exercises.map((e: any) => ({ ...e, exerciseId: map(t.profileId, e?.exerciseId) })) });
+  const favorites = (Array.isArray(raw.favorites) ? raw.favorites : []).map((f: any) => ({ ...f, exerciseId: map(f?.profileId, f?.exerciseId) }))
+    .filter((f: any, i: number, all: any[]) => all.findIndex((g) => g.profileId === f.profileId && g.exerciseId === f.exerciseId) === i);
+  const exercises = (Array.isArray(raw.exercises) ? raw.exercises : []).filter((e: any) => !to.has(`${e?.profileId}|${e?.id}`));
+  return { ...raw, schemaVersion: 3, exercises, workouts, templates, favorites, weighIns: [] };
 }
 
 /** Photos are optional: a bad one is dropped rather than failing the whole backup. */

@@ -2,14 +2,15 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
-import { plural, type Settings as S, type Theme } from '../../model';
-import { useLog, useTheme } from '../../store';
-import { useBackup } from '../../backupActions';
-import { clearSnapshots } from '../../safety';
-import { confirm, notify } from '../../io';
-import { BASE, hadOldApp, isIOS, isStandalone, useInstall } from '../../pwa';
-import { Card, Gap, Header, Row, Screen, Segmented, T } from '../../ui';
-import { space } from '../../theme';
+import { plural, type Settings as S, type Theme } from '../model';
+import { useLog, useTheme } from '../store';
+import { useBackup } from '../backupActions';
+import { clearSnapshots } from '../safety';
+import { confirm, notify } from '../io';
+import { BASE, hadOldApp, isIOS, isStandalone, useInstall } from '../pwa';
+import { Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../ui';
+import { goBack } from '../components';
+import { space } from '../theme';
 
 const ago = (ms?: number) => {
   if (!ms) return 'Never';
@@ -45,7 +46,7 @@ export default function Settings() {
 
   return (
     <Screen>
-      <Header title="Settings" />
+      <Header title="Settings" left={<IconButton icon="chevron-back" label="Back" onPress={goBack} />} />
       <T v="label">Appearance</T>
       <Gap h={space.sm} />
       <Segmented<Theme> value={s.theme} onChange={(theme) => setSettings({ theme })} options={[

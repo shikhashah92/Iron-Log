@@ -16,6 +16,8 @@ const SLUG = {
   'cable-biceps-curl': 'cable-curl', 'triceps-pushdown': 'tricep-pushdown', 'rope-pushdown': 'rope-tricep-pushdown',
   'overhead-triceps-ext': 'overhead-tricep-extension', 'close-grip-bench': 'close-grip-bench-press',
   'ez-skull-crusher': 'skull-crusher', 'bench-dips': 'bench-dip',
+  // activities (the rest have no drawing and show an icon: `art: false`)
+  'run': 'running', 'treadmill': 'running', 'walk': 'walking', 'treadmill-walk': 'treadmill-incline-walk', 'hike': 'hiking', 'cycle': 'cycling', 'indoor-cycle': 'cycling', 'swim': 'swimming', 'row-erg': 'rowing', 'elliptical': 'elliptical', 'stair-climber': 'stair-climber', 'jump-rope': 'jump-rope', 'yin-yoga': 'childs-pose', 'stretching': 'worlds-greatest-stretch', 'hiit': 'burpee', 'circuit': 'jumping-jack', 'wod': 'kettlebell-swing', 'spin': 'cycling',
 };
 
 const src = process.argv[2];
@@ -25,7 +27,7 @@ const { BUILT_IN } = await import('../src/exercises.ts');
 const out = 'public/illustrations';
 rmSync(out, { recursive: true, force: true });
 const missing = [];
-for (const e of BUILT_IN) {
+for (const e of BUILT_IN.filter((x) => x.art !== false)) {
   const slug = SLUG[e.id] ?? e.id;
   const from = (n) => join(pkg, 'assets', slug, `frame-${n}.svg`);
   if (![1, 2, 3].every((n) => existsSync(from(n)))) { missing.push(`${e.id} → ${slug}`); continue; }
@@ -43,4 +45,5 @@ From [Workout Guide](https://github.com/bryllim/workout-guide) by [Bryl Lim](htt
 Iron Log copies the frames unmodified and renames them to its own exercise ids (\`<id>/1.svg\`…\`3.svg\`).
 This license covers these images only, not Iron Log's code.
 `);
-console.log(`Copied ${BUILT_IN.length * 3} frames for ${BUILT_IN.length} exercises.`);
+const drawn = BUILT_IN.filter((x) => x.art !== false).length;
+console.log(`Copied ${drawn * 3} frames for ${drawn} exercises.`);
