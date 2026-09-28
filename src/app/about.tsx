@@ -122,7 +122,7 @@ export default function About() {
           <Button title="Skip all" kind="ghost" onPress={done} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
         </View>
         <Gap h={space.xl} />
-        <T v="small">{i + 1} of {steps.length}</T>
+        <T v="small" style={{ fontWeight: '600' }}>Your starting point · {i + 1} of {steps.length}</T>
         <T v="h1" style={{ fontSize: font.h1 + 2, marginTop: space.xs }}>{Q}</T>
         <T v="small" style={{ marginTop: space.xs }}>{hint}</T>
         <Gap />

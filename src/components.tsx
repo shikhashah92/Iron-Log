@@ -442,8 +442,8 @@ export function InstallNudge() {
 export function InstallSteps() {
   const { c } = useTheme();
   const steps: [keyof typeof Ionicons.glyphMap, string][] = isIOS()
-    ? [['menu-outline', 'In Safari, tap the ≡ button at the left of the address bar, then Share. (On older iPhones: the Share button, a square with an arrow.)'],
-      ['add-circle-outline', 'Tap “View More”, then “Add to Home Screen”.'],
+    ? [['ellipsis-horizontal', 'In Safari, tap ••• next to the address bar (on some iPhones it’s ≡), then Share. On older iPhones: the Share button, a square with an arrow.'],
+      ['add-circle-outline', 'Scroll down or tap “View More”, then “Add to Home Screen”.'],
       ['checkmark-circle-outline', 'Leave “Open as Web App” on, then tap Add.'],
       ['apps-outline', 'Open Uplift from your Home Screen from now on.']]
     : [['ellipsis-vertical', 'Tap the ⋮ menu at the top right of Chrome.'],

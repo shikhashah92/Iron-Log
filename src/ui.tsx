@@ -61,11 +61,12 @@ export function Card({ children, style, pad = true }: { children: ReactNode; sty
 }
 
 export function Button({ title, onPress, kind = 'primary', icon, disabled, style }: {
-  title: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger' | 'ghost'; icon?: keyof typeof Ionicons.glyphMap; disabled?: boolean; style?: ViewStyle;
+  title: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'ink'; icon?: keyof typeof Ionicons.glyphMap; disabled?: boolean; style?: ViewStyle;
 }) {
   const { c } = useTheme();
-  const bg = { primary: c.brand, secondary: c.chip, danger: 'transparent', ghost: 'transparent' }[kind];
-  const fg = { primary: c.onAccent, secondary: c.text, danger: c.danger, ghost: c.accent }[kind];
+  // 'ink': graphite with white text, for use on mint (the brand never puts white on mint, and mint on mint vanishes).
+  const bg = { primary: c.brand, secondary: c.chip, danger: 'transparent', ghost: 'transparent', ink: '#1D2125' }[kind];
+  const fg = { primary: c.onAccent, secondary: c.text, danger: c.danger, ghost: c.accent, ink: '#FFFFFF' }[kind];
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress}
       style={({ pressed }) => [s.btn, { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.8 : 1 },
