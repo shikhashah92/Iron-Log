@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from './store';
-import { Button, T } from './ui';
+import { Button, MAX_WIDTH, T } from './ui';
 import { radius, space } from './theme';
 
 type Step = { tab: number; icon: keyof typeof Ionicons.glyphMap; title: string; body: string };
@@ -40,7 +40,9 @@ export function TourOverlay({ inset }: { inset: number }) {
     <View style={{ position: 'absolute', inset: 0 }} accessibilityViewIsModal>
       <Pressable accessible={false} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => {}} />
       {/* Ring on the tab this step is about. */}
-      <View pointerEvents="none" style={{ position: 'absolute', bottom: inset + 5, left: pct, marginLeft: -30, width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: c.accent }} />
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: inset + 5, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', height: 60 }}>
+        <View style={{ position: 'absolute', left: pct, marginLeft: -30, width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: c.accent }} />
+      </View>
       <View style={{ position: 'absolute', left: space.lg, right: space.lg, bottom: 70 + inset + space.lg, alignItems: 'center' }}>
         <View accessibilityRole="alert" style={{ width: '100%', maxWidth: 520, backgroundColor: c.card, borderRadius: radius.lg, padding: space.lg, gap: space.sm, boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
