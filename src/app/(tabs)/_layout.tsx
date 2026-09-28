@@ -8,6 +8,7 @@ import { WorkoutBar } from '../../components';
 import { MAX_WIDTH } from '../../ui';
 import { TourOverlay } from '../../tour';
 import { stopRest } from '../../timer';
+import { useForgottenWorkout } from '../../workout';
 import { sans } from '../../theme';
 
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -30,6 +31,7 @@ export default function TabsLayout() {
   useEffect(() => { if (pending) router.push({ pathname: '/about', params: { first: '1' } }); }, [pending]);
   // The rest timer belongs to the workout in progress: once it's saved, discarded or deleted, the timer goes too.
   useEffect(() => { if (!live) stopRest(); }, [live]);
+  useForgottenWorkout();
   return (
     <View style={{ flex: 1 }}>
     <Tabs screenOptions={({ navigation }) => ({

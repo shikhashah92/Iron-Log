@@ -99,14 +99,16 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     const active = w.active === true && activeOf.get(w.profileId) === w.startedAt;
     const set = (x: any): SetRow => ({ w: x.w, r: x.r,
       ...(active && x.done === false ? { done: false as const, ...(x.typed === true ? { typed: true as const } : {}) } : {}),
-      ...(x.kind === 'W' || x.kind === 'D' ? { kind: x.kind } : {}) });
+      ...(x.kind === 'W' || x.kind === 'D' ? { kind: x.kind } : {}), ...(isRpe(x.rpe) ? { rpe: x.rpe } : {}) });
     const exercises = w.exercises.map((e: any) => ({ exerciseId: e.exerciseId,
-      sets: (active ? e.sets : e.sets.filter((x: any) => x.done !== false)).map(set) }))
+      sets: (active ? e.sets : e.sets.filter((x: any) => x.done !== false)).map(set),
+      ...(isName(e.note, 300) ? { note: e.note } : {}), ...(isGroup(e.group) ? { group: e.group } : {}) }))
       .filter((e: any) => active || e.sets.length);
     const out: Workout = { id: w.id, profileId: w.profileId, date: w.date, name: w.name, startedAt: w.startedAt, exercises, updatedAt: time(w.updatedAt) };
     if (active) out.active = true;
     if (isTime(w.endedAt) && w.endedAt >= w.startedAt) out.endedAt = w.endedAt;
     if (isName(w.feeling, 30)) out.feeling = w.feeling;
+    if (isName(w.note, 1000)) out.note = w.note;
     if (isId(w.templateId)) out.templateId = w.templateId;
     if (Array.isArray(w.planned)) out.planned = planOf(w.planned);
     if (w.source === 'strong') out.source = 'strong';
@@ -141,10 +143,13 @@ export function parseBackup(text: string): { log: Log; images: Images } {
 }
 
 /** A template's (or a workout's planned) exercises: bad or repeated entries are dropped. */
-function planOf(v: unknown): { exerciseId: string; sets?: number }[] {
+const isGroup = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 200;
+const isRpe = (v: unknown): v is number => Number.isFinite(v) && (v as number) >= 1 && (v as number) <= 10;
+
+function planOf(v: unknown): { exerciseId: string; sets?: number; group?: number }[] {
   const seen = new Set<string>();
   return (Array.isArray(v) ? v : []).filter((x: any) => isId(x?.exerciseId) && !seen.has(x.exerciseId) && seen.add(x.exerciseId)).slice(0, 200)
-    .map((x: any) => ({ exerciseId: x.exerciseId, ...(Number.isInteger(x.sets) && x.sets >= 1 && x.sets <= 50 ? { sets: x.sets } : {}) }));
+    .map((x: any) => ({ exerciseId: x.exerciseId, ...(Number.isInteger(x.sets) && x.sets >= 1 && x.sets <= 50 ? { sets: x.sets } : {}), ...(isGroup(x.group) ? { group: x.group } : {}) }));
 }
 
 /**

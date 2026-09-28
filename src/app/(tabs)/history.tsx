@@ -210,6 +210,7 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
         </View>
         <T v="small">{longDate(w.date)}, {time} · {ago === 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago}d ago`}</T>
         <T v="mono" style={{ fontSize: 12 }}>{meta}</T>
+        {w.note ? <T v="small" numberOfLines={open ? undefined : 2} style={{ fontStyle: 'italic', color: c.text }}>“{w.note}”</T> : null}
         {recs.length ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: c.accentSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginVertical: 2 }}>
             <Ionicons name="trophy" size={13} color={c.accent} />
@@ -232,6 +233,9 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
         <>
           <Gap h={space.sm} />
           <SetLines entries={v.entries.filter((e) => e.workoutId === w.id)} name />
+          {w.exercises.filter((e) => e.note).map((e) => (
+            <T key={e.exerciseId} v="small" style={{ marginTop: 4 }}><T v="small" style={{ fontWeight: '700', color: c.text }}>{getEx(v, e.exerciseId).name}:</T> {e.note}</T>
+          ))}
           {recs.length ? <><Gap h={space.sm} /><Records v={v} w={w} /></> : null}
           <Gap h={space.sm} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>

@@ -63,6 +63,7 @@ function Root() {
         <Stack.Screen name="weigh-ins" />
         <Stack.Screen name="about" options={modal} />
         <Stack.Screen name="install" options={modal} />
+        <Stack.Screen name="plates" options={modal} />
       </Stack.Protected>
       <Stack.Protected guard={!log}>
         <Stack.Screen name="welcome" />

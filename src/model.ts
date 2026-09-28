@@ -76,11 +76,13 @@ export type SetKind = 'W' | 'D'; // warm-up, drop set
  * In a workout in progress a set is planned until ticked: `done: false`, and until you type in it its values are only a
  * hint (last time's numbers, shown grey). Logged sets have neither flag. Warm-ups don't count toward records.
  */
-export interface SetRow { w: number; r: number; done?: false; typed?: true; kind?: SetKind }
-export interface WorkoutExercise { exerciseId: string; sets: SetRow[] }
+/** `rpe`: how hard the set was (6–10, halves allowed), only if you chose to note it. */
+export interface SetRow { w: number; r: number; done?: false; typed?: true; kind?: SetKind; rpe?: number }
+/** `note`: yours, about this exercise today ("seat height 4"). `group`: exercises sharing a number are a superset, done back to back. */
+export interface WorkoutExercise { exerciseId: string; sets: SetRow[]; note?: string; group?: number }
 /** One workout: a template run, or an empty one you built as you went. At most one per person is `active` at a time. */
 export interface Workout {
-  id: string; profileId: string; date: string; name: string; startedAt: number; endedAt?: number; feeling?: string;
+  id: string; profileId: string; date: string; name: string; startedAt: number; endedAt?: number; feeling?: string; note?: string;
   exercises: WorkoutExercise[]; active?: true; templateId?: string;
   /** What the template asked for when it started (exercise and set count), to offer "update the template?" at Finish. */
   planned?: TemplateExercise[];
@@ -89,7 +91,7 @@ export interface Workout {
 /** Derived per exercise per workout (only logged sets): what history, charts and records read. */
 export interface Entry { profileId: string; date: string; exerciseId: string; sets: SetRow[]; updatedAt: number; workoutId: string; startedAt: number }
 /** `sets`: how many to plan; when absent, as many as last time (or 3 for a new exercise). */
-export interface TemplateExercise { exerciseId: string; sets?: number }
+export interface TemplateExercise { exerciseId: string; sets?: number; group?: number }
 /** `starter`: a ready-made one from the app (in the view only, never stored). */
 export interface Template { id: string; profileId: string; name: string; exercises: TemplateExercise[]; updatedAt: number; starter?: true }
 export interface Favorite { profileId: string; exerciseId: string; at: number }
@@ -421,7 +423,7 @@ export function putTemplate(l: Log, t: { id: string; name: string; exercises: Te
 export const delTemplate = (l: Log, id: string) => ({ ...l, templates: l.templates.filter((t) => !(t.profileId === pidOf(l) && t.id === id)) });
 /** A template from a workout you did: its exercises, with as many sets as you did. */
 export const templateFrom = (w: Workout): TemplateExercise[] =>
-  w.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets.filter((s) => s.done !== false).length || e.sets.length }));
+  w.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets.filter((s) => s.done !== false).length || e.sets.length, ...(e.group ? { group: e.group } : {}) }));
 
 // ---- workouts ----
 export function timeOfDayName(ms: number): string {
@@ -445,7 +447,7 @@ export function startWorkout(l: Log, templateId?: string, now = Date.now()): Log
   const v = viewOf(l);
   if (v.active) return l;
   const t = templateId ? v.templates.find((x) => x.id === templateId) : undefined;
-  const exercises = (t?.exercises ?? []).map((te) => ({ exerciseId: te.exerciseId, sets: planSets(v, te.exerciseId, te.sets) }));
+  const exercises = (t?.exercises ?? []).map((te) => ({ exerciseId: te.exerciseId, sets: planSets(v, te.exerciseId, te.sets), ...(te.group ? { group: te.group } : {}) }));
   const w: Workout = {
     id: newId('w'), profileId: pidOf(l), date: dayKey(new Date(now)), name: t?.name ?? timeOfDayName(now), startedAt: now, active: true,
     exercises, updatedAt: now,
@@ -464,7 +466,7 @@ export const unfinished = (w: Workout) => w.exercises.reduce((n, e) => n + e.set
 export function finishWorkout(l: Log, id: string, markDone: boolean, now = Date.now()): { log: Log; workout?: Workout } {
   const w = l.workouts.find((x) => x.id === id);
   if (!w) return { log: l };
-  const logged = (s: SetRow): SetRow => ({ w: s.w, r: s.r, ...(s.kind ? { kind: s.kind } : {}) });
+  const logged = (s: SetRow): SetRow => ({ w: s.w, r: s.r, ...(s.kind ? { kind: s.kind } : {}), ...(s.rpe ? { rpe: s.rpe } : {}) });
   const v = viewOf(l);
   const exercises = w.exercises
     .map((e) => { const byRounds = getEx(v, e.exerciseId).yoga === 'rounds'; // Surya Namaskar: rounds alone count
@@ -478,6 +480,9 @@ export function finishWorkout(l: Log, id: string, markDone: boolean, now = Date.
   const done: Workout = { ...rest, exercises, startedAt: Math.min(w.startedAt, end - timed), endedAt: end, updatedAt: now };
   return { log: { ...l, workouts: l.workouts.map((x) => (x.id === id ? done : x)) }, workout: done };
 }
+/** A workout left running: started over 3 hours ago and untouched for the last 2. (Nobody lifts for 3 hours without a tap.) */
+export const isForgotten = (w: Workout | undefined, now = Date.now()): w is Workout =>
+  !!w?.active && now - w.startedAt > 3 * 3_600_000 && now - w.updatedAt > 2 * 3_600_000;
 /** Did this workout add or drop exercises, or change set counts, compared with what its template planned? */
 export function differsFromTemplate(w: Workout): boolean {
   if (!w.planned) return false;
@@ -490,6 +495,63 @@ export function differsFromTemplate(w: Workout): boolean {
 // planned in a live workout, logged when editing a past one.
 const mapEx = (w: Workout, i: number, fn: (e: WorkoutExercise) => WorkoutExercise): Workout =>
   ({ ...w, exercises: w.exercises.map((e, j) => (j === i ? fn(e) : e)) });
+/** Your note on one exercise today (blank removes it). */
+export const setNote = (w: Workout, i: number, note: string): Workout =>
+  mapEx(w, i, (e) => { const { note: _n, ...rest } = e; const t = note.trim().slice(0, 300); return t ? { ...rest, note: t } : rest; });
+/** The most recent note you left on this exercise in an earlier workout. */
+export const lastNote = (v: View, exerciseId: string, except?: string) =>
+  v.workouts.find((w) => !w.active && w.id !== except && w.exercises.some((e) => e.exerciseId === exerciseId && e.note))
+    ?.exercises.find((e) => e.exerciseId === exerciseId && e.note)?.note;
+
+// ---- supersets: neighbours sharing a `group` number are done back to back, resting only after the last one ----
+/** Join exercise i with the next one (joining an existing superset on either side). */
+export function supersetWithNext(w: Workout, i: number): Workout {
+  const a = w.exercises[i], b = w.exercises[i + 1];
+  if (!a || !b) return w;
+  const g = a.group ?? b.group ?? Math.max(0, ...w.exercises.map((e) => e.group ?? 0)) + 1;
+  const from = b.group;
+  return { ...w, exercises: w.exercises.map((e, j) => (j === i || j === i + 1 || (from !== undefined && e.group === from) ? { ...e, group: g } : e)) };
+}
+/** Take exercise i out of its superset (a superset left with one exercise ends). */
+export function leaveSuperset(w: Workout, i: number): Workout {
+  const g = w.exercises[i]?.group;
+  if (g === undefined) return w;
+  const strip = (e: WorkoutExercise): WorkoutExercise => { const { group: _g, ...rest } = e; return rest; };
+  let ex = w.exercises.map((e, j) => (j === i ? strip(e) : e));
+  if (ex.filter((e) => e.group === g).length < 2) ex = ex.map((e) => (e.group === g ? strip(e) : e));
+  return { ...w, exercises: ex };
+}
+/** Rest after a set of exercise i? Not in the middle of a superset: go straight to the next exercise. */
+export const restsAfter = (w: Workout, i: number) => { const g = w.exercises[i]?.group; return g === undefined || w.exercises[i + 1]?.group !== g; };
+
+// ---- warm-ups and plates ----
+const round = (n: number, step: number) => Math.round(n / step) * step;
+/**
+ * Warm-up sets building up to a working weight: the empty bar, then about 40 / 60 / 80 % for a barbell; about
+ * 50 / 75 % for dumbbells, machines and cables. Nothing for bodyweight or timed exercises, or a very light weight.
+ */
+export function warmupsFor(ex: Exercise, top: number, bar = 20): SetRow[] {
+  if (isTimed(ex) || ex.metric === 'secs' || ex.weightType === 'bodyweight' || top <= 0) return [];
+  const steps: [number, number][] = ex.weightType === 'barbell' ? [[0.4, 5], [0.6, 3], [0.8, 2]] : [[0.5, 8], [0.75, 4]];
+  const step = ex.weightType === 'dumbbell' ? 1 : 2.5;
+  const out: SetRow[] = ex.weightType === 'barbell' && top > bar ? [{ w: bar, r: 10, kind: 'W' }] : [];
+  for (const [pct, r] of steps) {
+    const kg = round(top * pct, step);
+    if (kg > (out.at(-1)?.w ?? 0) && kg < top) out.push({ w: kg, r, kind: 'W' });
+  }
+  return out;
+}
+/** Put warm-up sets in front of exercise i's sets, planned (you tick each one). Any earlier warm-ups are replaced. */
+export const addWarmups = (w: Workout, i: number, sets: SetRow[]): Workout =>
+  mapEx(w, i, (e) => ({ ...e, sets: [...sets.map((s) => ({ ...s, done: false as const, typed: true as const })), ...e.sets.filter((s) => s.kind !== 'W')] }));
+export const PLATES = [25, 20, 15, 10, 5, 2.5, 1.25] as const;
+/** Plates for each side of the bar, heaviest first; `left`: what they can't make up (an odd total). */
+export function platesFor(total: number, bar = 20, have: readonly number[] = PLATES): { side: number[]; left: number } {
+  let rest = Math.max(0, (total - bar) / 2);
+  const side: number[] = [];
+  for (const p of have) while (rest >= p - 1e-9) { side.push(p); rest -= p; }
+  return { side, left: Math.round(rest * 2 * 100) / 100 };
+}
 const asLogged = (sets: SetRow[], done: boolean) => (done ? sets.map(({ done: _d, typed: _t, ...s }) => s) : sets);
 export function addExercises(w: Workout, v: View, ids: string[], done = false): Workout {
   const fresh = [...new Set(ids)].filter((id) => !w.exercises.some((e) => e.exerciseId === id));
@@ -533,6 +595,9 @@ export function toggleDone(w: Workout, i: number, j: number, roundsCount = false
   const { done: _d, typed: _t, ...logged } = s;
   return { workout: mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((x, k) => (k === j ? logged : x)) })), ticked: true };
 }
+/** How hard a set was (RPE), or none. */
+export const setRpe = (w: Workout, i: number, j: number, rpe?: number): Workout =>
+  mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => { if (k !== j) return s; const { rpe: _r, ...rest } = s; return rpe ? { ...rest, rpe } : rest; }) }));
 export const setKind = (w: Workout, i: number, j: number, kind?: SetKind): Workout =>
   mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => { if (k !== j) return s; const { kind: _k, ...rest } = s; return kind ? { ...rest, kind } : rest; }) }));
 /** Label for a set's number cell: warm-ups and drops show W / D, working sets count 1, 2, 3… */

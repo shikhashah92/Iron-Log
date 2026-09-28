@@ -1,9 +1,10 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { duration, longDate } from '../model';
-import { useLog } from '../store';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useLog, useTheme } from '../store';
 import { useNow } from '../timer';
-import { ask } from '../io';
+import { ask, menu } from '../io';
 import { goBack, RestBar } from '../components';
 import { useEditWorkout, useWorkoutFlow, WorkoutEditor } from '../workout';
 import { Button, Gap, IconButton, Screen, T } from '../ui';
@@ -23,11 +24,17 @@ function Live() {
   const now = useNow(true);
   const flow = useWorkoutFlow();
   const edit = useEditWorkout(w.id);
+  const { c } = useTheme();
 
   async function finish() {
     const r = await flow.finish(w);
     if (r === 'discarded') goBack();
     else if (r) router.replace({ pathname: '/feeling', params: { id: r } });
+  }
+  async function note() {
+    if (w.note && (await menu('Workout note', [{ label: 'Edit note' }, { label: 'Remove note', destructive: true }])) === 1) return edit(({ note: _n, ...x }) => x);
+    const t = await ask('Workout note', w.note ?? '');
+    if (t !== null) edit((x) => ({ ...x, note: t.slice(0, 1000) }));
   }
   async function rename() {
     const name = await ask('Workout name', w.name);
@@ -45,7 +52,12 @@ function Live() {
           <T numberOfLines={2} style={{ fontFamily: sans, fontWeight: '800', fontSize: 28, letterSpacing: -0.56, marginTop: space.sm }}>{w.name}</T>
         </Pressable>
         <T v="small">{longDate(w.date)} · <T v="small" style={{ fontFamily: sans }}>{duration(now - w.startedAt)}</T> · tap the name to rename</T>
-        <Gap h={space.md} />
+        <Pressable accessibilityRole="button" accessibilityLabel={w.note ? `Workout note: ${w.note}. Edit` : 'Add a note about this workout'} onPress={note}
+          style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-start', marginTop: space.sm, minHeight: 32 }}>
+          <Ionicons name="document-text-outline" size={16} color={c.accent} style={{ marginTop: 2 }} />
+          <T v="small" style={{ flex: 1, color: w.note ? c.text : c.accent, fontWeight: w.note ? '400' : '600' }}>{w.note || 'Add a note (how you slept, what hurt…)'}</T>
+        </Pressable>
+        <Gap h={space.sm} />
         <WorkoutEditor workout={w} live />
         <Button title="Add exercises" icon="add" kind="secondary" onPress={() => router.push({ pathname: '/picker', params: { workout: w.id } })} />
         <Gap h={space.sm} />
