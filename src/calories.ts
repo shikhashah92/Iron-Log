@@ -1,6 +1,6 @@
 // Estimated calories (pure, unit tested). The standard MET method: kcal = MET × body weight (kg) × hours, with MET
 // values from the Compendium of Physical Activities. An estimate: good for comparing days, not for exact counting.
-import { getEx, type Exercise, type SetRow, type View, type Workout } from './model.ts';
+import { getEx, isTimed, secsOf, type Exercise, type SetRow, type View, type Workout } from './model.ts';
 
 /** Resistance training, multiple exercises, 8–15 reps (Compendium 02054): the rest of a workout's time. */
 export const STRENGTH_MET = 3.5;
@@ -29,6 +29,7 @@ export function metOf(ex: Exercise, s: SetRow): number {
     const kmh = s.w > 0 && s.r > 0 ? s.w / (s.r / 3600) : 0;
     return table && kmh > 0 ? interp(table, kmh) : moderate;
   }
+  if (ex.kind === 'yoga') return moderate; // one value per pose (w is rounds there, not intensity)
   return [light, light, moderate, vigorous][s.w] ?? moderate;
 }
 /** kcal for a stretch of activity at a MET. */
@@ -44,10 +45,10 @@ export function workoutCalories(v: View, w: Workout): number | null {
   let total = 0, timed = 0;
   for (const e of w.exercises) {
     const ex = getEx(v, e.exerciseId);
-    if (ex.kind !== 'cardio' && ex.kind !== 'activity') continue;
-    for (const s of e.sets) if (s.done !== false && s.r > 0) { total += kcal(metOf(ex, s), kg, s.r); timed += s.r; }
+    if (!isTimed(ex)) continue;
+    for (const s of e.sets) if (s.done !== false && s.r > 0) { const secs = secsOf(ex, s); total += kcal(metOf(ex, s), kg, secs); timed += secs; }
   }
-  const hasStrength = w.exercises.some((e) => { const ex = getEx(v, e.exerciseId); return ex.kind !== 'cardio' && ex.kind !== 'activity'; });
+  const hasStrength = w.exercises.some((e) => !isTimed(getEx(v, e.exerciseId)));
   const clock = w.endedAt ? (w.endedAt - w.startedAt) / 1000 : 0;
   if (hasStrength && clock > timed) total += kcal(STRENGTH_MET, kg, clock - timed);
   return Math.round(total);

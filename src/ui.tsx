@@ -10,14 +10,18 @@ export const MAX_WIDTH = 560;
 
 /**
  * Select a number field's text on focus, so typing replaces a pre-filled value instead of mixing with it
- * (62.5 then "65" must be 65, not 62.565). A tap resets the selection right after focus, hence the next tick;
+ * (62.5 then "65" must be 65, not 62.565). A tap resets the selection after focus, hence the next tick and the tap's end;
  * selectTextOnFocus alone loses that race on the web.
  */
 export const selectAll = (e: { target: unknown }) => {
   const el = e.target as HTMLInputElement;
   const sel = () => { try { el.select(); } catch { /* not a text field */ } };
   sel(); // now, for keys typed straight after focus…
-  setTimeout(sel, 0); // …and again after the tap's own selection reset
+  setTimeout(sel, 0); // …again after the tap's own selection reset…
+  // …and once more when the tap actually ends (a slow tap lifts well after the next tick and drops the caret mid-number).
+  const up = () => setTimeout(sel, 0);
+  el.addEventListener?.('pointerup', up, { once: true });
+  setTimeout(() => el.removeEventListener?.('pointerup', up), 1000);
 };
 
 export function Screen({ children, scroll = true, edges = ['top'] }: { children: ReactNode; scroll?: boolean; edges?: ('top' | 'bottom')[] }) {

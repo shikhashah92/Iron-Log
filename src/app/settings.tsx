@@ -7,7 +7,7 @@ import { useLog, useTheme } from '../store';
 import { useBackup } from '../backupActions';
 import { clearSnapshots } from '../safety';
 import { confirm, notify } from '../io';
-import { BASE, hadOldApp, isIOS, isStandalone, useInstall } from '../pwa';
+import { BASE, hadOldApp, isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
 import { Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../ui';
 import { goBack } from '../components';
 import { startTour } from '../tour';
@@ -100,7 +100,7 @@ export default function Settings() {
           </Card>
         </>
       )}
-      {!isStandalone() && (canInstall || isIOS()) ? (
+      {!isStandalone() && (canInstall || isIOS() || isAndroid()) ? (
         <>
           <Gap />
           <T v="label">App</T>
@@ -108,7 +108,7 @@ export default function Settings() {
           <Card pad={false} style={{ paddingHorizontal: space.lg }}>
             {canInstall
               ? <Row left={icon('download-outline')} title="Install Iron Log" subtitle="Opens like an app, works offline" right={chevron} onPress={install} last />
-              : <Row left={icon('share-outline')} title="Add to Home Screen" subtitle="Tap Share, then “Add to Home Screen”. Keeps your data safe in Safari." last />}
+              : <Row left={icon('share-outline')} title="Add to Home Screen" subtitle="Step-by-step for your phone. Keeps your data safer." right={chevron} onPress={() => router.push('/install')} last />}
           </Card>
         </>
       ) : null}

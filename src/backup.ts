@@ -40,6 +40,7 @@ export function parseBackup(text: string): { log: Log; images: Images } {
   if (raw.schemaVersion > SCHEMA_VERSION) throw new Error('This backup is from a newer version of the app. Please update the app first.');
   if (raw.schemaVersion === 1) raw = fromV1(raw);
   if (raw.schemaVersion === 2) raw = fromV2(raw);
+  if (raw.schemaVersion === 3) raw = fromV3(raw);
   const fail = (what: string, i: number): never => { throw new Error(`Backup is damaged: ${what} #${i + 1} is invalid.`); };
   for (const k of ['profiles', 'exercises', 'favorites', 'templates', 'workouts', 'weighIns'] as const)
     if (!Array.isArray(raw[k])) throw new Error(`Backup is damaged: missing ${k}.`);
@@ -70,7 +71,8 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     if (!owned(e) || !isId(e.id) || !isName(e.name) || !isStr(e.group, 40) || !isStr(e.equip ?? '', 60) || !TYPES.has(e.weightType)) fail('exercise', i);
     unique(`e:${e.profileId}:${e.id}`, 'exercise', i);
     return { id: e.id, profileId: e.profileId, name: e.name, group: e.group || 'Other', equip: e.equip ?? '', weightType: e.weightType,
-      ...(e.metric === 'secs' ? { metric: 'secs' as const } : {}), ...(e.kind === 'cardio' || e.kind === 'activity' ? { kind: e.kind } : {}),
+      ...(e.metric === 'secs' ? { metric: 'secs' as const } : {}), ...(['cardio', 'activity', 'yoga'].includes(e.kind) ? { kind: e.kind } : {}),
+      ...(e.kind === 'yoga' ? { yoga: ['hold', 'rounds', 'time'].includes(e.yoga) ? e.yoga : 'hold' } : {}),
       setup: lines(e.setup), exec: lines(e.exec), avoid: lines(e.avoid), updatedAt: time(e.updatedAt) };
   });
   const favorites = raw.favorites.map((f: any, i: number) => {
@@ -197,6 +199,27 @@ function fromV2(raw: any): any {
     .filter((f: any, i: number, all: any[]) => all.findIndex((g) => g.profileId === f.profileId && g.exerciseId === f.exerciseId) === i);
   const exercises = (Array.isArray(raw.exercises) ? raw.exercises : []).filter((e: any) => !to.has(`${e?.profileId}|${e?.id}`));
   return { ...raw, schemaVersion: 3, exercises, workouts, templates, favorites, weighIns: [] };
+}
+
+/**
+ * Version 4 added yoga asanas and pranayama. The four yoga styles (Hatha, Vinyasa, Power, Yin) were whole classes, not
+ * poses: they become one "Yoga class" (intensity kept), merged within a workout, template or favorites.
+ */
+const OLD_YOGA = new Set(['hatha-yoga', 'vinyasa-yoga', 'power-yoga', 'yin-yoga']);
+function fromV3(raw: any): any {
+  const to = (id: unknown) => (OLD_YOGA.has(id as string) ? 'yoga-class' : id);
+  const merged = (list: any[], sets: boolean) => list.reduce((out: any[], e: any) => {
+    const id = to(e?.exerciseId), same = out.find((x) => x.exerciseId === id);
+    if (same && sets && Array.isArray(same.sets) && Array.isArray(e.sets)) same.sets = [...same.sets, ...e.sets];
+    else if (!same) out.push({ ...e, exerciseId: id });
+    return out;
+  }, []);
+  const workouts = (Array.isArray(raw.workouts) ? raw.workouts : []).map((w: any) => (Array.isArray(w?.exercises)
+    ? { ...w, exercises: merged(w.exercises, true), ...(Array.isArray(w.planned) ? { planned: merged(w.planned, false) } : {}) } : w));
+  const templates = (Array.isArray(raw.templates) ? raw.templates : []).map((t: any) => (Array.isArray(t?.exercises) ? { ...t, exercises: merged(t.exercises, false) } : t));
+  const favorites = (Array.isArray(raw.favorites) ? raw.favorites : []).map((f: any) => ({ ...f, exerciseId: to(f?.exerciseId) }))
+    .filter((f: any, i: number, all: any[]) => all.findIndex((g) => g.profileId === f.profileId && g.exerciseId === f.exerciseId) === i);
+  return { ...raw, schemaVersion: 4, workouts, templates, favorites };
 }
 
 /** Photos are optional: a bad one is dropped rather than failing the whole backup. */

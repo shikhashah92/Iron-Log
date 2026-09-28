@@ -33,12 +33,14 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   // The old app (kept for moving data over) talks to Firebase: leave it and everything cross-origin alone.
-  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith(at('legacy/'))) return;
+  // Calendar reminders (reminders/*.ics) are opened as pages but aren't the app: straight to the network too.
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith(at('legacy/')) || url.pathname.startsWith(at('reminders/'))) return;
   if (req.mode === 'navigate') {
     // Network first so deploys show up; the cached shell when offline. Every route uses the same shell
     // (GitHub Pages serves deep links as 404.html, a copy of the shell: use it, but only cache real 200s).
     e.respondWith(fetch(req).then((res) => {
-      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(ROOT, copy)); }
+      // Only ever the app page itself is kept as the shell.
+      if (res.ok && (res.headers.get('content-type') ?? '').includes('text/html')) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(ROOT, copy)); }
       return res;
     }).catch(() => caches.match(ROOT)));
     return;

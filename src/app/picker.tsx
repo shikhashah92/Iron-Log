@@ -42,7 +42,7 @@ export default function Picker() {
       update((l) => {
         const started = startWorkout(l);
         const nw = viewOf(started).active!;
-        return putWorkout(started, { ...addExercises(nw, viewOf(started), [id]), name: getEx(v, id).name });
+        return putWorkout(started, { ...addExercises(nw, viewOf(started), [id]), name: getEx(v, id).kind === 'yoga' ? 'Yoga' : getEx(v, id).name });
       });
       return router.replace('/active');
     }

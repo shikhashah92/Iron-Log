@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { addExercises, delExercise, getEx, hasArt, historyOf, isCustom, isTimed, num, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
 import { useLog, useTheme } from '../store';
 import { confirm, notify, pickImage } from '../io';
-import { Empty, ExArt, goBack, Illustration, ProgressBlock, Star, Tag } from '../components';
+import { Empty, goBack, Illustration, ProgressBlock, Star, Tag } from '../components';
 import { Button, Gap, Header, IconButton, Screen, T } from '../ui';
 import { radius, space } from '../theme';
 
@@ -75,9 +75,8 @@ export default function ExerciseDetail() {
         </>
       )}
       <Gap h={space.md} />
-      {isTimed(ex) ? (
+      {ex.kind === 'cardio' || ex.kind === 'activity' ? (
         <View style={{ gap: space.sm }}>
-          {!hasArt(id) && <View style={{ alignItems: 'center', paddingVertical: space.md }}><ExArt id={id} size={96} /></View>}
           <T v="label">Intensity, by the talk test</T>
           {[['Light', 'you could sing'], ['Moderate', 'you can talk, not sing'], ['Vigorous', 'only a few words at a time']].map(([k, d]) => (
             <T key={k} style={{ fontSize: 15 }}>• <T style={{ fontWeight: '600', fontSize: 15 }}>{k}</T>: {d}</T>
@@ -89,6 +88,7 @@ export default function ExerciseDetail() {
           {cue('Set up', ex.setup, c.text)}
           {cue('Execute', ex.exec, c.accent)}
           {cue('Avoid', ex.avoid, c.muted)}
+          {ex.kind === 'yoga' && <T v="small">{ex.yoga === 'hold' ? 'Log rounds and how long you held each: a number on its own is seconds (30 = 0:30).' : ex.yoga === 'rounds' ? 'Log the rounds; add the time too for a calorie estimate.' : 'Log the time (a number on its own is minutes), and rounds if you count them.'}</T>}
         </View>
       ) : <Empty>No form notes for this one yet{custom ? '. Tap Edit to add some.' : '.'}</Empty>}
       <Gap />

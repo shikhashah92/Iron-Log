@@ -1,7 +1,7 @@
 // The data model and every change to it, as pure functions (no I/O), so it can be unit tested with node --test.
 import { BUILT_IN } from './exercises.ts';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export type Theme = 'system' | 'light' | 'dark';
 export type WeightType = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight';
 export const WEIGHT_TYPES: { id: WeightType; label: string; unit: string }[] = [
@@ -24,11 +24,18 @@ export const FEELINGS = [
 export interface Exercise {
   id: string; name: string; group: string; equip: string; weightType: WeightType; metric?: 'secs';
   setup: string[]; exec: string[]; avoid: string[];
-  kind?: 'cardio' | 'activity'; met?: [number, number, number]; icon?: string; art?: false;
+  kind?: 'cardio' | 'activity' | 'yoga'; met?: [number, number, number]; art?: false;
+  /** Yoga: how a set is logged. w = rounds, r = seconds, the hold per round ('hold') or the total ('rounds', 'time'). */
+  yoga?: YogaLog;
 }
 export const INTENSITIES = ['', 'Light', 'Moderate', 'Vigorous'] as const;
-export const ACTIVITY_GROUPS = ['Cardio', 'Yoga & mobility', 'Sports', 'Classes'] as const;
-export const isTimed = (ex: Exercise) => ex.kind === 'cardio' || ex.kind === 'activity';
+export const ACTIVITY_GROUPS = ['Cardio', 'Yoga', 'Pranayama', 'Mobility', 'Sports', 'Classes'] as const;
+/** Asanas: rounds × hold. Surya Namaskar: rounds (time optional). Pranayama: time (rounds optional). */
+export type YogaLog = 'hold' | 'rounds' | 'time';
+/** Logged by time rather than weight × reps: no records, 1RM or volume, and no rest timer. */
+export const isTimed = (ex: Exercise) => ex.kind === 'cardio' || ex.kind === 'activity' || ex.kind === 'yoga';
+/** Seconds a set took: a yoga hold counts once per round. */
+export const secsOf = (ex: Exercise, s: SetRow) => (ex.yoga === 'hold' ? Math.max(1, s.w) * s.r : s.r);
 export interface CustomExercise extends Exercise { profileId: string; updatedAt: number }
 export interface Profile {
   id: string; name: string; createdAt: number;
@@ -210,10 +217,11 @@ export const bestSet = (sets: SetRow[]) => [...sets].sort((a, b) => b.w - a.w ||
 export const prOf = (v: View, exerciseId: string) => (isTimed(getEx(v, exerciseId)) ? 0
   : historyOf(v, exerciseId).reduce((m, e) => Math.max(m, ...working(e.sets).map((s) => s.w)), 0));
 const load = (s: SetRow, ex: Exercise, bw: number) => (ex.weightType === 'bodyweight' ? (bw > 0 ? bw + s.w : s.w) : s.w);
-/** What a chart plots per session: top load for strength; distance (km, else minutes) for cardio; minutes for activities. */
+/** What a chart plots per session: top load for strength; distance (km, else minutes) for cardio; minutes for activities; longest hold (s), rounds or minutes for yoga. */
 export function topLoad(e: Entry, ex: Exercise, bw: number): number {
   if (ex.kind === 'cardio') { const km = e.sets.reduce((t, s) => t + s.w, 0); return km || e.sets.reduce((t, s) => t + s.r, 0) / 60; }
   if (ex.kind === 'activity') return e.sets.reduce((t, s) => t + s.r, 0) / 60;
+  if (ex.kind === 'yoga') return ex.yoga === 'hold' ? Math.max(0, ...e.sets.map((s) => s.r)) : ex.yoga === 'rounds' ? e.sets.reduce((t, s) => t + s.w, 0) : e.sets.reduce((t, s) => t + s.r, 0) / 60;
   return working(e.sets).reduce((m, s) => Math.max(m, load(s, ex, bw)), 0);
 }
 export function volumeOf(e: { sets: SetRow[] }, ex: Exercise, bw: number): number {
@@ -228,10 +236,23 @@ export function clock(secs: number): string {
   const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), sec = Math.round(secs % 60);
   return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
 }
-/** "30" (minutes), "30:15" (m:ss) or "1:05:00" (h:mm:ss) → seconds; null if it isn't a time. */
+/** A set's duration with its unit, so it can't be misread: 30s, 5m, 5m 30s, 1h 5m. */
+export function fmtDur(secs: number): string {
+  const s = Math.round(secs), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h) return m ? `${h}h ${m}m` : `${h}h`;
+  if (m) return sec ? `${m}m ${sec}s` : `${m}m`;
+  return `${sec}s`;
+}
+/** "30" (minutes), "30:15" (m:ss), "1:05:00" (h:mm:ss), or with units ("90s", "5m 30s", "1h 15m", "1.5h") → seconds; null if it isn't a time. */
 export function parseClock(text: string): number | null {
-  const t = text.trim();
+  const t = text.trim().toLowerCase().replace(/,/g, '.');
   if (!t) return null;
+  if (/[hms]/.test(t)) {
+    const parts = [...t.matchAll(/(\d+(?:\.\d+)?)\s*(h|m|s)[a-z]*/g)];
+    if (!parts.length || t.replace(/(\d+(?:\.\d+)?)\s*(h|m|s)[a-z]*/g, '').trim()) return null;
+    const secs = parts.reduce((n, [, v, u]) => n + Number(v) * (u === 'h' ? 3600 : u === 'm' ? 60 : 1), 0);
+    return secs <= MAX_R ? Math.round(secs) : null;
+  }
   const parts = t.split(':').map((x) => (x === '' ? NaN : Number(x)));
   if (parts.some((x) => !Number.isFinite(x) || x < 0)) return null;
   const secs = parts.length === 1 ? parts[0] * 60 : parts.length === 2 ? parts[0] * 60 + parts[1] : parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : NaN;
@@ -240,8 +261,9 @@ export function parseClock(text: string): number | null {
 /** Minutes per km, e.g. "5:30 /km". */
 export const pace = (km: number, secs: number) => (km > 0 && secs > 0 ? `${clock(secs / km)} /km` : '');
 export function fmtSet(s: SetRow, ex: Exercise): string {
-  if (ex.kind === 'cardio') return [s.w ? `${num(s.w)} km` : '', clock(s.r)].filter(Boolean).join(' · ');
+  if (ex.kind === 'cardio') return [s.w ? `${num(s.w)} km` : '', fmtDur(s.r)].filter(Boolean).join(' · ');
   if (ex.kind === 'activity') return `${Math.round(s.r / 60)} min${s.w ? ` · ${INTENSITIES[s.w] ?? ''}` : ''}`;
+  if (ex.kind === 'yoga') return ex.yoga === 'hold' ? `${Math.max(1, s.w)}×${fmtDur(s.r)}` : [s.w ? plural(s.w, 'round') : '', s.r ? fmtDur(s.r) : ''].filter(Boolean).join(' · ');
   const rep = ex.metric === 'secs' ? `${s.r}s` : String(s.r);
   if (ex.weightType === 'bodyweight') return s.w ? `BW${s.w > 0 ? '+' : ''}${num(s.w)}×${rep}` : `BW×${rep}`;
   if (!s.w) return ex.metric === 'secs' ? rep : `${rep} reps`;
@@ -322,7 +344,7 @@ export function planSets(v: View, exerciseId: string, count?: number, except?: s
   const prev = lastEntry(v, exerciseId, except)?.sets ?? [];
   const ex = getEx(v, exerciseId);
   const n = Math.max(1, Math.min(50, count ?? (prev.length || (isTimed(ex) ? 1 : 3))));
-  const fresh = ex.kind === 'activity' ? 2 : 0; // a new activity starts at moderate intensity
+  const fresh = ex.kind === 'activity' ? 2 : ex.kind === 'yoga' ? 1 : 0; // a new activity starts at moderate intensity; a pose at one round
   const hint = (s?: SetRow): SetRow => ({ w: s?.w ?? fresh, r: s?.r ?? 0, done: false, ...(s?.kind ? { kind: s.kind } : {}) });
   return Array.from({ length: n }, (_, i) => hint(prev[i] ?? (prev.length ? { w: prev.at(-1)!.w, r: prev.at(-1)!.r } : undefined)));
 }
@@ -351,15 +373,16 @@ export function finishWorkout(l: Log, id: string, markDone: boolean, now = Date.
   const w = l.workouts.find((x) => x.id === id);
   if (!w) return { log: l };
   const logged = (s: SetRow): SetRow => ({ w: s.w, r: s.r, ...(s.kind ? { kind: s.kind } : {}) });
+  const v = viewOf(l);
   const exercises = w.exercises
-    .map((e) => ({ ...e, sets: e.sets.filter((s) => s.done !== false || (markDone && s.r > 0)).map(logged) }))
+    .map((e) => { const byRounds = getEx(v, e.exerciseId).yoga === 'rounds'; // Surya Namaskar: rounds alone count
+      return { ...e, sets: e.sets.filter((s) => s.done !== false || (markDone && (s.r > 0 || (byRounds && s.w > 0)))).map(logged) }; })
     .filter((e) => e.sets.length);
   if (!exercises.length) return { log: delWorkout(l, id) };
   const { active: _a, ...rest } = w;
   const end = Math.max(now, w.startedAt);
   // Logged after the fact (a 45-minute class entered in a minute): the workout lasted as long as its activities.
-  const v = viewOf(l);
-  const timed = exercises.every((e) => isTimed(getEx(v, e.exerciseId))) ? exercises.reduce((t, e) => t + e.sets.reduce((u, s) => u + s.r, 0), 0) * 1000 : 0;
+  const timed = exercises.every((e) => isTimed(getEx(v, e.exerciseId))) ? exercises.reduce((t, e) => t + e.sets.reduce((u, s) => u + secsOf(getEx(v, e.exerciseId), s), 0), 0) * 1000 : 0;
   const done: Workout = { ...rest, exercises, startedAt: Math.min(w.startedAt, end - timed), endedAt: end, updatedAt: now };
   return { log: { ...l, workouts: l.workouts.map((x) => (x.id === id ? done : x)) }, workout: done };
 }
@@ -403,17 +426,17 @@ export function setValue(w: Workout, i: number, j: number, field: 'w' | 'r', raw
   const val = t === '' || !Number.isFinite(n) ? 0 : Math.max(field === 'w' ? -MAX_W : 0, Math.min(field === 'w' ? MAX_W : MAX_R, n));
   return mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => (k !== j ? s : { ...s, [field]: val, ...(s.done === false ? { typed: true as const } : {}) })) }));
 }
-/** Set a timed set's duration from "30", "30:15" or "1:05:00" (blank: 0). */
-export function setTime(w: Workout, i: number, j: number, raw: string): Workout {
-  const secs = parseClock(raw) ?? 0;
+/** Set a timed set's duration from "30", "30:15" or "1:05:00" (blank: 0). `bareSecs`: a plain number is seconds (a pose hold), not minutes. */
+export function setTime(w: Workout, i: number, j: number, raw: string, bareSecs = false): Workout {
+  const secs = (bareSecs && /^\s*\d+\s*$/.test(raw) ? Math.min(MAX_R, Number(raw)) : parseClock(raw)) ?? 0;
   return mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => (k !== j ? s : { ...s, r: secs, ...(s.done === false ? { typed: true as const } : {}) })) }));
 }
-/** Tick (log it as shown) or untick a set. A set needs reps (or seconds) to be ticked. */
-export function toggleDone(w: Workout, i: number, j: number): { workout: Workout; ticked: boolean } {
+/** Tick (log it as shown) or untick a set. A set needs reps (or seconds) to be ticked; `roundsCount`: rounds alone will do (Surya Namaskar). */
+export function toggleDone(w: Workout, i: number, j: number, roundsCount = false): { workout: Workout; ticked: boolean } {
   const s = w.exercises[i]?.sets[j];
   if (!s) return { workout: w, ticked: false };
   if (s.done !== false) return { workout: mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((x, k) => (k === j ? { ...x, done: false, typed: true } : x)) })), ticked: false };
-  if (s.r <= 0) return { workout: w, ticked: false };
+  if (s.r <= 0 && !(roundsCount && s.w > 0)) return { workout: w, ticked: false };
   const { done: _d, typed: _t, ...logged } = s;
   return { workout: mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((x, k) => (k === j ? logged : x)) })), ticked: true };
 }

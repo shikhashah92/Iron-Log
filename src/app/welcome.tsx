@@ -5,7 +5,8 @@ import { useBackup } from '../backupActions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { GENDERS, newLog, putProfile, type Gender } from '../model';
 import { DateField } from '../DateField';
-import { BASE, hadOldApp } from '../pwa';
+import { BASE, hadOldApp, isIOS, isStandalone } from '../pwa';
+import { InstallSteps } from '../components';
 import { BrandMark, Button, Card, Chip, Field, Gap, Screen, T } from '../ui';
 import { space } from '../theme';
 
@@ -19,6 +20,9 @@ export default function Welcome() {
   const [gender, setGender] = useState<Gender>();
   const [busy, setBusy] = useState(false);
   const old = hadOldApp();
+  const [how, setHow] = useState(false);
+  // iPhone: the Home Screen app has its own storage, so the best time to add it is before logging anything here.
+  const iosBrowser = isIOS() && !isStandalone();
 
   async function go() {
     setBusy(true);
@@ -40,6 +44,16 @@ export default function Welcome() {
               <T v="title">Used Iron Log before?</T>
               <T v="small">Bring your workouts over from the old app. Afterwards you can delete the cloud copy so nothing is kept online.</T>
               <Button title="Bring my data over" icon="arrow-forward" onPress={() => { window.location.href = `${BASE}legacy/#move`; }} />
+            </Card>
+            <Gap />
+          </>
+        )}
+        {iosBrowser && (
+          <>
+            <Card style={{ gap: space.sm }}>
+              <T style={{ fontWeight: '600' }}>On iPhone? Add to Home Screen first</T>
+              <T v="small">The Home Screen app keeps its own storage, apart from Safari: start there so everything you log is in one place.</T>
+              {how ? <InstallSteps /> : <Button title="Show me how" kind="secondary" onPress={() => setHow(true)} />}
             </Card>
             <Gap />
           </>

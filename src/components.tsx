@@ -4,7 +4,7 @@ import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  addDays, clock, dateWithYear, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
+  addDays, clock, dateWithYear, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
   type Entry, type Exercise, type TemplateExercise, type View as LogView,
 } from './model';
 import { ask } from './io';
@@ -12,7 +12,7 @@ import { useLog, useTheme } from './store';
 import { adjustRest, stopRest, useNow, useRest } from './timer';
 import { Button, Card, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
 import { condensed, mono, radius, space } from './theme';
-import { isIOS } from './pwa';
+import { isAndroid, isIOS, isStandalone } from './pwa';
 
 // iOS Safari offers "Use Strong Password" on any masked field, which would replace the passphrase the person must write
 // down with a random one. There it stays visible (easier to copy down correctly, too); elsewhere a normal masked field.
@@ -91,17 +91,9 @@ export function Illustration({ id, size, animate = false, label }: { id: string;
 }
 
 /** An exercise's picture: its drawing, or (for activities without one) its icon in a soft circle. */
+/** An exercise's drawing, or nothing: no stand-in icons, so every picture in a list is in the same drawn style. */
 export function ExArt({ id, size, animate, label }: { id: string; size: number; animate?: boolean; label?: string }) {
-  const { v } = useLog();
-  const { c } = useTheme();
-  if (hasArt(id)) return <Illustration id={id} size={size} animate={animate} label={label} />;
-  const icon = getEx(v, id).icon;
-  if (!icon) return null;
-  return (
-    <View accessibilityLabel={label} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={Math.round(size * 0.5)} color={c.accent} />
-    </View>
-  );
+  return <Illustration id={id} size={size} animate={animate} label={label} />;
 }
 
 export function Star({ id }: { id: string }) {
@@ -134,9 +126,9 @@ export function ExRow({ ex, right, actions, onPress, star = true, last }: {
         <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
           <Illustration id={ex.id} size={40} />
         </View>
-      ) : ex.icon ? <ExArt id={ex.id} size={44} /> : null}
+      ) : <View style={{ width: 44 }} /> /* same slot with no drawing, so names line up */}
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-        <T numberOfLines={1} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18 }}>{ex.name}</T>
+        <T numberOfLines={2} style={{ fontFamily: condensed, fontWeight: '600', fontSize: 18, lineHeight: 21 }}>{ex.name}</T>
         <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
           <Tag label={ex.group} />
           {ex.equip ? <Tag label={ex.equip} /> : null}
@@ -255,6 +247,9 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
   const stats: [string, string | number][] = ex.kind === 'cardio'
     ? [['Sessions', h.length], ['Longest', h.some((e) => km(e) > 0) ? `${num(Math.max(...h.map(km)))} km` : `${Math.round(Math.max(0, ...h.map(mins)))} min`],
       ['Best pace', (() => { const ps = h.filter((e) => km(e) > 0).map((e) => (mins(e) * 60) / km(e)); return ps.length ? clock(Math.min(...ps)) : '—'; })()]]
+    : ex.kind === 'yoga'
+    ? [['Sessions', h.length], ex.yoga === 'hold' ? ['Longest hold', fmtDur(Math.max(0, ...h.flatMap((e) => e.sets.map((x) => x.r))))] : ['Most rounds', Math.max(0, ...h.map((e) => e.sets.reduce((t, x) => t + x.w, 0)))],
+      ['Total', `${Math.round(h.reduce((t, e) => t + e.sets.reduce((u, x) => u + secsOf(ex, x), 0), 0) / 60)} min`]]
     : ex.kind === 'activity'
     ? [['Sessions', h.length], ['Total', `${Math.round(h.reduce((t, e) => t + mins(e), 0) / 60 * 10) / 10} h`], ['Longest', `${Math.round(Math.max(0, ...h.map(mins)))} min`]]
     : [['Sessions', h.length], ['Best load', num(best)], ['Est. 1RM', num(estOneRM(h, ex, bw))]];
@@ -266,7 +261,7 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
         {stats.map(([k, val]) => <Stat key={k} k={k} v={val} />)}
       </View>
       <TimeChart series={[{ points: series, style: 'line' }, { points: series, style: 'dots' }]} empty={`No sessions in the ${rangeLabel(range).toLowerCase()}.`} />
-      {isTimed(ex) ? <T v="small" style={{ fontSize: 13 }}>{ex.kind === 'cardio' ? 'The chart shows distance per session (or minutes when no distance was logged).' : 'The chart shows minutes per session.'}</T> : <T v="small" style={{ fontSize: 13 }}>
+      {isTimed(ex) ? <T v="small" style={{ fontSize: 13 }}>{ex.kind === 'cardio' ? 'The chart shows distance per session (or minutes when no distance was logged).' : ex.yoga === 'hold' ? 'The chart shows your longest hold per session, in seconds.' : ex.yoga === 'rounds' ? 'The chart shows rounds per session.' : 'The chart shows minutes per session.'}</T> : <T v="small" style={{ fontSize: 13 }}>
         {ex.weightType === 'dumbbell' ? 'Values are per dumbbell. ' : ''}
         {ex.weightType === 'bodyweight' ? (bw ? `Bodyweight ${num(bw)} kg included. ` : 'Log your weight in the Me tab for loaded estimates. ') : ''}
         Est. 1RM uses the Epley formula; warm-ups don’t count.
@@ -415,5 +410,56 @@ export function PassphraseModal({ visible, mode, onSubmit, onClose }: {
         </View>
       </View>
     </Modal>
+  );
+}
+
+const NUDGE_KEY = 'ironlog.installNudgeAt';
+/**
+ * In a phone's browser (not the installed app): a card asking to add Iron Log to the Home Screen, with a "how" sheet
+ * for this phone. "Not now" hides it for two weeks. Once installed it never shows (the app runs standalone).
+ */
+export function InstallNudge() {
+  const { c } = useTheme();
+  const [hidden, setHidden] = useState(() => { try { return Date.now() - Number(localStorage.getItem(NUDGE_KEY) ?? 0) < 14 * 86400_000; } catch { return false; } });
+  if (hidden || isStandalone() || !(isIOS() || isAndroid())) return null;
+  const later = () => { try { localStorage.setItem(NUDGE_KEY, String(Date.now())); } catch { /* private mode: hide for this visit only */ } setHidden(true); };
+  return (
+    <Card style={{ marginBottom: space.md, gap: space.sm, borderColor: c.accent }}>
+      <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>
+        <Ionicons name="phone-portrait-outline" size={20} color={c.accent} />
+        <T style={{ fontWeight: '600', flex: 1 }}>Add Iron Log to your Home Screen</T>
+      </View>
+      <T v="small">It opens like an app, works offline, and keeps your data safer. Takes 20 seconds.</T>
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
+        <Button title="Show me how" onPress={() => router.push('/install')} style={{ flex: 1, minHeight: 40 }} />
+        <Button title="Not now" kind="ghost" onPress={later} style={{ minHeight: 40 }} />
+      </View>
+    </Card>
+  );
+}
+
+/** The Add to Home Screen steps for this phone (iPhone: Safari's Share menu; otherwise Chrome's ⋮ menu). */
+export function InstallSteps() {
+  const { c } = useTheme();
+  const steps: [keyof typeof Ionicons.glyphMap, string][] = isIOS()
+    ? [['share-outline', 'Tap Share: the square with an arrow. In Safari on newer iPhones it’s in the ••• menu next to the address bar.'],
+      ['add-circle-outline', 'Scroll down and tap “Add to Home Screen”.'],
+      ['checkmark-circle-outline', 'Leave “Open as Web App” on, then tap Add.'],
+      ['apps-outline', 'Open Iron Log from your Home Screen from now on.']]
+    : [['ellipsis-vertical', 'Tap the ⋮ menu at the top right of Chrome.'],
+      ['add-circle-outline', 'Tap “Add to Home screen” (or “Install app”).'],
+      ['checkmark-circle-outline', 'Tap Install.'],
+      ['apps-outline', 'Open Iron Log from your Home Screen from now on.']];
+  return (
+    <Card style={{ gap: space.md }}>
+      {steps.map(([icon, text], i) => (
+        <View key={i} style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-start' }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={icon} size={18} color={c.accent} />
+          </View>
+          <T style={{ flex: 1 }}><T style={{ fontWeight: '700' }}>{i + 1}. </T>{text}</T>
+        </View>
+      ))}
+    </Card>
   );
 }
