@@ -49,7 +49,23 @@ export interface Profile {
   weighEvery?: 'daily' | '3x' | 'weekly' | 'off';
   /** Optional, from onboarding: never leaves the device. */
   dob?: string; gender?: Gender; goal?: Goal;
+  /** Workouts a week you're aiming for (the ring on Home). */
+  weeklyGoal?: number;
+  /** Your training days (0 = Monday … 6 = Sunday) and time ("07:00"), for the calendar reminder. */
+  trainDays?: number[]; trainTime?: string;
+  /** Weight suggestions ("try 85 kg today"): `off` to hide them; `step`, the usual jump in kg (2.5 by default). */
+  progression?: { off?: true; step?: number };
+  /** Challenges you've joined: a built-in one by id, or one from a friend's link (`def`). */
+  challenges?: JoinedChallenge[];
 }
+export type ChallengeKind = 'days' | 'daily' | 'total' | 'best' | 'workouts';
+/**
+ * What a challenge asks, within `days` days of joining: `days`: do the exercise on `target` different days; `daily`:
+ * reach `perDay` of it on `target` days; `total`: `target` in all (reps, km, seconds or rounds); `best`: one set of at
+ * least `target` (kg, reps or seconds); `workouts`: `target` workouts of any kind.
+ */
+export interface ChallengeDef { name: string; kind: ChallengeKind; exerciseId?: string; target: number; perDay?: number; days: number; from?: string }
+export interface JoinedChallenge { id: string; start: string; def?: ChallengeDef }
 export type Gender = 'female' | 'male' | 'other';
 export type Goal = 'lose' | 'muscle' | 'strength' | 'fit';
 export const GOALS: { id: Goal; label: string; icon: string }[] = [
@@ -106,6 +122,8 @@ export interface Settings {
   setupPending?: true;
   /** The week (its Monday) whose recap card was closed on Home. */
   recapSeen?: string;
+  /** The month ("2026-09") whose Wrapped card was closed on Home. */
+  wrappedSeen?: string;
 }
 export interface Log {
   schemaVersion: number; profiles: Profile[]; exercises: CustomExercise[]; favorites: Favorite[];

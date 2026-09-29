@@ -682,3 +682,151 @@ test('forgotten workouts, the Monday recap, what to do today, and when a backup 
   assert.equal(backupDue(l, at('2026-09-28')), true, 'never backed up, plenty logged');
   assert.equal(backupDue({ ...l, settings: { ...l.settings, backupChoice: 'local' } }, at('2026-09-28')), true, 'a week of changes still nudges');
 });
+
+test('weekly goal ring and streak; milestones cross on the right workout and never twice', async () => {
+  const { weekProgress, goalStreak, milestonesOf, newMilestones, progressLabel } = await import('../src/fun.ts');
+  let l = newLog('A', at('2026-08-01'));
+  const did = (day: string, ex = bench, sets = [{ w: 100, r: 5 }, { w: 100, r: 5 }]) => {
+    l = startWorkout(l, undefined, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, a.id, true, at(day) + 3_600_000).log;
+    return viewOf(l).workouts[0];
+  };
+  // Goal 2: met in weeks of 7 and 14 Sep, missed 21 Sep (1), this week (28 Sep) 1 so far.
+  for (const d of ['2026-09-08', '2026-09-10', '2026-09-15', '2026-09-17', '2026-09-22']) did(d);
+  did('2026-09-28');
+  const v = viewOf(l);
+  assert.deepEqual(weekProgress(v, '2026-09-28', 2), { done: 1, goal: 2, left: 1, daysLeft: 6, met: false });
+  assert.equal(goalStreak(v, '2026-09-28', 2), 0, 'last week was missed');
+  assert.equal(goalStreak(v, '2026-09-20', 2), 2);
+  // 6 workouts × 1 tonne (100 × 5 × 2): 1 and 5 workouts, 1 and 5 tonnes, and a streak of 2 weeks met.
+  const { earned, upcoming } = milestonesOf(v, 2);
+  assert.deepEqual(earned.map((e) => e.id), ['workouts-1', 'tonnes-1', 'goals-1', 'workouts-5', 'tonnes-5']);
+  assert.equal(earned.find((e) => e.id === 'workouts-5')!.date, '2026-09-22');
+  assert.equal(progressLabel(upcoming.find((u) => u.track === 'workouts')!), '6 of 10 workouts');
+  assert.equal(earned.filter((e) => e.id === 'goals-1').length, 1, 'meeting the goal again isn’t a new milestone');
+  const last = did('2026-09-30');
+  assert.deepEqual(newMilestones(viewOf(l), last, 2).map((e) => e.id), [], 'the 7th: nothing new (goal met again, but not a longer streak)');
+  assert.equal(milestonesOf(viewOf(l), 0).upcoming.some((u) => u.track === 'goals'), false, 'no goal: no goal trophies');
+  // Surya Namaskar rounds add up to the mala.
+  const s = did('2026-10-01', 'surya-namaskar', [{ w: 108, r: 1800 }]);
+  assert.ok(newMilestones(viewOf(l), s, 2).some((e) => e.id === 'surya-108'));
+});
+
+test('come back: training reminders (app and service worker agree), the year grid, Wrapped, welcome back, past you', async () => {
+  const b = await import('../src/body.ts');
+  const f = await import('../src/fun.ts');
+  const { runInNewContext } = await import('node:vm');
+  const ctx: { self: { trainingICS?: (days: string, time: string, day: string) => string | null } } = { self: {} };
+  runInNewContext(readFileSync('public/reminder-ics.js', 'utf8'), ctx);
+  assert.equal(ctx.self.trainingICS!('MO,WE,FR', '0700', '20260930'), b.trainingICS([4, 0, 2], '0700', '20260930'));
+  assert.match(b.trainingICS([0, 2, 4], '1830', '20260930'), /DTEND:20260930T193000\r\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\r\n/);
+  for (const bad of [['XX', '0700'], ['MO,MO', '0700'], ['MO', '2500'], ['MO', '7']]) assert.equal(ctx.self.trainingICS!(bad[0], bad[1], '20260930'), null, bad.join());
+  assert.equal(b.trainingStart([0, 2, 4], new Date(2026, 8, 29)).getDate(), 30, 'Tuesday → the Wednesday');
+  assert.match(b.trainingFile([4, 0], '0700', new Date(2026, 8, 30)), /days=MO,FR&time=0700&day=20260930$/);
+
+  let l = newLog('A', at('2026-01-01'));
+  const did = (day: string, sets = [{ w: 60, r: 5 }], ex = 'back-squat') => {
+    l = startWorkout(l, undefined, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, a.id, true, at(day) + 45 * 60_000).log;
+  };
+  did('2026-06-13'); did('2026-09-02', [{ w: 80, r: 5 }]); did('2026-09-03', [{ w: 85, r: 3 }]); did('2026-09-15', [{ w: 5.2, r: 1900 }], 'run');
+  const v = viewOf(l);
+  const g = f.yearGrid(v, '2026-09-29', 52);
+  assert.equal(g.length, 52);
+  assert.equal(g.at(-1)![0].day, '2026-09-28');
+  assert.deepEqual(g.at(-1)!.map((d) => d.n), [0, 0, -1, -1, -1, -1, -1], 'the rest of this week is still to come');
+  assert.equal(g.flat().find((d) => d.day === '2026-09-02')!.n, 1);
+  const r = f.wrapped(v, '2026-09')!;
+  assert.deepEqual([r.workouts, r.days, r.minutes, r.km, r.bests], [3, 3, 135, 5.2, 2]);
+  assert.deepEqual(r.heaviest, { exerciseId: 'back-squat', kg: 85 });
+  assert.equal(r.bestWeek.start, '2026-08-31');
+  assert.equal(f.wrapped(v, '2026-08'), null);
+  assert.deepEqual(f.wrappedMonths(v), ['2026-09', '2026-06']);
+  assert.equal(f.daysOff(v, '2026-09-29'), 14);
+  const planned = { ...v.workouts[0], exercises: [{ exerciseId: 'back-squat', sets: [{ w: 85, r: 5, done: false as const }, { w: 90, r: 5, done: false as const, typed: true as const }] }] };
+  assert.deepEqual(f.easeBack(planned).exercises[0].sets.map((s) => s.w), [67.5, 90], 'hints eased, typed kept');
+  // Three months after 13 June: 60 kg then, 85 in the last 3 weeks.
+  assert.deepEqual(f.pastYou(v, '2026-09-12'), { exerciseId: 'back-squat', label: 'Three months ago', was: 60, now: 85, gain: 25 });
+  assert.equal(f.pastYou(v, '2026-10-03'), null, 'a month after 85 kg, still 85 (and nothing lifted in the last 3 weeks): nothing to brag about');
+  assert.equal(f.nextMonth('2026-12'), '2027-01');
+  assert.equal(f.prevMonth('2026-01'), '2025-12');
+});
+
+test('beat last time: a step up when it went well (two if easy), hold on a grind, ease back after a break, a rep for bodyweight', async () => {
+  const f = await import('../src/fun.ts');
+  const make = (day: string, ex: string, sets: { w: number; r: number; rpe?: number; kind?: 'W' }[]) => {
+    let l = newLog('A', at('2026-01-01'));
+    l = startWorkout(l, undefined, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    return viewOf(finishWorkout(l, a.id, true, at(day) + 3_600_000).log);
+  };
+  const sq = (sets: { w: number; r: number; rpe?: number; kind?: 'W' }[], day = '2026-09-25') => f.suggestFor(make(day, 'back-squat', sets), 'back-squat', 'x', '2026-09-29');
+  assert.deepEqual(sq([{ w: 20, r: 10, kind: 'W' }, { w: 82.5, r: 5 }, { w: 82.5, r: 5 }, { w: 82.5, r: 5 }]), { kind: 'up', kg: 85, reps: 5, text: 'Try 85 kg × 5 today: +2.5 kg on last time.' });
+  assert.equal(sq([{ w: 82.5, r: 5, rpe: 7 }, { w: 82.5, r: 5, rpe: 7 }])!.kg, 87.5, 'easy: two steps');
+  assert.equal(sq([{ w: 82.5, r: 5 }, { w: 82.5, r: 3 }])!.kind, 'hold', 'reps fell away');
+  assert.equal(sq([{ w: 82.5, r: 5, rpe: 10 }])!.kind, 'hold', 'a grind');
+  assert.deepEqual(sq([{ w: 100, r: 5 }], '2026-08-20'), { kind: 'back', kg: 90, reps: 5, text: 'It’s been 6 weeks: start around 90 kg and build back up.' });
+  const db = f.suggestFor(make('2026-09-25', 'flat-db-press', [{ w: 24, r: 8 }]), 'flat-db-press', 'x', '2026-09-29');
+  assert.equal(db!.kg, 26, 'dumbbells: 2 kg a hand');
+  const pu = f.suggestFor(make('2026-09-25', 'push-up', [{ w: 0, r: 15 }, { w: 0, r: 15 }]), 'push-up', 'x', '2026-09-29');
+  assert.deepEqual([pu!.kind, pu!.reps], ['reps', 16]);
+  assert.equal(f.suggestFor(make('2026-09-25', 'run', [{ w: 5, r: 1800 }]), 'run', 'x', '2026-09-29'), null, 'not for cardio');
+  // Use: planned working sets take the weight; warm-ups, typed and ticked sets don't.
+  const w = { exercises: [{ exerciseId: 'back-squat', sets: [{ w: 20, r: 10, kind: 'W' as const, done: false as const }, { w: 82.5, r: 5, done: false as const }, { w: 90, r: 3, done: false as const, typed: true as const }, { w: 80, r: 5 }] }] } as unknown as Workout;
+  const s = { kind: 'up' as const, kg: 85, reps: 5, text: '' };
+  assert.deepEqual(f.applySuggestion(w, 0, s).exercises[0].sets.map((x) => x.w), [20, 85, 90, 80]);
+  assert.equal(f.usesSuggestion(w, 0, s), false);
+});
+
+test('challenges: every kind counts right, links round-trip, bad links are refused, and it all survives a backup', async () => {
+  const f = await import('../src/fun.ts');
+  let l = newLog('Sam', at('2026-09-01'));
+  const did = (day: string, ex: string, sets: { w: number; r: number }[]) => {
+    l = startWorkout(l, undefined, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, a.id, true, at(day) + 1_800_000).log;
+  };
+  did('2026-09-09', 'push-up', [{ w: 0, r: 60 }]); // before the start: doesn't count
+  did('2026-09-10', 'push-up', [{ w: 0, r: 50 }, { w: 0, r: 50 }]);
+  did('2026-09-11', 'push-up', [{ w: 0, r: 60 }]);
+  did('2026-09-12', 'push-up', [{ w: 0, r: 100 }]);
+  did('2026-09-12', 'plank', [{ w: 0, r: 120 }, { w: 0, r: 185 }]);
+  did('2026-09-13', 'run', [{ w: 30, r: 9000 }]); did('2026-09-20', 'run', [{ w: 21, r: 6500 }]);
+  const v = viewOf(l);
+  const p = (id: string) => f.challengeProgress(v, { id, start: '2026-09-10' }, '2026-09-14')!;
+  assert.deepEqual([p('pushups-7x100').done, p('pushups-7x100').completedOn], [2, undefined], 'two days of 100');
+  assert.deepEqual([p('plank-3min').done, p('plank-3min').completedOn], [185, '2026-09-12']);
+  assert.deepEqual([p('workouts-12').done, p('run-50k').done], [6, 51]);
+  assert.equal(p('run-50k').completedOn, '2026-09-20', 'the 50th km came on the second run');
+  assert.equal(p('pushups-7x100').daysLeft, 2);
+  assert.equal(f.challengeProgress(v, { id: 'pushups-7x100', start: '2026-09-10' }, '2026-09-20')!.over, true);
+  assert.equal(f.challengeUnit(p('plank-3min').def, v), 'sec');
+  // Links: the whole challenge in the URL, checked on the way in.
+  const d = { name: 'Match my 85 kg Barbell Back Squat', kind: 'best' as const, exerciseId: 'back-squat', target: 85, days: 30, from: 'Sam' };
+  const link = f.challengeLink(d);
+  assert.match(link, /^https:\/\/app\.getuplift\.pro\/challenge\?c=[A-Za-z0-9_-]+$/);
+  assert.deepEqual(f.readChallenge(link), d);
+  assert.deepEqual(f.readChallenge(link.split('c=')[1]), d, 'the code alone works too');
+  assert.equal(f.challengeId(d), f.challengeId({ ...d, from: 'Someone else' }), 'same challenge, same id');
+  for (const bad of [{ ...d, exerciseId: 'u_custom' }, { ...d, target: -1 }, { ...d, days: 1000 }, { ...d, kind: 'hack' }, { ...d, name: '' }]) {
+    assert.equal(f.readChallenge(f.challengeLink(bad as never)), null, JSON.stringify(bad));
+  }
+  assert.equal(f.readChallenge('https://example.com/?c=%%%'), null);
+  assert.equal(f.readChallenge('not a link'), null);
+  // Backup keeps the new profile fields, and drops junk.
+  l = putProfile(l, l.profiles[0].id, { weeklyGoal: 3, trainDays: [4, 0, 2], trainTime: '07:00', progression: { step: 5 },
+    challenges: [{ id: 'plank-3min', start: '2026-09-10' }, { id: f.challengeId(d), start: '2026-09-12', def: d }] });
+  const back = parseBackup(serialize(l)).log.profiles[0];
+  assert.deepEqual([back.weeklyGoal, back.trainDays, back.trainTime, back.progression], [3, [0, 2, 4], '07:00', { step: 5 }]);
+  assert.deepEqual(back.challenges, [{ id: 'plank-3min', start: '2026-09-10' }, { id: f.challengeId(d), start: '2026-09-12', def: d }]);
+  const junk = JSON.parse(serialize(l));
+  (junk.log ?? junk).profiles[0] = { ...(junk.log ?? junk).profiles[0], weeklyGoal: 99, trainTime: '25:00', challenges: [{ id: 'x', start: 'soon' }, { id: 'y', start: '2026-09-01', def: { kind: 'best' } }] };
+  const clean = parseBackup(JSON.stringify(junk)).log.profiles[0];
+  assert.deepEqual([clean.weeklyGoal, clean.trainTime, clean.challenges], [undefined, undefined, []]);
+});

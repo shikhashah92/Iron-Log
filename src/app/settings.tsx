@@ -2,11 +2,11 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
-import { plural, type Settings as S, type Theme } from '../model';
+import { num, plural, putProfile, type Settings as S, type Theme } from '../model';
 import { useLog, useTheme } from '../store';
 import { useBackup } from '../backupActions';
 import { clearSnapshots } from '../safety';
-import { confirm, notify } from '../io';
+import { confirm, menu, notify } from '../io';
 import { isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
 import { Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../ui';
 import { goBack } from '../components';
@@ -22,6 +22,12 @@ const ago = (ms?: number) => {
 };
 
 export default function Settings() {
+  async function progression() {
+    const steps = [1.25, 2.5, 5];
+    const pick = await menu('Weight suggestions', [...steps.map((n) => ({ label: `On, ${num(n)} kg steps${n === 2.5 ? ' (usual)' : ''}` })), { label: 'Off' }]);
+    if (pick === null) return;
+    update((l) => putProfile(l, v.profile.id, { progression: pick < steps.length ? { step: steps[pick] } : { off: true } }));
+  }
   const { log, v, update, erase } = useLog();
   const { c } = useTheme();
   const s = log.settings;
@@ -68,6 +74,11 @@ export default function Settings() {
         { id: '0', label: 'Off' }, { id: '60', label: '1:00' }, { id: '90', label: '1:30' }, { id: '120', label: '2:00' }, { id: '180', label: '3:00' },
       ]} />
       <T v="small" style={{ marginTop: space.xs }}>Starts when you tick a set as done.</T>
+      <Gap h={space.sm} />
+      <Card pad={false} style={{ paddingHorizontal: space.lg }}>
+        <Row left={icon('trending-up')} title="Weight suggestions" subtitle={v.profile.progression?.off ? 'Off' : `“Beat last time”, going up ${num(v.profile.progression?.step ?? 2.5)} kg at a time`} right={chevron} onPress={progression} />
+        <Row left={icon('calendar-outline')} title="Training reminders" subtitle={v.profile.trainDays?.length ? `${v.profile.trainDays.map((d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d]).join(', ')} at ${v.profile.trainTime ?? '07:00'}` : 'Your training days in your own calendar'} right={chevron} onPress={() => router.push('/training')} last />
+      </Card>
       <Gap />
       <T v="label">People</T>
       <Gap h={space.sm} />

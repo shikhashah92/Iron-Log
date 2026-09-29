@@ -3,10 +3,12 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../../store';
 import { useBackup } from '../../backupActions';
-import { duration, fmtDur, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
+import { duration, fmtDur, putProfile, putWorkout, startWorkout, upNext, viewOf, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
 import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
-import { AddButton, Empty, ExRow, InstallNudge, Section, Stat } from '../../components';
+import { AddButton, Empty, ExRow, InstallNudge, Ring, Section, Stat } from '../../components';
+import { challengeProgress, challengeUnit, daysOff, easeBack, goalStreak, monthName, pastYou, prevMonth, weekProgress, wrapped } from '../../fun';
+import { menu } from '../../io';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
 import { radius, sans, space } from '../../theme';
 import { useNow } from '../../timer';
@@ -76,6 +78,11 @@ export default function Home() {
           <><Banner text="It’s been a week since your last backup." action="Back up" onPress={backup.exportLocked} /><Gap h={space.md} /></>
         ) : null}
 
+        <WelcomeBack />
+        <GoalCard />
+        <WrappedCard />
+        <PastYou />
+        <ChallengeCard />
         <Recap />
 
         {v.entries.length ? (
@@ -164,5 +171,157 @@ function Recap() {
         </View>
       )}
     </Card>
+  );
+}
+
+const GOAL_CHOICES = [2, 3, 4, 5, 6];
+/** The weekly goal: a ring that fills with each workout this week. First, one question: how many a week? */
+function GoalCard() {
+  const { v, update } = useLog();
+  const { c } = useTheme();
+  const goal = v.profile.weeklyGoal;
+  const set = (n: number) => update((l) => putProfile(l, v.profile.id, { weeklyGoal: n }));
+  if (!goal) {
+    return (
+      <Card style={{ marginBottom: space.md, gap: space.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <Ionicons name="radio-button-on-outline" size={20} color={c.accent} />
+          <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>Set a weekly goal</T>
+        </View>
+        <T v="small">How many workouts a week? A ring fills as you go, and rest days never break anything.</T>
+        <View style={{ flexDirection: 'row', gap: space.sm }}>
+          {GOAL_CHOICES.map((n) => (
+            <Pressable key={n} accessibilityRole="button" accessibilityLabel={`${n} workouts a week`} onPress={() => set(n)}
+              style={({ pressed }) => ({ flex: 1, minHeight: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? c.brand : c.chip })}>
+              <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 20 }}>{n}</T>
+            </Pressable>
+          ))}
+        </View>
+        <T v="small" center style={{ fontSize: 12 }}>workouts a week · 3 is a great start</T>
+      </Card>
+    );
+  }
+  const iso = today();
+  const p = weekProgress(v, iso, goal);
+  const streak = goalStreak(v, iso, goal);
+  async function change() {
+    const pick = await menu('Workouts a week', GOAL_CHOICES.map((n) => ({ label: `${n}${n === goal ? ' (now)' : ''}` })));
+    if (pick !== null) set(GOAL_CHOICES[pick]);
+  }
+  return (
+    <Card style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+      <Ring done={p.done} goal={goal} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 19 }}>{p.met ? (p.done > goal ? `Goal smashed: ${p.done} this week` : 'Weekly goal met') : `${plural(p.left, 'workout')} to go`}</T>
+        <T v="small">{p.met ? 'Everything from here is a bonus.' : p.daysLeft ? `${plural(p.daysLeft + 1, 'day')} left this week, today included.` : 'Last day of the week: today counts.'}</T>
+        {streak > 1 ? <T v="small" style={{ fontWeight: '700' }} color={c.accent}>{streak} weeks in a row</T> : null}
+        {!v.profile.trainDays ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/training')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+            <Ionicons name="calendar-outline" size={14} color={c.accent} />
+            <T v="small" style={{ fontWeight: '700' }} color={c.accent}>Remind me on my training days</T>
+          </Pressable>
+        ) : null}
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Weekly goal: ${goal}. Change`} onPress={change} hitSlop={10}>
+        <T v="small" style={{ fontWeight: '700' }} color={c.accent}>Goal {goal}</T>
+      </Pressable>
+    </Card>
+  );
+}
+
+/** After 10 days or more off: no guilt, just an easy way back in (the usual workout, lighter). */
+function WelcomeBack() {
+  const { v, update } = useLog();
+  const { c } = useTheme();
+  const iso = today();
+  const off = daysOff(v, iso);
+  if (v.active || off === null || off < 10) return null;
+  const n = upNext(v, iso);
+  const t = v.workouts.find((w) => !w.active && w.templateId)?.templateId ?? n.templateId;
+  const tpl = v.templates.find((x) => x.id === t);
+  if (!tpl) return null;
+  function ease() {
+    update((l) => { const s = startWorkout(l, tpl!.id); const a = viewOf(s).active; return a ? putWorkout(s, easeBack(a, 0.8)) : s; });
+    router.push('/active');
+  }
+  return (
+    <Card style={{ marginBottom: space.md, gap: space.sm, borderColor: c.accent }}>
+      <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 20 }}>Welcome back, {v.profile.name.split(' ')[0]}</T>
+      <T v="small" style={{ color: c.text }}>It’s been {off} days. Breaks happen: the best workout is the one you start. Ease back in with {tpl.name} at about 80% of your usual weights.</T>
+      <Button title={`Ease back in: ${tpl.name}`} icon="play" onPress={ease} />
+    </Card>
+  );
+}
+
+/** The first week of a month: last month, wrapped, one tap away. */
+function WrappedCard() {
+  const { log, v, update } = useLog();
+  const { c } = useTheme();
+  const iso = today();
+  const month = prevMonth(iso.slice(0, 7));
+  if (Number(iso.slice(8)) > 7 || log.settings.wrappedSeen === month) return null;
+  const r = wrapped(v, month);
+  if (!r) return null;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${monthName(month)}, wrapped: ${plural(r.workouts, 'workout')}. Open`} onPress={() => router.push({ pathname: '/wrapped', params: { month } })}>
+      <View style={{ backgroundColor: c.onAccent, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, padding: space.lg, marginBottom: space.md, gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <T style={{ flex: 1, fontSize: 13, fontWeight: '700', letterSpacing: 1 }} color={c.brand}>{monthName(month).toUpperCase()}, WRAPPED</T>
+          <Pressable accessibilityRole="button" accessibilityLabel="Hide" hitSlop={10} onPress={() => update((l) => ({ ...l, settings: { ...l.settings, wrappedSeen: month } }))}>
+            <Ionicons name="close" size={18} color="#9AA0A6" />
+          </Pressable>
+        </View>
+        <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 26 }} color="#F7F7F5">{plural(r.workouts, 'workout')}{r.bests ? `, ${plural(r.bests, 'personal best')}` : ''}</T>
+        <T v="small" color="#9AA0A6">See your month and share it →</T>
+      </View>
+    </Pressable>
+  );
+}
+
+/** "Three months ago your best squat was 60 kg. Now: 85 kg." Only when you've clearly got stronger. */
+function PastYou() {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const p = pastYou(v, today());
+  if (!p) return null;
+  return (
+    <Card style={{ marginBottom: space.md, flexDirection: 'row', gap: space.md, alignItems: 'center' }}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="time-outline" size={22} color={c.accent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <T v="label" style={{ fontSize: 11 }}>Past you</T>
+        <T style={{ color: c.text }}>{p.label}, your best {getEx(v, p.exerciseId).name} was {num(p.was)} kg. Now it’s <T style={{ fontWeight: '800' }}>{num(p.now)} kg</T>.</T>
+      </View>
+    </Card>
+  );
+}
+
+/** Challenges you're in (the ones still running), with a bar each. */
+function ChallengeCard() {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const iso = today();
+  const live = (v.profile.challenges ?? []).map((j) => challengeProgress(v, j, iso)).filter((p): p is NonNullable<typeof p> => !!p && !p.completedOn && !p.over);
+  if (!live.length) return null;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel="Your challenges" onPress={() => router.push('/challenges')}>
+      <Card style={{ marginBottom: space.md, gap: space.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <Ionicons name="flag-outline" size={20} color={c.accent} />
+          <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>{live.length === 1 ? 'Your challenge' : 'Your challenges'}</T>
+          <Ionicons name="chevron-forward" size={18} color={c.muted} />
+        </View>
+        {live.slice(0, 2).map((p) => (
+          <View key={p.def.name} style={{ gap: 4 }}>
+            <T numberOfLines={1} style={{ fontWeight: '600' }}>{p.def.name}</T>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: c.chip, overflow: 'hidden' }}>
+              <View style={{ width: `${Math.min(1, p.done / p.target) * 100}%`, height: '100%', backgroundColor: c.brand, borderRadius: 4 }} />
+            </View>
+            <T v="small">{num(p.done)} of {num(p.target)} {challengeUnit(p.def, v)} · {plural(p.daysLeft + 1, 'day')} left</T>
+          </View>
+        ))}
+      </Card>
+    </Pressable>
   );
 }

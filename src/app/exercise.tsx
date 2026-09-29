@@ -1,5 +1,6 @@
 import { Image, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { shareChallenge } from './challenges';
 import { addExercises, delExercise, getEx, hasArt, historyOf, isCustom, isTimed, num, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
 import { useLog, useTheme } from '../store';
 import { confirm, notify, pickImage } from '../io';
@@ -53,6 +54,10 @@ export default function ExerciseDetail() {
         {custom && <Tag label="Custom" tone="accent" />}
         {pr > 0 && <Tag label={`PR ${num(pr)}`} />}
       </View>
+      {pr > 0 && !custom && ex.weightType !== 'bodyweight' ? (
+        <Button title={`Challenge a friend to match ${num(pr)} kg`} icon="flag-outline" kind="ghost" style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 40 }}
+          onPress={() => shareChallenge({ name: `Match my ${num(pr)} kg ${ex.name}`, kind: 'best', exerciseId: id, target: pr, days: 30 }, v.profile.name)} />
+      ) : null}
       <Gap h={space.md} />
       {uri ? (
         <>
