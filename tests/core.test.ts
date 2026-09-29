@@ -755,3 +755,30 @@ test('come back: training reminders (app and service worker agree), the year gri
   assert.equal(f.nextMonth('2026-12'), '2027-01');
   assert.equal(f.prevMonth('2026-01'), '2025-12');
 });
+
+test('beat last time: a step up when it went well (two if easy), hold on a grind, ease back after a break, a rep for bodyweight', async () => {
+  const f = await import('../src/fun.ts');
+  const make = (day: string, ex: string, sets: { w: number; r: number; rpe?: number; kind?: 'W' }[]) => {
+    let l = newLog('A', at('2026-01-01'));
+    l = startWorkout(l, undefined, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    return viewOf(finishWorkout(l, a.id, true, at(day) + 3_600_000).log);
+  };
+  const sq = (sets: { w: number; r: number; rpe?: number; kind?: 'W' }[], day = '2026-09-25') => f.suggestFor(make(day, 'back-squat', sets), 'back-squat', 'x', '2026-09-29');
+  assert.deepEqual(sq([{ w: 20, r: 10, kind: 'W' }, { w: 82.5, r: 5 }, { w: 82.5, r: 5 }, { w: 82.5, r: 5 }]), { kind: 'up', kg: 85, reps: 5, text: 'Try 85 kg × 5 today: +2.5 kg on last time.' });
+  assert.equal(sq([{ w: 82.5, r: 5, rpe: 7 }, { w: 82.5, r: 5, rpe: 7 }])!.kg, 87.5, 'easy: two steps');
+  assert.equal(sq([{ w: 82.5, r: 5 }, { w: 82.5, r: 3 }])!.kind, 'hold', 'reps fell away');
+  assert.equal(sq([{ w: 82.5, r: 5, rpe: 10 }])!.kind, 'hold', 'a grind');
+  assert.deepEqual(sq([{ w: 100, r: 5 }], '2026-08-20'), { kind: 'back', kg: 90, reps: 5, text: 'It’s been 6 weeks: start around 90 kg and build back up.' });
+  const db = f.suggestFor(make('2026-09-25', 'flat-db-press', [{ w: 24, r: 8 }]), 'flat-db-press', 'x', '2026-09-29');
+  assert.equal(db!.kg, 26, 'dumbbells: 2 kg a hand');
+  const pu = f.suggestFor(make('2026-09-25', 'push-up', [{ w: 0, r: 15 }, { w: 0, r: 15 }]), 'push-up', 'x', '2026-09-29');
+  assert.deepEqual([pu!.kind, pu!.reps], ['reps', 16]);
+  assert.equal(f.suggestFor(make('2026-09-25', 'run', [{ w: 5, r: 1800 }]), 'run', 'x', '2026-09-29'), null, 'not for cardio');
+  // Use: planned working sets take the weight; warm-ups, typed and ticked sets don't.
+  const w = { exercises: [{ exerciseId: 'back-squat', sets: [{ w: 20, r: 10, kind: 'W' as const, done: false as const }, { w: 82.5, r: 5, done: false as const }, { w: 90, r: 3, done: false as const, typed: true as const }, { w: 80, r: 5 }] }] } as unknown as Workout;
+  const s = { kind: 'up' as const, kg: 85, reps: 5, text: '' };
+  assert.deepEqual(f.applySuggestion(w, 0, s).exercises[0].sets.map((x) => x.w), [20, 85, 90, 80]);
+  assert.equal(f.usesSuggestion(w, 0, s), false);
+});

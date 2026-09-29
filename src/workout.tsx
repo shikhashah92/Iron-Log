@@ -5,10 +5,11 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   addSetTo, addWarmups, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
-  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, toggleDone, unfinished,
+  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, unfinished,
   type Log, type SetRow, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
+import { applySuggestion, suggestFor, usesSuggestion } from './fun';
 import { startRest, startSteps } from './timer';
 import { ask, choose, confirm, menu, notify } from './io';
 import { ExArt, openExercise } from './components';
@@ -150,6 +151,20 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
                 <T v="small" style={{ flex: 1, fontStyle: 'italic' }}>Last time: {earlierNote}</T>
               </View>
             ) : null}
+            {live && !v.profile.progression?.off && (() => {
+              // Beat last time: a suggestion from last session (up a step, hold, or ease back after a break). "Use" fills it in.
+              const sg = suggestFor(v, e.exerciseId, workout.id, today(), v.profile.progression?.step);
+              if (!sg || e.sets.every((x) => x.done !== false)) return null;
+              const used = sg.kind === 'hold' || usesSuggestion(workout, i, sg);
+              return (
+                <Pressable accessibilityRole="button" accessibilityLabel={used ? sg.text : `${sg.text} Use it`} disabled={used} onPress={() => edit((w) => applySuggestion(w, i, sg))}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm, backgroundColor: c.accentSoft, borderRadius: radius.sm, paddingHorizontal: space.sm, paddingVertical: 6 }}>
+                  <Ionicons name={sg.kind === 'up' || sg.kind === 'reps' ? 'trending-up' : sg.kind === 'back' ? 'refresh' : 'pause-outline'} size={16} color={c.accent} />
+                  <T v="small" style={{ flex: 1, color: c.text }}>{sg.text}</T>
+                  {!used ? <T v="small" style={{ fontWeight: '800' }} color={c.accent}>Use</T> : sg.kind !== 'hold' ? <Ionicons name="checkmark" size={16} color={c.accent} /> : null}
+                </Pressable>
+              );
+            })()}
             <SetTable workout={workout} i={i} prev={prev?.sets ?? []} live={live} restSecs={log.settings.restSecs} />
             {live && (ex.yoga === 'hold' || ex.metric === 'secs') && (() => {
               const j = e.sets.findIndex((x) => x.done === false && x.r > 0);

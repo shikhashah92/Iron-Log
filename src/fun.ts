@@ -1,6 +1,6 @@
 // The come-back loop: a weekly goal, milestones worth celebrating, and (further down) reminders, recaps, suggestions
 // and challenges. Everything is worked out from the log on the phone; nothing here is stored except your choices.
-import { addDays, daysAgo, getEx, isTimed, num, recordsOf, secsOf, totals as totalsOf, volumeOf, weekStart, type View, type Workout } from './model.ts';
+import { addDays, daysAgo, getEx, isTimed, lastEntry, num, recordsOf, secsOf, totals as totalsOf, volumeOf, weekStart, type View, type Workout } from './model.ts';
 
 // ---- weekly goal ----
 /** This week so far (Monday to Sunday) against the goal. */
@@ -188,3 +188,44 @@ export function pastYou(v: View, date: string) {
   }
   return null;
 }
+
+// ---- beat last time ----
+export interface Suggestion { kind: 'up' | 'hold' | 'back' | 'reps'; kg: number; reps: number; text: string }
+const r2 = (n: number, step: number) => Math.round(n / step) * step;
+/**
+ * What to aim for on an exercise today, from last time: one step up if every working set hit its reps (two if it felt
+ * easy, RPE 7 or less), the same weight if the reps fell away or it was a grind (RPE 9.5+), about 90% after 3 weeks
+ * off. Bodyweight: one more rep. `step`: your usual jump (dumbbells go up 2 kg a hand). Null when there's no history.
+ */
+export function suggestFor(v: View, exerciseId: string, except: string, date: string, step = 2.5): Suggestion | null {
+  const ex = getEx(v, exerciseId);
+  if (isTimed(ex) || ex.metric === 'secs') return null;
+  const last = lastEntry(v, exerciseId, except);
+  const sets = last ? last.sets.filter((s) => s.kind !== 'W') : [];
+  if (!last || !sets.length) return null;
+  const top = Math.max(...sets.map((s) => s.w));
+  const atTop = sets.filter((s) => s.w === top);
+  const reps = atTop[0].r;
+  const clean = atTop.every((s) => s.r >= reps);
+  const rpe = Math.max(0, ...atTop.map((s) => s.rpe ?? 0));
+  const inc = ex.weightType === 'dumbbell' ? 2 : step;
+  const off = daysAgo(last.date, date);
+  if (ex.weightType === 'bodyweight' && top <= 0) {
+    return clean && rpe < 9.5 ? { kind: 'reps', kg: top, reps: reps + 1, text: `Try ${reps + 1} reps a set today, one more than last time.` } : null;
+  }
+  if (off > 21) {
+    const kg = Math.max(inc, r2(top * 0.9, inc));
+    return { kind: 'back', kg, reps, text: `It’s been ${Math.round(off / 7)} weeks: start around ${num(kg)} kg and build back up.` };
+  }
+  if (!clean || rpe >= 9.5) return { kind: 'hold', kg: top, reps, text: `Stay at ${num(top)} kg and aim for ${reps} on every set.` };
+  const up = rpe && rpe <= 7 ? 2 * inc : inc;
+  return { kind: 'up', kg: top + up, reps, text: `Try ${num(top + up)} kg × ${reps} today: +${num(up)} kg on last time${rpe && rpe <= 7 ? ', which felt easy' : ''}.` };
+}
+/** Put the suggested weight (or reps) in the exercise's planned sets. Warm-ups, ticked and typed sets stay as they are. */
+export const applySuggestion = (w: Workout, i: number, s: Suggestion): Workout => ({ ...w, exercises: w.exercises.map((e, j) => (j !== i ? e : { ...e,
+  sets: e.sets.map((x) => (x.done === false && !x.typed && x.kind !== 'W' ? { ...x, ...(s.kind === 'reps' ? { r: s.reps } : { w: s.kg }) } : x)) })) });
+/** The planned sets already use it. */
+export const usesSuggestion = (w: Workout, i: number, s: Suggestion) => {
+  const planned = w.exercises[i]?.sets.filter((x) => x.done === false && x.kind !== 'W') ?? [];
+  return planned.length > 0 && planned.every((x) => (s.kind === 'reps' ? x.r === s.reps : x.w === s.kg));
+};
