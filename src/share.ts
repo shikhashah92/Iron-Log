@@ -2,6 +2,7 @@
 // Nothing is uploaded: the image goes straight to the share sheet, with a line of text that links to the site.
 import { bestSet, fmtDur, fmtSet, getEx, isTimed, longDate, num, plural, recordLabel, recordsOf, workoutStats, type View, type Workout } from './model';
 import { workoutCalories } from './calories';
+import { newMilestones } from './fun';
 import { saveFile } from './io';
 
 export const SITE_URL = 'https://getuplift.pro';
@@ -12,7 +13,8 @@ const FONT = '"Archivo", system-ui, sans-serif';
 /** The caption that goes with the picture (WhatsApp keeps it; Instagram drops text, so the picture carries the link too). */
 export function shareText(v: View, w: Workout): string {
   const n = recordsOf(v, w).length;
-  return `${w.name} done 💪${n ? ` ${plural(n, 'new personal best')}!` : ''}\nLogged with Uplift, a free workout log that keeps everything on your phone: ${SITE_URL}`;
+  const ms = newMilestones(v, w, v.profile.weeklyGoal ?? 0)[0];
+  return `${w.name} done 💪${n ? ` ${plural(n, 'new personal best')}!` : ''}${ms ? ` ${ms.title} 🏅` : ''}\nLogged with Uplift, a free workout log that keeps everything on your phone: ${SITE_URL}`;
 }
 
 function wrap(ctx: CanvasRenderingContext2D, text: string, max: number, lines: number): string[] {
@@ -97,6 +99,17 @@ export async function drawWorkout(v: View, w: Workout): Promise<Blob> {
     });
     y += h + 56;
   }
+
+  // Milestones this workout reached ("100 workouts", "5 tonnes lifted: about an elephant").
+  for (const ms of newMilestones(v, w, v.profile.weeklyGoal ?? 0).slice(0, 2)) {
+    ctx.fillStyle = CARD; roundRect(ctx, PAD, y, W - PAD * 2, 104, 28); ctx.fill();
+    ctx.fillStyle = MINT; ctx.beginPath(); ctx.arc(PAD + 56, y + 52, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.font = `800 30px ${FONT}`; ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.fillText('★', PAD + 56, y + 63); ctx.textAlign = 'left';
+    ctx.font = `800 38px ${FONT}`; ctx.fillStyle = TEXT; ctx.fillText(fit(ctx, ms.title, W - PAD * 2 - 140), PAD + 108, y + 48);
+    ctx.font = `500 30px ${FONT}`; ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, ms.detail, W - PAD * 2 - 140), PAD + 108, y + 86);
+    y += 104 + 24;
+  }
+  y += 16;
 
   // What was done: each exercise with its best set.
   ctx.font = `700 34px ${FONT}`; ctx.fillStyle = MUTED; ctx.fillText('WORKOUT', PAD, y); y += 30;

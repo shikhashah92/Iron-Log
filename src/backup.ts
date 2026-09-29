@@ -1,7 +1,7 @@
 // Pure backup logic (no platform I/O) so it can be unit tested with node --test.
 import {
   isRealDay, MAX_R, MAX_W, MEASURES, SCHEMA_VERSION, WEIGHT_TYPES, timeOfDayName,
-  type CustomExercise, type Images, type Log, type SetRow, type Template, type WeighIn, type Workout,
+  type ChallengeDef, type CustomExercise, type Images, type Log, type SetRow, type Template, type WeighIn, type Workout,
 } from './model.ts';
 import { BUILT_IN } from './exercises.ts';
 import { STRONG_BUILT_IN } from './strong.ts';
@@ -62,7 +62,19 @@ export function parseBackup(text: string): { log: Log; images: Images } {
       ...(['daily', '3x', 'weekly', 'off'].includes(p.weighEvery) ? { weighEvery: p.weighEvery } : {}),
       ...(isRealDay(p.dob) ? { dob: p.dob } : {}),
       ...(['female', 'male', 'other'].includes(p.gender) ? { gender: p.gender } : {}),
-      ...(['lose', 'muscle', 'strength', 'fit'].includes(p.goal) ? { goal: p.goal } : {}) };
+      ...(['lose', 'muscle', 'strength', 'fit'].includes(p.goal) ? { goal: p.goal } : {}),
+      ...(Number.isInteger(p.weeklyGoal) && p.weeklyGoal >= 1 && p.weeklyGoal <= 7 ? { weeklyGoal: p.weeklyGoal } : {}),
+      ...(Array.isArray(p.trainDays) && p.trainDays.length <= 7 && p.trainDays.every((d: unknown) => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6)
+        ? { trainDays: [...new Set<number>(p.trainDays)].sort() } : {}),
+      ...(typeof p.trainTime === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(p.trainTime) ? { trainTime: p.trainTime } : {}),
+      ...(p.progression && typeof p.progression === 'object' ? { progression: {
+        ...(p.progression.off === true ? { off: true as const } : {}),
+        ...(Number.isFinite(p.progression.step) && p.progression.step > 0 && p.progression.step <= 20 ? { step: p.progression.step } : {}) } } : {}),
+      ...(Array.isArray(p.challenges) ? { challenges: p.challenges.slice(0, 50).flatMap((c: any) => {
+        if (!isId(c?.id) || !isRealDay(c.start)) return [];
+        const def = c.def === undefined ? undefined : challengeDef(c.def);
+        return c.def !== undefined && !def ? [] : [{ id: c.id, start: c.start, ...(def ? { def } : {}) }];
+      }) } : {}) };
   });
   if (!profiles.length) throw new Error('Backup is damaged: it has no profiles.');
   const pids = new Set<string>(profiles.map((p: any) => p.id));
@@ -137,6 +149,7 @@ export function parseBackup(text: string): { log: Log; images: Images } {
       ...(s.backupChoice === 'file' || s.backupChoice === 'local' ? { backupChoice: s.backupChoice } : {}),
       ...(s.setupPending === true ? { setupPending: true as const } : {}),
       ...(isRealDay(s.recapSeen) ? { recapSeen: s.recapSeen } : {}),
+      ...(typeof s.wrappedSeen === 'string' && /^\d{4}-\d{2}$/.test(s.wrappedSeen) ? { wrappedSeen: s.wrappedSeen } : {}),
       ...(s.units && ['kg', 'lb'].includes(s.units.weight) && ['cm', 'in'].includes(s.units.length) ? { units: { weight: s.units.weight, length: s.units.length } } : {}),
     },
   };
@@ -144,6 +157,17 @@ export function parseBackup(text: string): { log: Log; images: Images } {
 }
 
 /** A template's (or a workout's planned) exercises: bad or repeated entries are dropped. */
+/** A challenge's terms, from a backup or a friend's link: everything checked, anything odd refused (null). */
+export function challengeDef(v: any): ChallengeDef | null {
+  const kinds = ['days', 'daily', 'total', 'best', 'workouts'];
+  if (!v || typeof v !== 'object' || !isName(v.name, 60) || !kinds.includes(v.kind)) return null;
+  if (!Number.isFinite(v.target) || v.target <= 0 || v.target > 100_000 || !Number.isInteger(v.days) || v.days < 1 || v.days > 366) return null;
+  if (v.kind !== 'workouts' && !BUILT_IN.some((e) => e.id === v.exerciseId)) return null; // links only name built-in exercises
+  if (v.kind === 'daily' && !(Number.isFinite(v.perDay) && v.perDay > 0 && v.perDay <= 100_000)) return null;
+  return { name: v.name.trim(), kind: v.kind, target: v.target, days: v.days,
+    ...(v.kind !== 'workouts' ? { exerciseId: v.exerciseId } : {}), ...(v.kind === 'daily' ? { perDay: v.perDay } : {}),
+    ...(isName(v.from, 40) ? { from: v.from.trim() } : {}) };
+}
 const isGroup = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 200;
 const isRpe = (v: unknown): v is number => Number.isFinite(v) && (v as number) >= 1 && (v as number) <= 10;
 

@@ -3,10 +3,12 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../../store';
 import { useBackup } from '../../backupActions';
-import { duration, fmtDur, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
+import { duration, fmtDur, putProfile, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
 import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
-import { AddButton, Empty, ExRow, InstallNudge, Section, Stat } from '../../components';
+import { AddButton, Empty, ExRow, InstallNudge, Ring, Section, Stat } from '../../components';
+import { goalStreak, weekProgress } from '../../fun';
+import { menu } from '../../io';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
 import { radius, sans, space } from '../../theme';
 import { useNow } from '../../timer';
@@ -76,6 +78,7 @@ export default function Home() {
           <><Banner text="It’s been a week since your last backup." action="Back up" onPress={backup.exportLocked} /><Gap h={space.md} /></>
         ) : null}
 
+        <GoalCard />
         <Recap />
 
         {v.entries.length ? (
@@ -163,6 +166,55 @@ function Recap() {
           {tpl && <Button title={`Try the ${tpl.name} template`} icon="arrow-forward" kind="secondary" onPress={() => router.push({ pathname: '/template', params: { id: tpl.id } })} style={{ minHeight: 40 }} />}
         </View>
       )}
+    </Card>
+  );
+}
+
+const GOAL_CHOICES = [2, 3, 4, 5, 6];
+/** The weekly goal: a ring that fills with each workout this week. First, one question: how many a week? */
+function GoalCard() {
+  const { v, update } = useLog();
+  const { c } = useTheme();
+  const goal = v.profile.weeklyGoal;
+  const set = (n: number) => update((l) => putProfile(l, v.profile.id, { weeklyGoal: n }));
+  if (!goal) {
+    return (
+      <Card style={{ marginBottom: space.md, gap: space.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <Ionicons name="radio-button-on-outline" size={20} color={c.accent} />
+          <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>Set a weekly goal</T>
+        </View>
+        <T v="small">How many workouts a week? A ring fills as you go, and rest days never break anything.</T>
+        <View style={{ flexDirection: 'row', gap: space.sm }}>
+          {GOAL_CHOICES.map((n) => (
+            <Pressable key={n} accessibilityRole="button" accessibilityLabel={`${n} workouts a week`} onPress={() => set(n)}
+              style={({ pressed }) => ({ flex: 1, minHeight: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? c.brand : c.chip })}>
+              <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 20 }}>{n}</T>
+            </Pressable>
+          ))}
+        </View>
+        <T v="small" center style={{ fontSize: 12 }}>workouts a week · 3 is a great start</T>
+      </Card>
+    );
+  }
+  const iso = today();
+  const p = weekProgress(v, iso, goal);
+  const streak = goalStreak(v, iso, goal);
+  async function change() {
+    const pick = await menu('Workouts a week', GOAL_CHOICES.map((n) => ({ label: `${n}${n === goal ? ' (now)' : ''}` })));
+    if (pick !== null) set(GOAL_CHOICES[pick]);
+  }
+  return (
+    <Card style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+      <Ring done={p.done} goal={goal} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 19 }}>{p.met ? (p.done > goal ? `Goal smashed: ${p.done} this week` : 'Weekly goal met') : `${plural(p.left, 'workout')} to go`}</T>
+        <T v="small">{p.met ? 'Everything from here is a bonus.' : p.daysLeft ? `${plural(p.daysLeft + 1, 'day')} left this week, today included.` : 'Last day of the week: today counts.'}</T>
+        {streak > 1 ? <T v="small" style={{ fontWeight: '700' }} color={c.accent}>{streak} weeks in a row</T> : null}
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Weekly goal: ${goal}. Change`} onPress={change} hitSlop={10}>
+        <T v="small" style={{ fontWeight: '700' }} color={c.accent}>Goal {goal}</T>
+      </Pressable>
     </Card>
   );
 }

@@ -682,3 +682,34 @@ test('forgotten workouts, the Monday recap, what to do today, and when a backup 
   assert.equal(backupDue(l, at('2026-09-28')), true, 'never backed up, plenty logged');
   assert.equal(backupDue({ ...l, settings: { ...l.settings, backupChoice: 'local' } }, at('2026-09-28')), true, 'a week of changes still nudges');
 });
+
+test('weekly goal ring and streak; milestones cross on the right workout and never twice', async () => {
+  const { weekProgress, goalStreak, milestonesOf, newMilestones, progressLabel } = await import('../src/fun.ts');
+  let l = newLog('A', at('2026-08-01'));
+  const did = (day: string, ex = bench, sets = [{ w: 100, r: 5 }, { w: 100, r: 5 }]) => {
+    l = startWorkout(l, undefined, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, a.id, true, at(day) + 3_600_000).log;
+    return viewOf(l).workouts[0];
+  };
+  // Goal 2: met in weeks of 7 and 14 Sep, missed 21 Sep (1), this week (28 Sep) 1 so far.
+  for (const d of ['2026-09-08', '2026-09-10', '2026-09-15', '2026-09-17', '2026-09-22']) did(d);
+  did('2026-09-28');
+  const v = viewOf(l);
+  assert.deepEqual(weekProgress(v, '2026-09-28', 2), { done: 1, goal: 2, left: 1, daysLeft: 6, met: false });
+  assert.equal(goalStreak(v, '2026-09-28', 2), 0, 'last week was missed');
+  assert.equal(goalStreak(v, '2026-09-20', 2), 2);
+  // 6 workouts × 1 tonne (100 × 5 × 2): 1 and 5 workouts, 1 and 5 tonnes, and a streak of 2 weeks met.
+  const { earned, upcoming } = milestonesOf(v, 2);
+  assert.deepEqual(earned.map((e) => e.id), ['workouts-1', 'tonnes-1', 'goals-1', 'workouts-5', 'tonnes-5']);
+  assert.equal(earned.find((e) => e.id === 'workouts-5')!.date, '2026-09-22');
+  assert.equal(progressLabel(upcoming.find((u) => u.track === 'workouts')!), '6 of 10 workouts');
+  assert.equal(earned.filter((e) => e.id === 'goals-1').length, 1, 'meeting the goal again isn’t a new milestone');
+  const last = did('2026-09-30');
+  assert.deepEqual(newMilestones(viewOf(l), last, 2).map((e) => e.id), [], 'the 7th: nothing new (goal met again, but not a longer streak)');
+  assert.equal(milestonesOf(viewOf(l), 0).upcoming.some((u) => u.track === 'goals'), false, 'no goal: no goal trophies');
+  // Surya Namaskar rounds add up to the mala.
+  const s = did('2026-10-01', 'surya-namaskar', [{ w: 108, r: 1800 }]);
+  assert.ok(newMilestones(viewOf(l), s, 2).some((e) => e.id === 'surya-108'));
+});

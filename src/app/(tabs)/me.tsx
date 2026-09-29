@@ -11,7 +11,8 @@ import { useBackup } from '../../backupActions';
 import { useLog, useTheme } from '../../store';
 import { notify, saveFile } from '../../io';
 import { BASE, isAndroid, isIOS } from '../../pwa';
-import { Empty, RANGES, rangeLabel, rangeStart, Section, Stat, TimeChart, type Range } from '../../components';
+import { Empty, MilestoneCard, RANGES, rangeLabel, rangeStart, Section, Stat, TimeChart, type Range } from '../../components';
+import { milestonesOf, progressLabel } from '../../fun';
 import { Banner, Button, Card, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { font, sans, space } from '../../theme';
 
@@ -58,6 +59,7 @@ export default function Me() {
     <Screen>
       <Header title="Me" right={<IconButton icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />} />
       <BackupDue />
+      <TrophyShelf />
 
       <Section title="Weight" right={<Button title="Log weigh-in" icon="add" kind={weighInDue(v.weighIns, every, iso) ? 'primary' : 'secondary'} onPress={() => router.push('/weigh-in')} style={{ minHeight: 40, paddingHorizontal: space.md }} />}>
         {now ? (
@@ -171,5 +173,19 @@ function BackupDue() {
       {backup.modal}
       <Gap h={space.md} />
     </>
+  );
+}
+
+/** The latest trophies and the closest next ones; "See all" for the whole shelf. */
+function TrophyShelf() {
+  const { v } = useLog();
+  const { earned, upcoming } = milestonesOf(v, v.profile.weeklyGoal ?? 0);
+  if (!earned.length && !v.workouts.some((w) => !w.active)) return null;
+  const next = [...upcoming].sort((a, b) => b.progress / b.at - a.progress / a.at).slice(0, 2);
+  return (
+    <Section title={`Trophies · ${earned.length}`} right={<Button title="See all" kind="ghost" onPress={() => router.push('/trophies')} style={{ minHeight: 36, paddingHorizontal: space.sm }} />}>
+      {[...earned].reverse().slice(0, 3).map((e) => <MilestoneCard key={e.id} icon={e.icon} title={e.title} detail={e.detail} sub={dateWithYear(e.date)} />)}
+      {next.map((u) => <MilestoneCard key={u.id} icon={u.icon} title={u.title} detail={u.detail} sub={progressLabel(u)} locked />)}
+    </Section>
   );
 }

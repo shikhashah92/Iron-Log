@@ -64,6 +64,7 @@ function Root() {
         <Stack.Screen name="about" options={modal} />
         <Stack.Screen name="install" options={modal} />
         <Stack.Screen name="plates" options={modal} />
+        <Stack.Screen name="trophies" options={modal} />
       </Stack.Protected>
       <Stack.Protected guard={!log}>
         <Stack.Screen name="welcome" />

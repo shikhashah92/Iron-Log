@@ -1,6 +1,6 @@
 // App-specific building blocks shared by screens.
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
@@ -505,4 +505,68 @@ export function ShareWorkout({ w, primary }: { w: Workout; primary?: boolean }) 
   }, [v, w]);
   const share = () => shareWorkout(v, w, blob ?? undefined).catch(() => notify('Couldn’t make the picture', 'Try again in a moment.'));
   return <Button title="Share workout" icon="share-social-outline" kind={primary ? 'primary' : 'secondary'} onPress={share} style={primary ? undefined : { minHeight: 40 }} />;
+}
+
+/** A progress ring (the weekly goal): mint arc over a quiet track, the count in the middle. */
+export function Ring({ done, goal, size = 88 }: { done: number; goal: number; size?: number }) {
+  const { c } = useTheme();
+  const stroke = size * 0.12, r = (size - stroke) / 2, len = 2 * Math.PI * r, frac = Math.min(1, goal ? done / goal : 0);
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="image" accessibilityLabel={`${done} of ${goal} workouts this week`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ position: 'absolute', transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c.chip} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c.brand} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={`${len * frac} ${len}`} style={{ transition: REDUCED_MOTION ? undefined : 'stroke-dasharray .8s cubic-bezier(.2,.8,.2,1)' }} />
+      </svg>
+      <T style={{ fontFamily: sans, fontWeight: '800', fontSize: size * 0.26 }}>{done}<T style={{ fontSize: size * 0.16 }} color={c.muted}>/{goal}</T></T>
+    </View>
+  );
+}
+
+const CONFETTI = ['#16E29A', '#087F56', '#F2B233', '#2F6FDB', '#F7F7F5', '#D93A3A'];
+/**
+ * A short burst of confetti and a buzz, for a personal best, a milestone or a closed ring. Kept small (40 pieces,
+ * about a second and a half) and skipped entirely when the phone asks for reduced motion.
+ */
+export function Confetti({ on }: { on: boolean }) {
+  const [t] = useState(() => new Animated.Value(0));
+  const [pieces] = useState(() => Array.from({ length: 40 }, (_, i) => ({
+    x: (i * 37) % 100, drift: ((i * 53) % 60) - 30, delay: (i % 8) * 40, spin: ((i * 97) % 720) - 360, color: CONFETTI[i % CONFETTI.length], w: 6 + (i % 3) * 3,
+  })));
+  useEffect(() => {
+    if (!on || REDUCED_MOTION) return;
+    try { navigator.vibrate?.([30, 40, 60]); } catch { /* not supported */ }
+    t.setValue(0);
+    Animated.timing(t, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+  }, [on, t]);
+  if (!on || REDUCED_MOTION) return null;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 10 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {pieces.map((p, i) => (
+        <Animated.View key={i} style={{ position: 'absolute', left: `${p.x}%`, top: -20, width: p.w, height: p.w * 1.6, borderRadius: 2, backgroundColor: p.color,
+          opacity: t.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 1, 0] }),
+          transform: [
+            { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, 700 + p.delay] }) },
+            { translateX: t.interpolate({ inputRange: [0, 1], outputRange: [0, p.drift * 3] }) },
+            { rotate: t.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${p.spin}deg`] }) },
+          ] }} />
+      ))}
+    </View>
+  );
+}
+
+/** A milestone as a small card: icon in a mint circle, title and the fun line. `locked`: greyed, with progress. */
+export function MilestoneCard({ icon, title, detail, sub, locked }: { icon: string; title: string; detail: string; sub?: string; locked?: boolean }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm, opacity: locked ? 0.55 : 1 }}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: locked ? c.chip : c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={(locked ? 'lock-closed-outline' : icon) as keyof typeof Ionicons.glyphMap} size={22} color={locked ? c.muted : c.accent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <T style={{ fontWeight: '700' }}>{title}</T>
+        <T v="small">{detail}{sub ? ` · ${sub}` : ''}</T>
+      </View>
+    </View>
+  );
 }
