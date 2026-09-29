@@ -7,7 +7,7 @@ import { duration, fmtDur, putProfile, putWorkout, startWorkout, upNext, viewOf,
 import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
 import { AddButton, Empty, ExRow, InstallNudge, Ring, Section, Stat } from '../../components';
-import { daysOff, easeBack, goalStreak, monthName, pastYou, prevMonth, weekProgress, wrapped } from '../../fun';
+import { challengeProgress, challengeUnit, daysOff, easeBack, goalStreak, monthName, pastYou, prevMonth, weekProgress, wrapped } from '../../fun';
 import { menu } from '../../io';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
 import { radius, sans, space } from '../../theme';
@@ -82,6 +82,7 @@ export default function Home() {
         <GoalCard />
         <WrappedCard />
         <PastYou />
+        <ChallengeCard />
         <Recap />
 
         {v.entries.length ? (
@@ -293,5 +294,34 @@ function PastYou() {
         <T style={{ color: c.text }}>{p.label}, your best {getEx(v, p.exerciseId).name} was {num(p.was)} kg. Now it’s <T style={{ fontWeight: '800' }}>{num(p.now)} kg</T>.</T>
       </View>
     </Card>
+  );
+}
+
+/** Challenges you're in (the ones still running), with a bar each. */
+function ChallengeCard() {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const iso = today();
+  const live = (v.profile.challenges ?? []).map((j) => challengeProgress(v, j, iso)).filter((p): p is NonNullable<typeof p> => !!p && !p.completedOn && !p.over);
+  if (!live.length) return null;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel="Your challenges" onPress={() => router.push('/challenges')}>
+      <Card style={{ marginBottom: space.md, gap: space.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <Ionicons name="flag-outline" size={20} color={c.accent} />
+          <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>{live.length === 1 ? 'Your challenge' : 'Your challenges'}</T>
+          <Ionicons name="chevron-forward" size={18} color={c.muted} />
+        </View>
+        {live.slice(0, 2).map((p) => (
+          <View key={p.def.name} style={{ gap: 4 }}>
+            <T numberOfLines={1} style={{ fontWeight: '600' }}>{p.def.name}</T>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: c.chip, overflow: 'hidden' }}>
+              <View style={{ width: `${Math.min(1, p.done / p.target) * 100}%`, height: '100%', backgroundColor: c.brand, borderRadius: 4 }} />
+            </View>
+            <T v="small">{num(p.done)} of {num(p.target)} {challengeUnit(p.def, v)} · {plural(p.daysLeft + 1, 'day')} left</T>
+          </View>
+        ))}
+      </Card>
+    </Pressable>
   );
 }

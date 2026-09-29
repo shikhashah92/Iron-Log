@@ -31,6 +31,14 @@ function Recovery() {
   );
 }
 
+// A friend's challenge link opened before Uplift is set up here: keep it, and open it once there's a log (tabs layout).
+try {
+  if (typeof location !== 'undefined' && /\/challenge$/.test(location.pathname)) {
+    const c = new URLSearchParams(location.search).get('c');
+    if (c && c.length < 2000) localStorage.setItem('uplift.pendingChallenge', c);
+  }
+} catch { /* private mode: the link just opens normally */ }
+
 function Root() {
   const { ready, log, corrupt } = useStore();
   const { c, dark } = useTheme();
@@ -67,6 +75,8 @@ function Root() {
         <Stack.Screen name="trophies" options={modal} />
         <Stack.Screen name="training" options={modal} />
         <Stack.Screen name="wrapped" options={modal} />
+        <Stack.Screen name="challenges" options={modal} />
+        <Stack.Screen name="challenge" options={modal} />
       </Stack.Protected>
       <Stack.Protected guard={!log}>
         <Stack.Screen name="welcome" />

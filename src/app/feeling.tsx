@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { FEELINGS, recordsOf, weekStart } from '../model';
-import { newMilestones } from '../fun';
+import { challengeProgress, newMilestones } from '../fun';
 import { Confetti, goBack, MilestoneCard, Records, Ring, ShareWorkout } from '../components';
 import { useLog } from '../store';
 import { useEditWorkout } from '../workout';
@@ -21,7 +21,9 @@ export default function Feeling() {
   // This workout closed the ring: it's the goal-th of its week.
   const nth = w ? v.workouts.filter((x) => !x.active && weekStart(x.date) === weekStart(w.date) && x.startedAt <= w.startedAt).length : 0;
   const closed = !!goal && nth === goal;
-  const party = !!w && (closed || ms.length > 0 || recordsOf(v, w).length > 0);
+  // Challenges this workout finished off.
+  const won = w ? (v.profile.challenges ?? []).map((j) => challengeProgress(v, j, w.date)).filter((p) => p?.completedOn === w.date).map((p) => p!.def.name) : [];
+  const party = !!w && (closed || ms.length > 0 || won.length > 0 || recordsOf(v, w).length > 0);
   const pick = (feeling: string) => { if (feeling) edit((w) => ({ ...w, feeling })); goBack(); };
   return (
     <View style={{ flex: 1 }}>
@@ -38,8 +40,9 @@ export default function Feeling() {
               </View>
             </View>
           )}
+          {won.map((name) => <MilestoneCard key={name} icon="flag" title="Challenge complete" detail={name} />)}
           {ms.map((x) => <MilestoneCard key={x.id} icon={x.icon} title={x.title} detail={x.detail} />)}
-          {ms.length ? <Gap h={space.sm} /> : null}
+          {ms.length || won.length ? <Gap h={space.sm} /> : null}
           <Records v={v} w={w} />
           <Gap h={space.sm} />
           <ShareWorkout w={w} />

@@ -34,6 +34,13 @@ export default function TabsLayout() {
   // The rest timer belongs to the workout in progress: once it's saved, discarded or deleted, the timer goes too.
   useEffect(() => { if (!live) stopRest(); }, [live]);
   useForgottenWorkout();
+  // A challenge link that arrived before setup (see the root layout): open it now.
+  useEffect(() => {
+    if (pending) return;
+    let c: string | null = null;
+    try { c = localStorage.getItem('uplift.pendingChallenge'); } catch { /* fine */ }
+    if (c && !location.pathname.endsWith('/challenge')) router.push({ pathname: '/challenge', params: { c } });
+  }, [pending]);
   return (
     <View style={{ flex: 1 }}>
     <Tabs screenOptions={({ navigation }) => ({

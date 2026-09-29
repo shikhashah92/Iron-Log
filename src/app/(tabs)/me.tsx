@@ -60,6 +60,10 @@ export default function Me() {
       <Header title="Me" right={<IconButton icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />} />
       <BackupDue />
       <TrophyShelf />
+      <Card pad={false} style={{ paddingHorizontal: space.lg, marginBottom: space.md }}>
+        <Row left={<Ionicons name="flag-outline" size={22} color={c.accent} />} title="Challenges" last right={<Ionicons name="chevron-forward" size={20} color={c.muted} />}
+          subtitle={(v.profile.challenges ?? []).length ? `${plural((v.profile.challenges ?? []).length, 'challenge')} joined` : 'Solo challenges, or dare a friend'} onPress={() => router.push('/challenges')} />
+      </Card>
 
       <Section title="Weight" right={<Button title="Log weigh-in" icon="add" kind={weighInDue(v.weighIns, every, iso) ? 'primary' : 'secondary'} onPress={() => router.push('/weigh-in')} style={{ minHeight: 40, paddingHorizontal: space.md }} />}>
         {now ? (

@@ -1,6 +1,7 @@
 // The come-back loop: a weekly goal, milestones worth celebrating, and (further down) reminders, recaps, suggestions
 // and challenges. Everything is worked out from the log on the phone; nothing here is stored except your choices.
-import { addDays, daysAgo, getEx, isTimed, lastEntry, num, recordsOf, secsOf, totals as totalsOf, volumeOf, weekStart, type View, type Workout } from './model.ts';
+import { addDays, daysAgo, getEx, isTimed, lastEntry, num, recordsOf, secsOf, totals as totalsOf, volumeOf, weekStart, type ChallengeDef, type JoinedChallenge, type SetRow, type View, type Workout } from './model.ts';
+import { challengeDef } from './backup.ts';
 
 // ---- weekly goal ----
 /** This week so far (Monday to Sunday) against the goal. */
@@ -229,3 +230,66 @@ export const usesSuggestion = (w: Workout, i: number, s: Suggestion) => {
   const planned = w.exercises[i]?.sets.filter((x) => x.done === false && x.kind !== 'W') ?? [];
   return planned.length > 0 && planned.every((x) => (s.kind === 'reps' ? x.r === s.reps : x.w === s.kg));
 };
+
+// ---- challenges ----
+/** Built-in challenges, each within a set number of days of joining. */
+export const CHALLENGES: readonly (ChallengeDef & { id: string; about: string })[] = [
+  { id: 'surya-30', name: '30 days of Surya Namaskar', kind: 'days', exerciseId: 'surya-namaskar', target: 30, days: 42, about: 'Sun salutations on 30 different days, within 6 weeks.' },
+  { id: 'pushups-7x100', name: '100 push-ups a day for a week', kind: 'daily', exerciseId: 'push-up', perDay: 100, target: 7, days: 7, about: 'Split them up however you like, as long as the day adds up to 100.' },
+  { id: 'plank-3min', name: 'The 3-minute plank', kind: 'best', exerciseId: 'plank', target: 180, days: 28, about: 'Hold one plank for 3 minutes within 4 weeks. Build up a little each time.' },
+  { id: 'workouts-12', name: '12 workouts in 4 weeks', kind: 'workouts', target: 12, days: 28, about: 'Three a week, any kind: lifting, a run, yoga, a class.' },
+  { id: 'run-50k', name: 'Run 50 km in a month', kind: 'total', exerciseId: 'run', target: 50, days: 30, about: 'Every run counts toward the total.' },
+  { id: 'walk-100k', name: 'Walk 100 km in a month', kind: 'total', exerciseId: 'walk', target: 100, days: 31, about: 'About 3.3 km a day. Every walk counts.' },
+];
+export const defOf = (c: JoinedChallenge) => c.def ?? CHALLENGES.find((x) => x.id === c.id);
+/** The unit a challenge counts in: kg or reps for a best set, km, seconds or rounds for a total. */
+export function challengeUnit(d: ChallengeDef, v: View): string {
+  if (d.kind === 'workouts') return 'workouts';
+  if (d.kind === 'days') return 'days';
+  const ex = getEx(v, d.exerciseId!);
+  if (ex.kind === 'cardio') return 'km';
+  if (ex.yoga === 'rounds') return 'rounds';
+  if (ex.yoga === 'hold' || ex.metric === 'secs') return 'sec';
+  return d.kind === 'best' && ex.weightType !== 'bodyweight' ? 'kg' : 'reps';
+}
+/** How much of it a day's sets add up to (reps, km, seconds or rounds), or its best single set (kg, reps or seconds). */
+function amount(v: View, d: ChallengeDef, sets: SetRow[], best: boolean) {
+  const unit = challengeUnit(d, v);
+  const f = (s: SetRow) => (unit === 'kg' || unit === 'km' || unit === 'rounds' ? s.w : s.r);
+  return best ? Math.max(0, ...sets.map(f)) : sets.reduce((t, s) => t + f(s), 0);
+}
+/** Where you are: `done` of `target`, days left, and the day it was completed (if it has been). */
+export function challengeProgress(v: View, c: JoinedChallenge, date: string) {
+  const d = defOf(c);
+  if (!d) return null;
+  const end = addDays(c.start, d.days - 1);
+  const inside = (day: string) => day >= c.start && day <= end;
+  const byDay = new Map<string, SetRow[]>();
+  for (const e of v.entries) if (inside(e.date) && e.exerciseId === d.exerciseId) byDay.set(e.date, [...(byDay.get(e.date) ?? []), ...e.sets.filter((s) => s.kind !== 'W')]);
+  const days = [...byDay.keys()].sort();
+  let done = 0, completedOn: string | undefined;
+  const hit = (n: number, day: string) => { if (!completedOn && n >= d.target) completedOn = day; };
+  if (d.kind === 'workouts') {
+    const ws = v.workouts.filter((w) => !w.active && inside(w.date)).map((w) => w.date).sort();
+    ws.forEach((day, k) => hit(k + 1, day)); done = ws.length;
+  } else if (d.kind === 'days') { days.forEach((day, k) => hit(k + 1, day)); done = days.length; }
+  else if (d.kind === 'daily') { for (const day of days) if (amount(v, d, byDay.get(day)!, false) >= (d.perDay ?? 0)) hit(++done, day); }
+  else if (d.kind === 'total') { for (const day of days) hit(done += amount(v, d, byDay.get(day)!, false), day); done = Math.round(done * 10) / 10; }
+  else { for (const day of days) { done = Math.max(done, amount(v, d, byDay.get(day)!, true)); hit(done, day); } }
+  const left = daysAgo(date, end);
+  return { def: d, done, target: d.target, end, daysLeft: Math.max(0, left), completedOn, over: !completedOn && left < 0 };
+}
+
+// ---- challenge links: the whole challenge travels in the link, so no server is needed ----
+const toB64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const fromB64 = (s: string) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (ch) => ch.charCodeAt(0)));
+export const APP_URL = 'https://app.getuplift.pro';
+export const challengeLink = (d: ChallengeDef) => `${APP_URL}/challenge?c=${toB64(JSON.stringify(d))}`;
+/** A challenge from a link or a pasted code: decoded and checked like a backup. Null for anything else. */
+export function readChallenge(linkOrCode: string): ChallengeDef | null {
+  const code = /[?&]c=([A-Za-z0-9_-]+)/.exec(linkOrCode)?.[1] ?? (/^[A-Za-z0-9_-]+$/.test(linkOrCode.trim()) ? linkOrCode.trim() : '');
+  if (!code || code.length > 2000) return null;
+  try { return challengeDef(JSON.parse(fromB64(code))); } catch { return null; }
+}
+/** An id for a friend's challenge, the same for the same challenge (so accepting twice doesn't add it twice). */
+export const challengeId = (d: ChallengeDef) => `link-${toB64(JSON.stringify([d.kind, d.exerciseId, d.target, d.perDay, d.days, d.name])).slice(0, 40)}`;
