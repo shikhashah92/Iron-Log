@@ -515,8 +515,8 @@ export function Ring({ done, goal, size = 88 }: { done: number; goal: number; si
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="image" accessibilityLabel={`${done} of ${goal} workouts this week`}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ position: 'absolute', transform: 'rotate(-90deg)' }}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c.chip} strokeWidth={stroke} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c.brand} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={`${len * frac} ${len}`} style={{ transition: REDUCED_MOTION ? undefined : 'stroke-dasharray .8s cubic-bezier(.2,.8,.2,1)' }} />
+        {frac > 0 && <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c.brand} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={`${len * frac} ${len}`} style={{ transition: REDUCED_MOTION ? undefined : 'stroke-dasharray .8s cubic-bezier(.2,.8,.2,1)' }} />}
       </svg>
       <T style={{ fontFamily: sans, fontWeight: '800', fontSize: size * 0.26 }}>{done}<T style={{ fontSize: size * 0.16 }} color={c.muted}>/{goal}</T></T>
     </View>

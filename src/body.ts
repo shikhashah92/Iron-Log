@@ -119,6 +119,37 @@ export function googleCalendarURL(every: Exclude<WeighEvery, 'off'>, start: Date
   return `https://calendar.google.com/calendar/render?${q}`;
 }
 
+// ---- training-day reminders ----
+export const DAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const; // 0 = Monday
+const trainRule = (days: number[]) => `FREQ=WEEKLY;BYDAY=${[...days].sort().map((d) => DAY_CODES[d]).join(',')}`;
+/**
+ * Your training days as one repeating hour-long event, with a reminder when it starts and a link that opens Uplift.
+ * `day`: the first date (YYYYMMDD, a training day); `time`: "HHMM". Must match self.trainingICS in public/reminder-ics.js.
+ */
+export function trainingICS(days: number[], time: string, day: string): string {
+  const h = Number(time.slice(0, 2)), mi = time.slice(2);
+  const end = `${String(Math.min(23, h + 1)).padStart(2, '0')}${mi}`;
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Uplift//Training//EN', 'BEGIN:VEVENT',
+    `UID:uplift-training@uplift`, `DTSTAMP:${day}T000000`, `DTSTART:${day}T${time}00`, `DTEND:${day}T${end}00`, `RRULE:${trainRule(days)}`,
+    'SUMMARY:Workout (Uplift)', 'DESCRIPTION:Open Uplift for what to do today', 'URL:https://app.getuplift.pro/workout',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Time to train', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
+}
+/** The first of your training days on or after `from`. */
+export function trainingStart(days: number[], from: Date): Date {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (let i = 0; i < 7 && !days.includes((d.getDay() + 6) % 7); i++) d.setDate(d.getDate() + 1);
+  return d;
+}
+export const trainingFile = (days: number[], time: string, start: Date) =>
+  `reminders/training.ics?days=${[...days].sort().map((d) => DAY_CODES[d]).join(',')}&time=${time}&day=${dayKey(start).replace(/-/g, '')}`;
+export function googleTrainingURL(days: number[], time: string, start: Date): string {
+  const day = dayKey(start).replace(/-/g, '');
+  const h = Number(time.slice(0, 2));
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: 'Workout (Uplift)', details: 'Open Uplift for what to do today: https://app.getuplift.pro/workout',
+    dates: `${day}T${time}00/${day}T${String(Math.min(23, h + 1)).padStart(2, '0')}${time.slice(2)}00`, recur: `RRULE:${trainRule(days)}` });
+  return `https://calendar.google.com/calendar/render?${q}`;
+}
+
 // ---- units (body measurements only; lifts stay in kg) ----
 export type WeightUnit = 'kg' | 'lb';
 export type LengthUnit = 'cm' | 'in';

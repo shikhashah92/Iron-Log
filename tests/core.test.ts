@@ -713,3 +713,45 @@ test('weekly goal ring and streak; milestones cross on the right workout and nev
   const s = did('2026-10-01', 'surya-namaskar', [{ w: 108, r: 1800 }]);
   assert.ok(newMilestones(viewOf(l), s, 2).some((e) => e.id === 'surya-108'));
 });
+
+test('come back: training reminders (app and service worker agree), the year grid, Wrapped, welcome back, past you', async () => {
+  const b = await import('../src/body.ts');
+  const f = await import('../src/fun.ts');
+  const { runInNewContext } = await import('node:vm');
+  const ctx: { self: { trainingICS?: (days: string, time: string, day: string) => string | null } } = { self: {} };
+  runInNewContext(readFileSync('public/reminder-ics.js', 'utf8'), ctx);
+  assert.equal(ctx.self.trainingICS!('MO,WE,FR', '0700', '20260930'), b.trainingICS([4, 0, 2], '0700', '20260930'));
+  assert.match(b.trainingICS([0, 2, 4], '1830', '20260930'), /DTEND:20260930T193000\r\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\r\n/);
+  for (const bad of [['XX', '0700'], ['MO,MO', '0700'], ['MO', '2500'], ['MO', '7']]) assert.equal(ctx.self.trainingICS!(bad[0], bad[1], '20260930'), null, bad.join());
+  assert.equal(b.trainingStart([0, 2, 4], new Date(2026, 8, 29)).getDate(), 30, 'Tuesday → the Wednesday');
+  assert.match(b.trainingFile([4, 0], '0700', new Date(2026, 8, 30)), /days=MO,FR&time=0700&day=20260930$/);
+
+  let l = newLog('A', at('2026-01-01'));
+  const did = (day: string, sets = [{ w: 60, r: 5 }], ex = 'back-squat') => {
+    l = startWorkout(l, undefined, at(day));
+    const a = viewOf(l).active!;
+    l = putWorkout(l, { ...a, exercises: [{ exerciseId: ex, sets }] }, at(day));
+    l = finishWorkout(l, a.id, true, at(day) + 45 * 60_000).log;
+  };
+  did('2026-06-13'); did('2026-09-02', [{ w: 80, r: 5 }]); did('2026-09-03', [{ w: 85, r: 3 }]); did('2026-09-15', [{ w: 5.2, r: 1900 }], 'run');
+  const v = viewOf(l);
+  const g = f.yearGrid(v, '2026-09-29', 52);
+  assert.equal(g.length, 52);
+  assert.equal(g.at(-1)![0].day, '2026-09-28');
+  assert.deepEqual(g.at(-1)!.map((d) => d.n), [0, 0, -1, -1, -1, -1, -1], 'the rest of this week is still to come');
+  assert.equal(g.flat().find((d) => d.day === '2026-09-02')!.n, 1);
+  const r = f.wrapped(v, '2026-09')!;
+  assert.deepEqual([r.workouts, r.days, r.minutes, r.km, r.bests], [3, 3, 135, 5.2, 2]);
+  assert.deepEqual(r.heaviest, { exerciseId: 'back-squat', kg: 85 });
+  assert.equal(r.bestWeek.start, '2026-08-31');
+  assert.equal(f.wrapped(v, '2026-08'), null);
+  assert.deepEqual(f.wrappedMonths(v), ['2026-09', '2026-06']);
+  assert.equal(f.daysOff(v, '2026-09-29'), 14);
+  const planned = { ...v.workouts[0], exercises: [{ exerciseId: 'back-squat', sets: [{ w: 85, r: 5, done: false as const }, { w: 90, r: 5, done: false as const, typed: true as const }] }] };
+  assert.deepEqual(f.easeBack(planned).exercises[0].sets.map((s) => s.w), [67.5, 90], 'hints eased, typed kept');
+  // Three months after 13 June: 60 kg then, 85 in the last 3 weeks.
+  assert.deepEqual(f.pastYou(v, '2026-09-12'), { exerciseId: 'back-squat', label: 'Three months ago', was: 60, now: 85, gain: 25 });
+  assert.equal(f.pastYou(v, '2026-10-03'), null, 'a month after 85 kg, still 85 (and nothing lifted in the last 3 weeks): nothing to brag about');
+  assert.equal(f.nextMonth('2026-12'), '2027-01');
+  assert.equal(f.prevMonth('2026-01'), '2025-12');
+});

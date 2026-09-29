@@ -2,7 +2,7 @@
 // Nothing is uploaded: the image goes straight to the share sheet, with a line of text that links to the site.
 import { bestSet, fmtDur, fmtSet, getEx, isTimed, longDate, num, plural, recordLabel, recordsOf, workoutStats, type View, type Workout } from './model';
 import { workoutCalories } from './calories';
-import { newMilestones } from './fun';
+import { monthName, newMilestones, type Wrapped } from './fun';
 import { saveFile } from './io';
 
 export const SITE_URL = 'https://getuplift.pro';
@@ -142,4 +142,57 @@ export async function shareWorkout(v: View, w: Workout, ready?: Blob): Promise<b
   const blob = ready ?? await drawWorkout(v, w);
   const name = `uplift-${w.date}-${w.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'workout'}.png`;
   return saveFile(name, blob, 'image/png', shareText(v, w));
+}
+
+/** A month as a story picture: the big numbers, your most-done exercise and heaviest lift, bests and milestones. */
+export async function drawWrapped(v: View, r: Wrapped): Promise<Blob> {
+  await Promise.all(['500', '700', '800'].map((wt) => document.fonts?.load(`${wt} 48px Archivo`).catch(() => null)));
+  const canvas = Object.assign(document.createElement('canvas'), { width: W, height: H });
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W * 0.2, 520, 0, W * 0.2, 520, 900);
+  glow.addColorStop(0, 'rgba(22,226,154,0.25)'); glow.addColorStop(1, 'rgba(22,226,154,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  let y = 150;
+  try { const mark = await loadImage('brand/mark-reversed.svg'); ctx.drawImage(mark, PAD - 8, y - 72, 104, 104); } catch { /* wordmark only */ }
+  ctx.font = `800 68px ${FONT}`; ctx.fillStyle = TEXT; ctx.fillText('up', PAD + 112, y);
+  ctx.fillStyle = MINT; ctx.fillText('lift', PAD + 112 + ctx.measureText('up').width, y);
+  y = 330;
+  ctx.font = `700 44px ${FONT}`; ctx.fillStyle = MINT; ctx.fillText(`${monthName(r.month).toUpperCase()}, WRAPPED`, PAD, y);
+  y += 190;
+  ctx.font = `800 190px ${FONT}`; ctx.fillStyle = TEXT; ctx.fillText(String(r.workouts), PAD, y);
+  const wW = ctx.measureText(String(r.workouts)).width;
+  ctx.font = `700 56px ${FONT}`; ctx.fillStyle = TEXT; ctx.fillText(r.workouts === 1 ? 'workout' : 'workouts', PAD + wW + 28, y - 30);
+  ctx.font = `500 40px ${FONT}`; ctx.fillStyle = MUTED; ctx.fillText(`on ${plural(r.days, 'day')}`, PAD + wW + 28, y + 26);
+  y += 90;
+  const tiles: [string, string][] = [['Time', !r.minutes ? '–' : r.minutes >= 60 ? `${Math.round(r.minutes / 60)} h` : `${r.minutes} min`],
+    r.volume ? ['Lifted', r.volume >= 1000 ? `${num(Math.round(r.volume / 100) / 10)} t` : `${num(Math.round(r.volume))} kg`] : r.km ? ['Distance', `${num(r.km)} km`] : ['Yoga', `${r.yoga} min`],
+    ['Personal bests', String(r.bests)]];
+  const bw = (W - PAD * 2 - 48) / 3;
+  tiles.forEach(([k, val], i) => {
+    const x = PAD + i * (bw + 24);
+    ctx.fillStyle = CARD; roundRect(ctx, x, y, bw, 180, 28); ctx.fill();
+    ctx.font = `600 30px ${FONT}`; ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, k, bw - 56), x + 32, y + 62);
+    ctx.font = `800 60px ${FONT}`; ctx.fillStyle = TEXT; ctx.fillText(fit(ctx, val, bw - 56), x + 32, y + 142);
+  });
+  y += 180 + 50;
+  const line = (label: string, value: string) => {
+    ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+    y += 70; ctx.font = `500 34px ${FONT}`; ctx.fillStyle = MUTED; ctx.fillText(label, PAD, y);
+    y += 56; ctx.font = `800 46px ${FONT}`; ctx.fillStyle = TEXT; ctx.fillText(fit(ctx, value, W - PAD * 2), PAD, y);
+    y += 44;
+  };
+  if (r.top) line('Most done', `${getEx(v, r.top.exerciseId).name} · ${plural(r.top.sets, 'set')}`);
+  if (r.heaviest) line('Heaviest lift', `${getEx(v, r.heaviest.exerciseId).name} · ${num(r.heaviest.kg)} kg`);
+  line('Best week', `${plural(r.bestWeek.workouts, 'workout')}, week of ${longDate(r.bestWeek.start).replace(/^\w+,? /, '')}`);
+  if (r.milestones.length) line('Milestones', r.milestones.slice(0, 2).map((m) => m.title).join(' · '));
+  ctx.fillStyle = MINT; roundRect(ctx, PAD, H - 210, W - PAD * 2, 120, 60); ctx.fill();
+  ctx.font = `800 44px ${FONT}`; ctx.fillStyle = INK; ctx.textAlign = 'center';
+  ctx.fillText('Track yours free · getuplift.pro', W / 2, H - 134); ctx.textAlign = 'left';
+  return new Promise((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('Could not make the picture'))), 'image/png'));
+}
+export const wrappedText = (r: Wrapped) =>
+  `My ${monthName(r.month)} on Uplift: ${plural(r.workouts, 'workout')}${r.bests ? `, ${plural(r.bests, 'personal best')}` : ''} 💪\nA free workout log that keeps everything on your phone: ${SITE_URL}`;
+export async function shareWrapped(v: View, r: Wrapped, ready?: Blob) {
+  return saveFile(`uplift-${r.month}-wrapped.png`, ready ?? await drawWrapped(v, r), 'image/png', wrappedText(r));
 }

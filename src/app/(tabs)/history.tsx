@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { monthName as fullMonth, wrappedMonths, yearGrid } from '../../fun';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, getEx, groupSets, longDate, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
@@ -163,6 +164,8 @@ function Trends() {
         <T v="small" style={{ marginTop: space.sm }}>Average {fmt(avg)} a week over the 11 weeks before this one.</T>
       </Section>
 
+      <YearMap />
+
       <Section title="Muscle groups · last 30 days">
         <T v="small" style={{ marginBottom: space.sm, fontSize: 12 }}>Working sets per group. A short bar is what you’ve been skipping.</T>
         {groups.map((g) => (
@@ -175,7 +178,42 @@ function Trends() {
           </View>
         ))}
       </Section>
+
+      <Section title="Monthly wraps" pad={false}>
+        <View style={{ paddingHorizontal: space.lg, paddingBottom: space.sm }}>
+          {wrappedMonths(v).slice(0, 12).map((m, i, all) => (
+            <Row key={m} title={`${fullMonth(m)} ${m.slice(0, 4)}`} subtitle={m === now.slice(0, 7) ? 'So far this month' : 'Tap for the story, and to share it'} last={i === all.length - 1}
+              right={<Ionicons name="chevron-forward" size={18} color={c.muted} />} onPress={() => router.push({ pathname: '/wrapped', params: { month: m } })} />
+          ))}
+        </View>
+      </Section>
     </>
+  );
+}
+
+/** The last year, a square a day: mint where you trained (darker for two workouts in a day). Scrolls back in time. */
+function YearMap() {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const now = today();
+  const grid = yearGrid(v, now, 52);
+  const days = grid.flat().filter((d) => d.n > 0).length;
+  const cell = 12, gap = 3;
+  return (
+    <Section title={`The last year · ${plural(days, 'day')} trained`}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} ref={(r) => { r?.scrollToEnd({ animated: false }); }} style={{ marginTop: space.xs }}>
+        <View style={{ flexDirection: 'row', gap }} accessibilityRole="image" accessibilityLabel={`Trained on ${plural(days, 'day')} in the last year`}>
+          {grid.map((week, i) => (
+            <View key={i} style={{ gap }}>
+              <T style={{ fontSize: 9, height: 12, width: cell }} color={c.muted}>{week[0].day.slice(8) <= '07' ? fullMonth(week[0].day.slice(0, 7)).slice(0, 1) : ''}</T>
+              {week.map((d) => (
+                <View key={d.day} style={{ width: cell, height: cell, borderRadius: 3, backgroundColor: d.n < 0 ? 'transparent' : d.n === 0 ? c.chip : c.brand, opacity: d.n === 1 ? 0.6 : 1 }} />
+              ))}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </Section>
   );
 }
 

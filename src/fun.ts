@@ -1,6 +1,6 @@
 // The come-back loop: a weekly goal, milestones worth celebrating, and (further down) reminders, recaps, suggestions
 // and challenges. Everything is worked out from the log on the phone; nothing here is stored except your choices.
-import { addDays, daysAgo, getEx, isTimed, num, recordsOf, secsOf, volumeOf, weekStart, type View, type Workout } from './model.ts';
+import { addDays, daysAgo, getEx, isTimed, num, recordsOf, secsOf, totals as totalsOf, volumeOf, weekStart, type View, type Workout } from './model.ts';
 
 // ---- weekly goal ----
 /** This week so far (Monday to Sunday) against the goal. */
@@ -106,4 +106,85 @@ export function progressLabel(u: Upcoming): string {
   const unit = { workouts: 'workouts', tonnes: 't', km: 'km', yoga: 'min', surya: 'rounds', bests: 'bests', goals: 'weeks' }[u.track];
   const n = u.track === 'tonnes' || u.track === 'km' ? num(Math.floor(u.progress * 10) / 10) : String(Math.floor(u.progress));
   return `${n} of ${num(u.at)} ${unit}`;
+}
+
+// ---- the year at a glance ----
+/** Workouts per day for the last `weeks` weeks (Monday first), oldest week first: the heatmap. */
+export function yearGrid(v: View, date: string, weeks = 52): { day: string; n: number }[][] {
+  const per = new Map<string, number>();
+  for (const w of v.workouts) if (!w.active) per.set(w.date, (per.get(w.date) ?? 0) + 1);
+  const first = addDays(weekStart(date), -7 * (weeks - 1));
+  return Array.from({ length: weeks }, (_, i) => Array.from({ length: 7 }, (_, d) => {
+    const day = addDays(first, i * 7 + d);
+    return { day, n: day > date ? -1 : per.get(day) ?? 0 }; // -1: still to come
+  }));
+}
+
+// ---- Monthly Wrapped ----
+const monthEnd = (m: string) => addDays(`${nextMonth(m)}-01`, -1);
+export const nextMonth = (m: string) => { const [y, mo] = m.split('-').map(Number); return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`; };
+export const prevMonth = (m: string) => { const [y, mo] = m.split('-').map(Number); return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`; };
+export const monthName = (m: string) => new Date(`${m}-01T12:00:00`).toLocaleDateString(undefined, { month: 'long' });
+/** A month in one story: totals, the exercise you did most, your heaviest lift, the best week, bests and milestones. */
+export function wrapped(v: View, month: string) {
+  const from = `${month}-01`, to = monthEnd(month);
+  const ws = v.workouts.filter((w) => !w.active && w.date >= from && w.date <= to);
+  if (!ws.length) return null;
+  const sets = new Map<string, number>(), heavy = new Map<string, number>();
+  let km = 0, yoga = 0, bests = 0;
+  for (const w of ws) {
+    bests += recordsOf(v, w).length;
+    for (const e of w.exercises) {
+      const ex = getEx(v, e.exerciseId);
+      const done = e.sets.filter((s) => s.done !== false && s.kind !== 'W');
+      sets.set(ex.id, (sets.get(ex.id) ?? 0) + done.length);
+      if (ex.kind === 'cardio') km += done.reduce((a, s) => a + s.w, 0);
+      else if (ex.kind === 'yoga') yoga += done.reduce((a, s) => a + secsOf(ex, s), 0) / 60;
+      else if (!isTimed(ex) && ex.weightType !== 'bodyweight') heavy.set(ex.id, Math.max(heavy.get(ex.id) ?? 0, ...done.map((s) => s.w)));
+    }
+  }
+  const top = [...sets].sort((a, b) => b[1] - a[1])[0];
+  const heaviest = [...heavy].sort((a, b) => b[1] - a[1])[0];
+  const weeks = new Map<string, number>();
+  for (const w of ws) weeks.set(weekStart(w.date), (weeks.get(weekStart(w.date)) ?? 0) + 1);
+  const best = [...weeks].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+  const t = totalsOf(v, from, to);
+  return {
+    month, workouts: ws.length, days: new Set(ws.map((w) => w.date)).size, minutes: t.minutes, volume: t.volume, km: Math.round(km * 10) / 10,
+    yoga: Math.round(yoga), bests, top: top ? { exerciseId: top[0], sets: top[1] } : undefined,
+    heaviest: heaviest && heaviest[1] > 0 ? { exerciseId: heaviest[0], kg: heaviest[1] } : undefined,
+    bestWeek: { start: best[0], workouts: best[1] },
+    milestones: milestonesOf(v, v.profile.weeklyGoal ?? 0).earned.filter((e) => e.date >= from && e.date <= to),
+  };
+}
+export type Wrapped = NonNullable<ReturnType<typeof wrapped>>;
+/** Months with at least one workout, newest first (for the list of past wraps). */
+export const wrappedMonths = (v: View) => [...new Set(v.workouts.filter((w) => !w.active).map((w) => w.date.slice(0, 7)))].sort().reverse();
+
+// ---- welcome back, and past you ----
+/** Days since your last finished workout (null: none yet). */
+export function daysOff(v: View, date: string): number | null {
+  const last = v.workouts.find((w) => !w.active);
+  return last ? daysAgo(last.date, date) : null;
+}
+/** Planned weights eased back (a return after a break): last time's hints × `factor`, rounded to 2.5 kg. Typed ones stay. */
+export const easeBack = (w: Workout, factor = 0.8): Workout => ({ ...w, exercises: w.exercises.map((e) => ({ ...e,
+  sets: e.sets.map((s) => (s.done === false && !s.typed && s.w > 0 ? { ...s, w: Math.max(0, Math.round((s.w * factor) / 2.5) * 2.5) } : s)) })) });
+/**
+ * "3 months ago your best squat was 60 kg; this month, 85." Your lift from about a year, 6 months, 3 months or a month
+ * ago (within 3 days of that date) against your best of the last 3 weeks: only when you've clearly got stronger.
+ */
+export function pastYou(v: View, date: string) {
+  for (const [days, label] of [[365, 'A year ago'], [182, 'Six months ago'], [91, 'Three months ago'], [30, 'A month ago']] as const) {
+    const then = v.entries.filter((e) => Math.abs(daysAgo(e.date, date) - days) <= 3);
+    const picks = then.map((e) => {
+      const ex = getEx(v, e.exerciseId);
+      if (isTimed(ex) || ex.weightType === 'bodyweight') return null;
+      const was = Math.max(0, ...e.sets.filter((s) => s.kind !== 'W').map((s) => s.w));
+      const now = Math.max(0, ...v.entries.filter((x) => x.exerciseId === e.exerciseId && daysAgo(x.date, date) <= 21).flatMap((x) => x.sets.filter((s) => s.kind !== 'W').map((s) => s.w)));
+      return was > 0 && now >= was * 1.05 ? { exerciseId: e.exerciseId, label, was, now, gain: now - was } : null;
+    }).filter((x): x is NonNullable<typeof x> => !!x).sort((a, b) => b.gain / b.was - a.gain / a.was);
+    if (picks[0]) return picks[0];
+  }
+  return null;
 }

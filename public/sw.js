@@ -1,7 +1,7 @@
 // Uplift service worker: the app opens instantly and works offline. Data itself lives in IndexedDB, not here.
 // Everything is relative to the worker's scope, so it works at a domain's root or in a sub-folder.
 // ponytail: old hashed bundles are dropped only when CACHE is bumped; fine for a few-MB app.
-const CACHE = 'uplift-v1';
+const CACHE = 'uplift-v2';
 importScripts('reminder-ics.js'); // self.reminderICS
 const ROOT = new URL(self.registration.scope).pathname; // "/" on the app's own domain
 const at = (p) => ROOT + p;
@@ -38,7 +38,9 @@ self.addEventListener('fetch', (e) => {
   // (Without this worker the request reaches the static fallback in reminders/, which starts in January 2026.)
   if (url.pathname.startsWith(at('reminders/'))) {
     const every = /weigh-in-(daily|3x|weekly)\.ics$/.exec(url.pathname)?.[1];
-    const ics = every && self.reminderICS(every, url.searchParams.get('day') ?? '');
+    const q = (k) => url.searchParams.get(k) ?? '';
+    const ics = every ? self.reminderICS(every, q('day'))
+      : url.pathname.endsWith('/training.ics') ? self.trainingICS(q('days'), q('time'), q('day')) : null;
     if (ics) e.respondWith(new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8' } }));
     return;
   }

@@ -68,6 +68,10 @@ export default function Settings() {
         { id: '0', label: 'Off' }, { id: '60', label: '1:00' }, { id: '90', label: '1:30' }, { id: '120', label: '2:00' }, { id: '180', label: '3:00' },
       ]} />
       <T v="small" style={{ marginTop: space.xs }}>Starts when you tick a set as done.</T>
+      <Gap h={space.sm} />
+      <Card pad={false} style={{ paddingHorizontal: space.lg }}>
+        <Row left={icon('calendar-outline')} title="Training reminders" subtitle={v.profile.trainDays?.length ? `${v.profile.trainDays.map((d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d]).join(', ')} at ${v.profile.trainTime ?? '07:00'}` : 'Your training days in your own calendar'} right={chevron} onPress={() => router.push('/training')} last />
+      </Card>
       <Gap />
       <T v="label">People</T>
       <Gap h={space.sm} />
