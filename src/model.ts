@@ -690,3 +690,17 @@ export function delProfile(l: Log, id: string): Log {
 }
 
 export const MAX_W = 2000, MAX_R = 100_000;
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** "12091992" → "12/09/1992", slashes only once the next digit is there (so backspace just works). */
+export const dobMask = (digits: string) => digits.slice(0, 2) + (digits.length > 2 ? `/${digits.slice(2, 4)}` : '') + (digits.length > 4 ? `/${digits.slice(4, 8)}` : '');
+/** DD/MM/YYYY → ISO day, or why not: '' while incomplete. */
+export function dobParse(text: string, min: string, max: string): { day?: string; error?: string } {
+  const [d, m, y] = text.split('/').map(Number);
+  if (text.length < 10) return {};
+  const t = new Date(Date.UTC(y, m - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return { error: 'That isn’t a real date.' };
+  const day = `${y}-${pad2(m)}-${pad2(d)}`;
+  if (day < min || day > max) return { error: `Pick a year from ${min.slice(0, 4)} to ${max.slice(0, 4)}.` };
+  return { day };
+}

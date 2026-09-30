@@ -40,8 +40,8 @@ export const STRONG_BUILT_IN: Record<string, string> = {
   'yoga': 'yoga-class', 'stretching': 'stretching', 'hiit': 'hiit', 'boxing': 'boxing', 'climbing': 'climbing',
 };
 
-/** RFC 4180 CSV: quoted fields, doubled quotes, commas and newlines inside quotes, CRLF. */
-export function parseCSV(text: string): string[][] {
+/** RFC 4180 CSV: quoted fields, doubled quotes, separators and newlines inside quotes, CRLF. */
+export function parseCSV(text: string, sep = ','): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], cell = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -49,7 +49,7 @@ export function parseCSV(text: string): string[][] {
     if (quoted) {
       if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') quoted = false; else cell += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === sep) { row.push(cell); cell = ''; }
     else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && text[i + 1] === '\n') i++;
       row.push(cell); rows.push(row); row = []; cell = '';
@@ -64,6 +64,12 @@ export function durationMs(s: string): number {
   let ms = 0;
   for (const [, n, u] of s.matchAll(/(\d+)\s*([hms])/g)) ms += Number(n) * { h: 3600_000, m: 60_000, s: 1000 }[u as 'h' | 'm' | 's'];
   return ms;
+}
+
+/** Newer Strong exports put the unit in the header ("Weight (kg)" / "Weight (lbs)"); older ones don't say. */
+export function strongHeaderUnit(text: string): 'kg' | 'lb' | undefined {
+  const m = /Weight \((kg|lbs?)\)/.exec(text.slice(0, text.indexOf('\n') >>> 0));
+  return m ? (m[1] === 'kg' ? 'kg' : 'lb') : undefined;
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'exercise';
@@ -101,13 +107,22 @@ export interface StrongSummary {
  * isn't a Strong export.
  */
 export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date.now()): { log: Log; summary: StrongSummary } {
-  const [head, ...rows] = parseCSV(text.replace(/^\uFEFF/, ''));
-  const col = (k: string) => head?.indexOf(k) ?? -1;
+  text = text.replace(/^\uFEFF/, '');
+  const line1 = text.slice(0, text.indexOf('\n') >>> 0);
+  // Newer exports: ';'-separated, units in the headers ("Weight (kg)", "Duration (sec)", "Distance (meters)").
+  const sep = line1.split(';').length > line1.split(',').length ? ';' : ',';
+  // A ';' file usually comes from a region that writes decimals with a comma ("45,36"): make numbers readable.
+  const [head, ...rows] = parseCSV(text, sep).map((r) => sep === ';' ? r.map((c) => /^-?\d+,\d+$/.test(c.trim()) ? c.replace(',', '.') : c) : r);
+  const col = (k: string) => head?.findIndex((h) => h === k || h.startsWith(`${k} (`)) ?? -1;
+  unit = strongHeaderUnit(line1) ?? unit;
   const C = { date: col('Date'), workout: col('Workout Name'), dur: col('Duration'), ex: col('Exercise Name'), order: col('Set Order'),
     w: col('Weight'), r: col('Reps'), secs: col('Seconds'), dist: col('Distance'), notes: col('Notes') };
   if ([C.date, C.ex, C.order, C.w, C.r].some((i) => i < 0)) throw new Error('This doesn’t look like a Strong export. In Strong: Settings → Export data.');
   const pid = l.settings.currentProfileId;
   const factor = unit === 'lb' ? 0.45359237 : 1;
+  // Distance → km, by the unit in the header; older exports don't say (km, or miles when the export is in pounds).
+  const du = C.dist >= 0 ? /\(([^)]+)\)/.exec(head[C.dist])?.[1].toLowerCase() : undefined;
+  const toKm = du === undefined ? (unit === 'lb' ? 1.609344 : 1) : /^(m|meters?|metres?)$/.test(du) ? 0.001 : /^(mi|miles?)$/.test(du) ? 1.609344 : 1;
 
   // Which exercise each Strong name becomes: a built-in, an existing custom one with the same name, or a new custom one.
   const mine = l.exercises.filter((e) => e.profileId === pid);
@@ -145,8 +160,8 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
     const exId = exFor(name);
     const kind = LIBRARY.get(exId)?.kind;
     const secs = kind ? true : timed.get(name);
-    // Cardio: w is distance (km; Strong's miles when the export is in pounds). Activities: w is intensity, moderate.
-    const dist = (Number(C.dist >= 0 ? r[C.dist] : 0) || 0) * (unit === 'lb' ? 1.609344 : 1);
+    // Cardio: w is distance in km. Activities: w is intensity, moderate.
+    const dist = (Number(C.dist >= 0 ? r[C.dist] : 0) || 0) * toKm;
     const w = kind === 'cardio' ? Math.round(Math.min(MAX_W, dist) * 100) / 100 : kind === 'activity' ? 2
       : Math.round(Math.max(-MAX_W, Math.min(MAX_W, (Number(r[C.w]) || 0) * factor)) * 100) / 100;
     const reps = Math.round(Math.max(0, Math.min(MAX_R, Number(secs ? r[C.secs] : r[C.r]) || 0)));
@@ -155,7 +170,8 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
     let wk = byStart.get(r[C.date]);
     if (!wk) {
       const at = new Date(r[C.date].replace(' ', 'T')).getTime() || now;
-      const dur = C.dur >= 0 ? durationMs(r[C.dur] ?? '') : 0;
+      const d = C.dur >= 0 ? r[C.dur]?.trim() ?? '' : '';
+      const dur = /^\d+$/.test(d) ? Number(d) * 1000 : durationMs(d); // newer exports: plain seconds
       const title = (C.workout >= 0 ? r[C.workout]?.trim() : '') || timeOfDayName(at);
       wk = { id: newId('w'), profileId: pid, date, name: title.slice(0, 60), startedAt: at, ...(dur ? { endedAt: at + dur } : {}),
         exercises: [], source: 'strong', updatedAt: at };

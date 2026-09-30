@@ -7,7 +7,7 @@ import { PassphraseModal } from './components';
 import { choose, confirm, notify, pickTextFile, saveFile } from './io';
 import { BUILT_IN } from './exercises';
 import { dayKey, longDate, num, plural, today, type Images, type Log } from './model';
-import { importStrong } from './strong';
+import { importStrong, strongHeaderUnit } from './strong';
 import { useStore } from './store';
 
 type Pending = { mode: 'set' | 'enter'; onSubmit: (pass: string) => Promise<void> } | null;
@@ -104,9 +104,10 @@ export function useBackup() {
     try {
       const text = await pickTextFile('text/csv,.csv');
       if (!text) return;
-      // Strong exports in whatever unit you used in the app, and the file doesn't say which.
-      const kg = await choose('Which unit did you use in Strong?', 'Weights are converted to kilograms if you used pounds.', 'Kilograms', 'Pounds');
-      const { log: next, summary: s } = importStrong(log, text, kg ? 'kg' : 'lb');
+      // Strong exports in whatever unit you used in the app; only newer files say which.
+      const unit = strongHeaderUnit(text)
+        ?? (await choose('Which unit did you use in Strong?', 'Weights are converted to kilograms if you used pounds.', 'Kilograms', 'Pounds') ? 'kg' : 'lb');
+      const { log: next, summary: s } = importStrong(log, text, unit);
       const who = log.profiles.find((p) => p.id === log.settings.currentProfileId)?.name ?? 'you';
       const msg = [
         `${plural(s.workouts, 'workout')} (${plural(s.sets, 'set')}) from ${s.from} to ${s.to}, added to ${who}.`,

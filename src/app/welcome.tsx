@@ -5,7 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useStore, useTheme } from '../store';
 import { useBackup } from '../backupActions';
 import { addDays, GENDERS, newLog, putProfile, today, type Gender } from '../model';
-import { DateField } from '../DateField';
+import { DobField } from '../DateField';
 import { isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
 import { InstallSteps } from '../components';
 import { BrandMark, Button, Choice, Field, Gap, IconButton, MAX_WIDTH, Screen, T } from '../ui';
@@ -132,7 +132,7 @@ export default function Welcome() {
 
         {step === 'born' && (
           <>
-            <DateField value={dob} onChange={setDob} min="1900-01-01" max={addDays(today(), -3652)} label="Date of birth" />
+            <DobField value={dob} onChange={setDob} max={addDays(today(), -3652)} />
             <Gap h={space.xl} />
             <Button title={dob ? 'Next' : 'Skip'} icon={dob ? 'arrow-forward' : undefined} kind={dob ? 'primary' : 'secondary'} onPress={() => setStep('gender')} />
           </>

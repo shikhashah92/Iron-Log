@@ -7,7 +7,7 @@ import { addDays, GENDERS, GOALS, newId, putProfile, putWeighIn, today, type Gen
 import { useLog, useTheme } from '../store';
 import { notify } from '../io';
 import { goBack } from '../components';
-import { DateField } from '../DateField';
+import { DateField, DobField } from '../DateField';
 import { startTour } from '../tour';
 import { Banner, Button, Chip, Field, Gap, Header, IconButton, Screen, Segmented, selectAll, T } from '../ui';
 import { font, radius, space } from '../theme';
@@ -186,7 +186,7 @@ export default function About() {
         <View style={{ gap: space.xs }}>
           <T v="label">Date of birth</T>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-            <DateField value={dob} onChange={setDob} min="1900-01-01" max={addDays(today(), -3652)} label="Date of birth" />
+            <DobField value={dob} onChange={setDob} max={addDays(today(), -3652)} />
             {dob ? <Button title="Clear" kind="ghost" onPress={() => setDob('')} style={{ minHeight: 40, paddingHorizontal: space.sm }} /> : null}
           </View>
         </View>
