@@ -43,7 +43,7 @@ export default function TabsLayout() {
   }, [pending]);
   return (
     <View style={{ flex: 1 }}>
-    <Tabs screenOptions={({ navigation }) => ({
+    <Tabs screenOptions={({ navigation, route }) => ({
       headerShown: false,
       tabBarActiveTintColor: c.accent,
       tabBarInactiveTintColor: c.muted,
@@ -53,7 +53,8 @@ export default function TabsLayout() {
       tabBarItemStyle: { paddingTop: 6, paddingBottom: 8 },
       tabBarLabelStyle: { fontSize: narrow ? 11 : 13, lineHeight: 18, fontWeight: '600', fontFamily: sans },
       // Tabs you're not on stay mounted (they keep their scroll) but are hidden, so screen readers and Tab skip them.
-      sceneStyle: { backgroundColor: c.bg, display: navigation.isFocused() ? 'flex' : 'none' },
+      // By the selected tab, not isFocused(): that's false under a modal, and a save there re-renders this and hid them all.
+      sceneStyle: { backgroundColor: c.bg, display: navigation.getState().routes[navigation.getState().index]?.key === route.key ? 'flex' : 'none' },
     })}>
       {TABS.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{
