@@ -414,6 +414,33 @@ test('calories: MET × kg × hours; speed decides running; strength fills the re
   assert.equal(workoutCalories(viewOf(l), w), Math.round(kcal(3.5, 80, 3000) + kcal(STRENGTH_MET, 80, 600)));
 });
 
+test('date of birth typed as DD/MM/YYYY: slashes as you type, only real dates in range', async () => {
+  const { dobMask, dobParse } = await import('../src/model.ts');
+  assert.deepEqual(['1', '12', '120', '1209', '12091', '12091992'].map(dobMask), ['1', '12', '12/0', '12/09', '12/09/1', '12/09/1992']);
+  assert.deepEqual(dobParse('12/09/1992', '1900-01-01', '2016-09-29'), { day: '1992-09-12' });
+  assert.deepEqual(dobParse('12/09/19', '1900-01-01', '2016-09-29'), {});
+  assert.match(dobParse('31/02/1992', '1900-01-01', '2016-09-29').error!, /real date/);
+  assert.match(dobParse('12/09/2020', '1900-01-01', '2016-09-29').error!, /1900 to 2016/);
+});
+
+test('Strong newer export: semicolons, units in headers, duration in seconds, meters', async () => {
+  const { importStrong, strongHeaderUnit } = await import('../src/strong.ts');
+  const csv = ['"Workout #";"Date";"Workout Name";"Duration (sec)";"Exercise Name";"Set Order";"Weight (kg)";"Reps";"RPE";"Distance (meters)";"Seconds";"Notes";"Workout Notes"',
+    '"1";"2024-09-30 08:02:36";"Back";"1864";"Lat Pulldown - Wide Grip (Cable)";"1";"45.359237";"12";"";"";"";"";"slow; light"',
+    '"1";"2024-09-30 08:02:36";"Back";"1864";"Lat Pulldown - Wide Grip (Cable)";"Rest Timer";"";"";"";"";"90";"";""',
+    '"1";"2024-09-30 08:02:36";"Back";"1864";"Running (Treadmill)";"1";"";"";"";"5200";"1800";"";""'].join('\n');
+  assert.equal(strongHeaderUnit(csv), 'kg');
+  const { log, summary } = importStrong(newLog(), csv, 'lb', 5); // header says kg: no conversion
+  const w = viewOf(log).workouts[0];
+  assert.equal(summary.sets, 2);
+  assert.deepEqual(w.exercises.map((e) => e.sets[0]), [{ w: 45.36, r: 12 }, { w: 5.2, r: 1800 }]);
+  assert.equal(w.endedAt! - w.startedAt, 1864_000);
+
+  // Decimal commas, and distance in miles (converted to km even with the kg unit).
+  const eu = csv.replace('"45.359237"', '"45,359237"').replace('Distance (meters)', 'Distance (miles)').replace('"5200"', '"3,1"');
+  assert.deepEqual(viewOf(importStrong(newLog(), eu, 'kg', 5).log).workouts[0].exercises.map((e) => e.sets[0]), [{ w: 45.36, r: 12 }, { w: 4.99, r: 1800 }]);
+});
+
 test('Strong cardio: built-in activities with distance, and version 2 custom cardio converts', async () => {
   const { importStrong } = await import('../src/strong.ts');
   const csv = ['Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE',
