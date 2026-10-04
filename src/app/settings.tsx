@@ -13,7 +13,7 @@ import { goBack } from '../components';
 import { startTour } from '../tour';
 import { space } from '../theme';
 
-export const SUPPORT_EMAIL = 'shikhashah92@gmail.com';
+export const SUPPORT_EMAIL = 'hello@getuplift.pro';
 
 const ago = (ms?: number) => {
   if (!ms) return 'Never';
