@@ -244,6 +244,8 @@ test('built app: served from the domain root, no third-party requests', { skip: 
   assert.ok(!/https?:\/\/(?!www\.w3\.org)/.test(html.replace(/<meta[^>]*>/g, '')), 'no external URLs in the shell');
   assert.ok(existsSync('dist/sw.js') && existsSync('dist/fonts/Archivo-latin.woff2') && existsSync('dist/brand/mark.svg'));
   assert.ok(!existsSync('dist/legacy'), 'no leftover Firebase page');
+  assert.match(html, /http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self';/, 'CSP meta tag');
+  for (const tag of html.match(/<script\b[^>]*>/g) ?? []) assert.match(tag, /\ssrc=/, `inline script (blocked by the CSP): ${tag}`);
 });
 
 test('Strong import: one workout per Strong workout, warm-up/drop sets, lb, replaces an earlier import', async () => {
