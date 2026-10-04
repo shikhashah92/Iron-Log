@@ -48,6 +48,15 @@ function Root() {
     // Browser/OS chrome (status bar in the installed app) follows the theme.
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', c.bg));
   }, [c.bg, dark]);
+  // The splash in index.html plays on every launch. Lift it once its animation has finished and the data has loaded,
+  // whichever is later; never hold it longer than that.
+  useEffect(() => {
+    const el = typeof document !== 'undefined' ? document.getElementById('splash') : null;
+    if (!ready || !el) return;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const t = setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, Math.max(0, (reduce ? 400 : 2800) - performance.now()));
+    return () => clearTimeout(t);
+  }, [ready]);
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.accent} /></View>;
   if (corrupt) return <><Recovery /><DialogHost /></>;
   const modal = { presentation: 'modal' as const };

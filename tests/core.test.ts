@@ -245,6 +245,7 @@ test('built app: served from the domain root, no third-party requests', { skip: 
   assert.ok(existsSync('dist/sw.js') && existsSync('dist/fonts/Archivo-latin.woff2') && existsSync('dist/brand/mark.svg'));
   assert.ok(!existsSync('dist/legacy'), 'no leftover Firebase page');
   assert.match(html, /http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self';/, 'CSP meta tag');
+  assert.ok(html.includes('id="splash"') && existsSync('dist/splash/dark.svg') && existsSync('dist/splash/light.svg'), 'launch splash');
   for (const tag of html.match(/<script\b[^>]*>/g) ?? []) assert.match(tag, /\ssrc=/, `inline script (blocked by the CSP): ${tag}`);
 });
 
