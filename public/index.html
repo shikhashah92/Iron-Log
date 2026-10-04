@@ -38,10 +38,17 @@
       @media (prefers-color-scheme: dark) { body { background: #1D2125; } }
       /* Pinned to the viewport edges so nothing can scroll the app shell itself. */
       #root { display: flex; position: fixed; inset: 0; }
+      /* The launch splash (brand kit, 2.8 s, holds on its last frame). It's plain HTML so it shows before any script
+         runs; the app fades it out once the animation has played and the data has loaded (src/app/_layout.tsx). */
+      #splash { position: fixed; inset: 0; z-index: 10; background: #FFFFFF; transition: opacity 0.3s ease; }
+      #splash img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      #splash.out { opacity: 0; pointer-events: none; }
+      @media (prefers-color-scheme: dark) { #splash { background: #1D2125; } }
     </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <div id="splash"><picture><source srcset="splash/dark.svg" media="(prefers-color-scheme: dark)" /><img src="splash/light.svg" alt="Uplift" /></picture></div>
   </body>
 </html>
