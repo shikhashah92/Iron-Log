@@ -612,11 +612,12 @@ export function addExercises(w: Workout, v: View, ids: string[], done = false): 
 }
 export const replaceExercise = (w: Workout, v: View, i: number, id: string, done = false): Workout =>
   w.exercises.some((e) => e.exerciseId === id) ? w : mapEx(w, i, () => ({ exerciseId: id, sets: asLogged(planSets(v, id, undefined, w.id), done) }));
-export function moveExercise(w: Workout, i: number, by: -1 | 1): Workout {
-  const j = i + by;
-  if (j < 0 || j >= w.exercises.length) return w;
+/** Move exercise `from` to position `to` (clamped), shifting the ones between. */
+export function moveExercise(w: Workout, from: number, to: number): Workout {
+  to = Math.max(0, Math.min(w.exercises.length - 1, to));
+  if (from === to || from < 0 || from >= w.exercises.length) return w;
   const ex = [...w.exercises];
-  [ex[i], ex[j]] = [ex[j], ex[i]];
+  ex.splice(to, 0, ...ex.splice(from, 1));
   return { ...w, exercises: ex };
 }
 export const removeExercise = (w: Workout, i: number): Workout => ({ ...w, exercises: w.exercises.filter((_, j) => j !== i) });

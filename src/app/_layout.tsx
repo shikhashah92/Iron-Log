@@ -72,6 +72,7 @@ function Root() {
         <Stack.Screen name="about" options={modal} />
         <Stack.Screen name="install" options={modal} />
         <Stack.Screen name="plates" options={modal} />
+        <Stack.Screen name="reorder" options={modal} />
         <Stack.Screen name="trophies" options={modal} />
         <Stack.Screen name="training" options={modal} />
         <Stack.Screen name="wrapped" options={modal} />

@@ -93,9 +93,12 @@ test('editing a workout: add, replace, move, remove exercises and sets', () => {
   w = replaceExercise(w, v, 0, 'push-up');
   assert.deepEqual(w.exercises[0].sets, [{ w: 0, r: 20, done: false }]);
   assert.equal(replaceExercise(w, v, 0, bench), w, 'cannot replace with one already in the workout');
-  w = moveExercise(w, 1, -1);
+  w = moveExercise(w, 1, 0);
   assert.deepEqual(w.exercises.map((e) => e.exerciseId), [bench, 'push-up']);
-  assert.equal(moveExercise(w, 0, -1), w);
+  assert.equal(moveExercise(w, 0, -1), w, 'already first');
+  const three = addExercises(w, v, [row]);
+  assert.deepEqual(moveExercise(three, 0, 2).exercises.map((e) => e.exerciseId), ['push-up', row, bench], 'first to last shifts the rest up');
+  assert.deepEqual(moveExercise(three, 2, 0).exercises.map((e) => e.exerciseId), [row, bench, 'push-up'], 'last to first');
   w = addSetTo(w, 0);
   assert.deepEqual(w.exercises[0].sets.at(-1), { w: 62.5, r: 6, done: false }, 'a new set copies the previous as its hint');
   w = delSetFrom(removeExercise(w, 1), 0, 0);

@@ -112,8 +112,9 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
               ? [['Superset with next exercise', () => edit((w) => supersetWithNext(w, i))] as [string, () => void]] : []),
             ...(inSuperset ? [['Take out of superset', () => edit((w) => leaveSuperset(w, i))] as [string, () => void]] : []),
             ['Replace exercise', () => { router.push({ pathname: '/picker', params: { workout: workout.id, replace: String(i) } }); }],
-            ...(i > 0 ? [['Move up', () => edit((w) => moveExercise(w, i, -1))] as [string, () => void]] : []),
-            ...(i < workout.exercises.length - 1 ? [['Move down', () => edit((w) => moveExercise(w, i, 1))] as [string, () => void]] : []),
+            ...(i > 0 ? [['Move up', () => edit((w) => moveExercise(w, i, i - 1))] as [string, () => void]] : []),
+            ...(i < workout.exercises.length - 1 ? [['Move down', () => edit((w) => moveExercise(w, i, i + 1))] as [string, () => void]] : []),
+            ...(workout.exercises.length > 1 ? [['Reorder exercises', () => { router.push({ pathname: '/reorder', params: { workout: workout.id } }); }] as [string, () => void]] : []),
             ['Remove exercise', async () => {
               if (await confirm(`Remove ${ex.name}?`, e.sets.length ? `Its ${plural(e.sets.length, 'set')} in this workout go too.` : '', 'Remove', true)) edit((w) => removeExercise(w, i));
             }, true],
