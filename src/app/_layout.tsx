@@ -49,13 +49,24 @@ function Root() {
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', c.bg));
   }, [c.bg, dark]);
   // The splash in index.html plays on every launch. Lift it once its animation has finished and the data has loaded,
-  // whichever is later; never hold it longer than that.
+  // whichever is later; never hold it longer than that. The animation starts when the image arrives, not when the
+  // page does: on a first visit over the network that can be a good half-second later.
   useEffect(() => {
     const el = typeof document !== 'undefined' ? document.getElementById('splash') : null;
-    if (!ready || !el) return;
+    const img = el?.querySelector('img');
+    if (!ready || !el || !img) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const t = setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, Math.max(0, (reduce ? 400 : 2800) - performance.now()));
-    return () => clearTimeout(t);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const lift = (startedAt: number) => {
+      t = setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, Math.max(0, startedAt + (reduce ? 400 : 2800) - performance.now()));
+    };
+    const loaded = () => lift((performance.getEntriesByName(img.currentSrc)[0] as PerformanceResourceTiming | undefined)?.responseEnd ?? performance.now());
+    if (img.complete) loaded();
+    else {
+      img.addEventListener('load', loaded, { once: true });
+      img.addEventListener('error', () => lift(-Infinity), { once: true }); // no image, nothing to wait for
+    }
+    return () => { clearTimeout(t); img.removeEventListener('load', loaded); };
   }, [ready]);
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.accent} /></View>;
   if (corrupt) return <><Recovery /><DialogHost /></>;
