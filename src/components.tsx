@@ -4,7 +4,7 @@ import { Animated, Easing, Image, Modal, Pressable, StyleSheet, View } from 'rea
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad,
+  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, wt,
   type Entry, type Exercise, type TemplateExercise, type View as LogView, type Workout,
 } from './model';
 import { drawWorkout, shareWorkout } from './share';
@@ -117,7 +117,7 @@ export function ExRow({ ex, right, actions, onPress, star = true, last }: {
   const { v, photo } = useLog();
   const { c } = useTheme();
   const prev = lastEntry(v, ex.id);
-  const best = prev ? fmtSet(prev.sets.reduce((a, b) => (b.w > a.w || (b.w === a.w && b.r > a.r) ? b : a)), ex) : null;
+  const best = prev ? fmtSet(prev.sets.reduce((a, b) => (b.w > a.w || (b.w === a.w && b.r > a.r) ? b : a)), ex, v.unit) : null;
   return (
     <View style={[st.rowWrap, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
     {star && <Star id={ex.id} />}
@@ -224,7 +224,7 @@ export function SetLines({ entries, name }: { entries: Entry[]; name?: boolean }
     return (
       <View key={`${e.date}-${e.exerciseId}`} style={{ flexDirection: 'row', gap: space.md, paddingVertical: 6, borderTopWidth: 1, borderTopColor: c.border }}>
         <T style={{ flex: 1, fontSize: 15 }}>{name ? ex.name : longDate(e.date)}</T>
-        <T v="mono" style={{ flexShrink: 1, textAlign: 'right' }}>{e.sets.map((x) => fmtSet(x, ex)).join('  ')}</T>
+        <T v="mono" style={{ flexShrink: 1, textAlign: 'right' }}>{e.sets.map((x) => fmtSet(x, ex, v.unit)).join('  ')}</T>
       </View>
     );
   });
@@ -239,7 +239,7 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
   const everything = historyOf(v, id);
   const h = everything.filter((e) => e.date >= since);
   const bw = v.bodyweight;
-  const series = h.map((e) => ({ date: e.date, v: topLoad(e, ex, bw) })).filter((x) => x.v > 0);
+  const series = h.map((e) => ({ date: e.date, v: isTimed(ex) ? topLoad(e, ex, bw) : inUnit(topLoad(e, ex, bw), v.unit) })).filter((x) => x.v > 0);
   const best = h.reduce((m, e) => Math.max(m, ...e.sets.filter((x) => x.kind !== 'W').map((x) => x.w)), 0);
   const list = [...everything].reverse();
   const mins = (e: Entry) => e.sets.reduce((t, x) => t + x.r, 0) / 60;
@@ -253,7 +253,7 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
       ['Total', `${Math.round(h.reduce((t, e) => t + e.sets.reduce((u, x) => u + secsOf(ex, x), 0), 0) / 60)} min`]]
     : ex.kind === 'activity'
     ? [['Sessions', h.length], ['Total', `${Math.round(h.reduce((t, e) => t + mins(e), 0) / 60 * 10) / 10} h`], ['Longest', `${Math.round(Math.max(0, ...h.map(mins)))} min`]]
-    : [['Sessions', h.length], ['Best load', num(best)], ['Est. 1RM', num(estOneRM(h, ex, bw))]];
+    : [['Sessions', h.length], ['Best load', wt(best, v.unit)], ['Est. 1RM', wt(estOneRM(h, ex, bw), v.unit)]];
   return (
     <>
       <Segmented<Range> value={range} onChange={setRange} options={RANGES} />
@@ -264,7 +264,7 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
       <TimeChart series={[{ points: series, style: 'line' }, { points: series, style: 'dots' }]} empty={`No sessions in the ${rangeLabel(range).toLowerCase()}.`} />
       {isTimed(ex) ? <T v="small" style={{ fontSize: 13 }}>{ex.kind === 'cardio' ? 'The chart shows distance per session (or minutes when no distance was logged).' : ex.yoga === 'hold' ? 'The chart shows your longest hold per session, in seconds.' : ex.yoga === 'rounds' ? 'The chart shows rounds per session.' : 'The chart shows minutes per session.'}</T> : <T v="small" style={{ fontSize: 13 }}>
         {ex.weightType === 'dumbbell' ? 'Values are per dumbbell. ' : ''}
-        {ex.weightType === 'bodyweight' ? (bw ? `Bodyweight ${num(bw)} kg included. ` : 'Log your weight in the Me tab for loaded estimates. ') : ''}
+        {ex.weightType === 'bodyweight' ? (bw ? `Bodyweight ${fmtKg(bw, v.unit)} included. ` : 'Log your weight in the Me tab for loaded estimates. ') : ''}
         Est. 1RM uses the Epley formula; warm-ups don’t count.
       </T>}
       <Gap h={space.md} />
@@ -487,7 +487,7 @@ export function Records({ v, w }: { v: LogView; w: Workout }) {
       {ids.map((id) => (
         <View key={id}>
           <T style={{ fontWeight: '600' }}>{getEx(v, id).name}</T>
-          <T v="small" style={{ color: c.text }}>{recs.filter((r) => r.exerciseId === id).map(recordLabel).join(' · ')}</T>
+          <T v="small" style={{ color: c.text }}>{recs.filter((r) => r.exerciseId === id).map((r) => recordLabel(r, v.unit)).join(' · ')}</T>
         </View>
       ))}
     </View>

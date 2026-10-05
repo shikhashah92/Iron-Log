@@ -1,5 +1,5 @@
 // Body tracking maths (pure, unit tested): the weight trend, the planned curve to a target, BMI, weigh-in reminders.
-import { addDays, dayKey, daysAgo, type WeighIn, type WeightTarget } from './model.ts';
+import { addDays, dayKey, daysAgo, fromKg, type WeighIn, type WeightTarget, type WeightUnit } from './model.ts';
 
 /**
  * The trend: an exponentially smoothed average, 10% per day (as in The Hacker's Diet and Happy Scale). A gap of d days
@@ -150,12 +150,10 @@ export function googleTrainingURL(days: number[], time: string, start: Date): st
   return `https://calendar.google.com/calendar/render?${q}`;
 }
 
-// ---- units (body measurements only; lifts stay in kg) ----
-export type WeightUnit = 'kg' | 'lb';
+// ---- units (weight conversion lives in model.ts, shared with lifts) ----
+export { fromKg, toKg, type WeightUnit } from './model.ts';
 export type LengthUnit = 'cm' | 'in';
-const LB = 2.20462262, IN = 2.54;
-export const toKg = (v: number, u: WeightUnit) => (u === 'lb' ? v / LB : v);
-export const fromKg = (kg: number, u: WeightUnit) => (u === 'lb' ? kg * LB : kg);
+const IN = 2.54;
 export const toCm = (v: number, u: LengthUnit) => (u === 'in' ? v * IN : v);
 export const fromCm = (cm: number, u: LengthUnit) => (u === 'in' ? cm / IN : cm);
 const r1 = (n: number) => String(Math.round(n * 10) / 10);

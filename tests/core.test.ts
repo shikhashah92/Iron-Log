@@ -287,6 +287,34 @@ test('Strong import: one workout per Strong workout, warm-up/drop sets, lb, repl
   assert.equal(planSets(viewOf(log), bench).length, 3, 'imported history feeds the next workout\'s plan');
 });
 
+test('pounds: stored in kg, shown, typed and rounded in lb', async () => {
+  const f = await import('../src/fun.ts');
+  const { withUnits, setValue, fromKg, num, PLATES } = await import('../src/model.ts');
+  const lb = (l: Log) => withUnits(l, { weight: 'lb', length: 'cm' });
+  assert.equal(viewOf(newLog('A')).unit, 'kg', 'kg unless the person picks pounds');
+  let l = lb(did(newLog('A', at('2026-01-01')), '2026-09-25', [[bench, [[90.72, 8], [90.72, 8]]]])); // 200 lb, as Strong stores it
+  const v = viewOf(l);
+  assert.equal(v.unit, 'lb');
+  assert.equal(fmtSet({ w: 90.72, r: 8 }, getEx(v, bench), v.unit), '200×8');
+  assert.equal(recordLabel({ exerciseId: bench, kind: 'weight', value: 90.72 }, 'lb'), 'Heaviest: 200 lb');
+  assert.equal(fmtSet({ w: 27.22, r: 10 }, getEx(v, 'flat-db-press'), 'lb'), '60/DB×10', 'kg kept to 0.01 reads back as whole pounds');
+  assert.equal(fmtSet({ w: 86.18, r: 8 }, getEx(v, bench), 'lb'), '190×8');
+  assert.equal(fmtSet({ w: 5, r: 1650 }, getEx(v, 'run'), 'lb'), '5 km · 27m 30s', 'distance is never converted');
+  assert.equal(fmtSet({ w: -9.07, r: 8 }, getEx(v, 'pull-up'), 'lb'), 'BW-20×8');
+  const sg = f.suggestFor(v, bench, 'x', '2026-09-29')!;
+  assert.equal(sg.text, 'Try 205 lb × 8 today: +5 lb on last time.');
+  assert.equal(Math.round(fromKg(sg.kg, 'lb') * 1000) / 1000, 205);
+  assert.deepEqual(warmupsFor(getEx(v, bench), sg.kg, 'lb').map((s) => Math.round(fromKg(s.w, 'lb'))), [45, 80, 125, 165], 'a 45 lb bar, 5 lb steps');
+  assert.deepEqual(platesFor(225, 45, PLATES.lb), { side: [45, 45], left: 0 });
+  // Typing 185 in lb saves the kg that shows as 185 again.
+  const w = setValue({ exercises: [{ exerciseId: bench, sets: [{ w: 0, r: 5 }] }] } as unknown as Workout, 0, 0, 'w', '185', false, 'lb');
+  assert.equal(num(fromKg(w.exercises[0].sets[0].w, 'lb')), '185');
+  // A step picked in kg means nothing in lb: switching units puts it back to the default (5 lb).
+  l = putProfile(withUnits(l, { weight: 'kg', length: 'cm' }), v.profile.id, { progression: { step: 1.25 } });
+  assert.deepEqual(viewOf(lb(l)).profile.progression, {});
+  assert.equal(parseBackup(serialize(lb(l))).log.settings.units?.weight, 'lb');
+});
+
 test('body: trend smooths, plan is a steady % per week, status and warnings, BMI, units, reminders', async () => {
   const b = await import('../src/body.ts');
   const wi = (date: string, weight: number, at = 0) => ({ id: date, profileId: 'p', date, weight, at });

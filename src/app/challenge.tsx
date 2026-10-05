@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getEx, num, plural, putProfile, today } from '../model';
-import { challengeId, challengeUnit, readChallenge } from '../fun';
+import { challengeId, challengeNum, challengeUnit, readChallenge } from '../fun';
 import { useLog, useTheme } from '../store';
 import { goBack } from '../components';
 import { Button, Gap, Header, IconButton, Screen, T } from '../ui';
@@ -33,7 +33,7 @@ export default function ChallengeInvite() {
     : d.kind === 'days' ? `${getEx(v, d.exerciseId!).name} on ${plural(d.target, 'day')}`
     : d.kind === 'daily' ? `${num(d.perDay!)} ${unit} of ${getEx(v, d.exerciseId!).name} a day, on ${plural(d.target, 'day')}`
     : d.kind === 'total' ? `${num(d.target)} ${unit} of ${getEx(v, d.exerciseId!).name} in all`
-    : `one set of ${getEx(v, d.exerciseId!).name} at ${num(d.target)} ${unit} or more`;
+    : `one set of ${getEx(v, d.exerciseId!).name} at ${challengeNum(d, v, d.target)} ${unit} or more`;
   function accept() {
     update((l) => putProfile(l, v.profile.id, { challenges: [...(v.profile.challenges ?? []).filter((x) => x.id !== id), { id, start: today(), def: d! }] }));
     router.replace('/challenges');

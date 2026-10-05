@@ -6,7 +6,7 @@ import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, ITERATIONS, new
 import { PassphraseModal } from './components';
 import { choose, confirm, notify, pickTextFile, saveFile } from './io';
 import { BUILT_IN } from './exercises';
-import { dayKey, longDate, num, plural, today, type Images, type Log } from './model';
+import { dayKey, fmtKg, longDate, plural, today, viewOf, type Images, type Log } from './model';
 import { importStrong, strongHeaderUnit } from './strong';
 import { useStore } from './store';
 
@@ -106,14 +106,14 @@ export function useBackup() {
       if (!text) return;
       // Strong exports in whatever unit you used in the app; only newer files say which.
       const unit = strongHeaderUnit(text)
-        ?? (await choose('Which unit did you use in Strong?', 'Weights are converted to kilograms if you used pounds.', 'Kilograms', 'Pounds') ? 'kg' : 'lb');
+        ?? (await choose('Which unit did you use in Strong?', 'So the weights come in right.', 'Kilograms', 'Pounds') ? 'kg' : 'lb');
       const { log: next, summary: s } = importStrong(log, text, unit);
       const who = log.profiles.find((p) => p.id === log.settings.currentProfileId)?.name ?? 'you';
       const msg = [
         `${plural(s.workouts, 'workout')} (${plural(s.sets, 'set')}) from ${s.from} to ${s.to}, added to ${who}.`,
         `${s.matched} exercises match Uplift’s library; ${plural(s.newExercises, 'new custom exercise')}.`,
         s.templates ? `${plural(s.templates, 'workout name')} saved as templates.` : '',
-        `Heaviest set: ${num(s.heaviest)} kg.`,
+        `Heaviest set: ${fmtKg(s.heaviest, viewOf(next).unit)}.`,
         s.replaced ? `${plural(s.replaced, 'workout')} already on those ${plural(s.days, 'day')} (e.g. an earlier import) will be replaced.` : '',
         s.notes ? `Set notes (${s.notes}) aren’t imported.` : '',
         'Your current data is kept in Undo history first.',

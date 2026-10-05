@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { monthName as fullMonth, wrappedMonths, yearGrid } from '../../fun';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, getEx, groupSets, longDate, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
+import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, fmtVolume, getEx, groupSets, longDate, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
@@ -94,7 +94,6 @@ function Calendar({ trained, day, onDay }: { trained: Set<string>; day: string |
   );
 }
 
-const kg = (n: number) => (n >= 1000 ? `${num(Math.round(n / 100) / 10)}t` : `${num(Math.round(n))} kg`);
 const mins = (m: number) => (m ? fmtDur(m * 60) : '0m');
 
 /** This month against the same point last month, the weekly streak, twelve weeks of bars, and sets per muscle group. */
@@ -114,6 +113,7 @@ function Trends() {
   const max = Math.max(1, ...weeks.map(val));
   const top = weeks.findLastIndex((w) => val(w) === max); // label the highest bar once, and this week
   const avg = weeks.slice(0, -1).reduce((t, w) => t + val(w), 0) / 11;
+  const kg = (n: number) => fmtVolume(n, v.unit, '');
   const fmt = (n: number) => (metric === 'workouts' ? num(Math.round(n * 10) / 10) : metric === 'minutes' ? mins(Math.round(n)) : kg(n));
   const short = (n: number) => (metric === 'minutes' && n >= 60 ? `${num(Math.round(n / 6) / 10)}h` : fmt(n)); // fits over a bar
   const groups = groupSets(v, addDays(now, -29), now);
@@ -228,7 +228,7 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
   const cal = workoutCalories(v, w);
   const recs = recordsOf(v, w);
   const prIds = new Set(recs.map((r) => r.exerciseId));
-  const meta = [...(w.endedAt ? [duration(w.endedAt - w.startedAt)] : []), plural(sets, 'set'), ...(volume ? [`${num(volume)} kg`] : []),
+  const meta = [...(w.endedAt ? [duration(w.endedAt - w.startedAt)] : []), plural(sets, 'set'), ...(volume ? [fmtVolume(volume, v.unit)] : []),
     ...(cal ? [`≈${cal} kcal`] : []), ...(w.feeling ? [w.feeling] : [])].join(' · ');
   async function editIt() {
     try { await replace({ log }, 'Before editing a workout'); } catch { /* the undo copy is best effort here */ }
@@ -262,7 +262,7 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
             <View key={e.exerciseId} style={{ flexDirection: 'row', gap: space.sm }}>
               <T numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{isTimed(ex) ? ex.name : `${e.sets.length} × ${ex.name}`}</T>
               {prIds.has(e.exerciseId) ? <Ionicons name="trophy" size={13} color={c.accent} accessibilityLabel="Personal best" /> : null}
-              <T v="mono" style={{ fontSize: 12 }}>{best ? fmtSet(best, ex) : ''}</T>
+              <T v="mono" style={{ fontSize: 12 }}>{best ? fmtSet(best, ex, v.unit) : ''}</T>
             </View>
           );
         })}

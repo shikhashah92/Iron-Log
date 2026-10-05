@@ -3,11 +3,11 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../../store';
 import { useBackup } from '../../backupActions';
-import { duration, fmtDur, putProfile, putWorkout, startWorkout, upNext, viewOf, getEx, longDate, needsBackupNudge, num, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
+import { duration, fmtDur, fmtKg, fmtVolume, putProfile, putWorkout, startWorkout, upNext, viewOf, getEx, longDate, needsBackupNudge, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
 import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
 import { AddButton, Empty, ExRow, InstallNudge, Ring, Section, Stat } from '../../components';
-import { challengeProgress, challengeUnit, daysOff, easeBack, goalStreak, monthName, pastYou, prevMonth, weekProgress, wrapped } from '../../fun';
+import { challengeNum, challengeProgress, challengeUnit, daysOff, easeBack, goalStreak, monthName, pastYou, prevMonth, weekProgress, wrapped } from '../../fun';
 import { menu } from '../../io';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
 import { radius, sans, space } from '../../theme';
@@ -53,7 +53,7 @@ export default function Home() {
             return (
               <View key={w.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: c.border }}>
                 <T numberOfLines={1} style={{ flex: 1, fontFamily: sans, fontWeight: '600', fontSize: 17 }}>{w.name}</T>
-                <T v="mono" style={{ fontSize: 12 }}>{[w.endedAt ? duration(w.endedAt - w.startedAt) : '', plural(sets, 'set'), volume ? `${num(volume)} kg` : '', (() => { const k = workoutCalories(v, w); return k ? `≈${k} kcal` : ''; })()].filter(Boolean).join(' · ')}</T>
+                <T v="mono" style={{ fontSize: 12 }}>{[w.endedAt ? duration(w.endedAt - w.startedAt) : '', plural(sets, 'set'), volume ? fmtVolume(volume, v.unit) : '', (() => { const k = workoutCalories(v, w); return k ? `≈${k} kcal` : ''; })()].filter(Boolean).join(' · ')}</T>
               </View>
             );
           })}
@@ -89,7 +89,7 @@ export default function Home() {
           <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
             <Stat k="This week" v={<>{week.sessions}<T v="mono"> sess</T></>} />
             <Stat k="Sets" v={week.sets} />
-            <Stat k="Volume" v={week.volume >= 1000 ? `${num(week.volume / 1000)}t` : num(week.volume)} />
+            <Stat k="Volume" v={fmtVolume(week.volume, v.unit, '')} />
           </View>
         ) : null}
 
@@ -138,7 +138,6 @@ function WeightCard() {
   );
 }
 
-const kgT = (n: number) => (n >= 1000 ? `${num(Math.round(n / 100) / 10)}t` : `${num(Math.round(n))} kg`);
 /** Monday to Wednesday: last week in one card, with the group that was light and a template for it. Close it for the week. */
 function Recap() {
   const { log, v, update } = useLog();
@@ -161,7 +160,7 @@ function Recap() {
         </Pressable>
       </View>
       <T style={{ fontSize: 17 }}>
-        {plural(r.last.workouts, 'workout')}{r.last.minutes ? ` · ${fmtDur(r.last.minutes * 60)}` : ''}{r.last.volume ? ` · ${kgT(r.last.volume)}` : ''}
+        {plural(r.last.workouts, 'workout')}{r.last.minutes ? ` · ${fmtDur(r.last.minutes * 60)}` : ''}{r.last.volume ? ` · ${fmtVolume(r.last.volume, v.unit, '')}` : ''}
       </T>
       <T v="small">{!r.last.workouts ? 'A week off. This one’s a fresh start.' : diff > 0 ? `${plural(diff, 'more workout')} than the week before. Nice.` : diff < 0 ? `${plural(-diff, 'fewer workout')} than the week before.` : 'Same as the week before: steady.'}</T>
       {r.light && (
@@ -241,7 +240,7 @@ function WelcomeBack() {
   const tpl = v.templates.find((x) => x.id === t);
   if (!tpl) return null;
   function ease() {
-    update((l) => { const s = startWorkout(l, tpl!.id); const a = viewOf(s).active; return a ? putWorkout(s, easeBack(a, 0.8)) : s; });
+    update((l) => { const s = startWorkout(l, tpl!.id); const a = viewOf(s).active; return a ? putWorkout(s, easeBack(a, 0.8, viewOf(s).unit)) : s; });
     router.push('/active');
   }
   return (
@@ -291,7 +290,7 @@ function PastYou() {
       </View>
       <View style={{ flex: 1 }}>
         <T v="label" style={{ fontSize: 11 }}>Past you</T>
-        <T style={{ color: c.text }}>{p.label}, your best {getEx(v, p.exerciseId).name} was {num(p.was)} kg. Now it’s <T style={{ fontWeight: '800' }}>{num(p.now)} kg</T>.</T>
+        <T style={{ color: c.text }}>{p.label}, your best {getEx(v, p.exerciseId).name} was {fmtKg(p.was, v.unit)}. Now it’s <T style={{ fontWeight: '800' }}>{fmtKg(p.now, v.unit)}</T>.</T>
       </View>
     </Card>
   );
@@ -318,7 +317,7 @@ function ChallengeCard() {
             <View style={{ height: 8, borderRadius: 4, backgroundColor: c.chip, overflow: 'hidden' }}>
               <View style={{ width: `${Math.min(1, p.done / p.target) * 100}%`, height: '100%', backgroundColor: c.brand, borderRadius: 4 }} />
             </View>
-            <T v="small">{num(p.done)} of {num(p.target)} {challengeUnit(p.def, v)} · {plural(p.daysLeft + 1, 'day')} left</T>
+            <T v="small">{challengeNum(p.def, v, p.done)} of {challengeNum(p.def, v, p.target)} {challengeUnit(p.def, v)} · {plural(p.daysLeft + 1, 'day')} left</T>
           </View>
         ))}
       </Card>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { fmtDur, getEx, longDate, num, plural, today } from '../model';
+import { fmtDur, fmtKg, fmtVolume, getEx, longDate, num, plural, today } from '../model';
 import { monthName, prevMonth, wrapped } from '../fun';
 import { drawWrapped, shareWrapped } from '../share';
 import { useLog, useTheme } from '../store';
@@ -39,13 +39,13 @@ export default function WrappedScreen() {
         <Gap h={space.sm} />
         <View style={{ flexDirection: 'row', gap: space.sm }}>
           <Stat k="Time" v={r.minutes ? fmtDur(r.minutes * 60) : '–'} />
-          {r.volume ? <Stat k="Lifted" v={r.volume >= 1000 ? `${num(Math.round(r.volume / 100) / 10)}t` : `${num(Math.round(r.volume))} kg`} /> : r.km ? <Stat k="Distance" v={`${num(r.km)} km`} /> : <Stat k="Yoga" v={`${r.yoga}m`} />}
+          {r.volume ? <Stat k="Lifted" v={fmtVolume(r.volume, v.unit, '')} /> : r.km ? <Stat k="Distance" v={`${num(r.km)} km`} /> : <Stat k="Yoga" v={`${r.yoga}m`} />}
           <Stat k="Bests" v={r.bests} />
         </View>
         <Gap />
         <Card style={{ gap: space.md }}>
           {r.top && <Line k="Most done" v={`${getEx(v, r.top.exerciseId).name} · ${plural(r.top.sets, 'set')}`} />}
-          {r.heaviest && <Line k="Heaviest lift" v={`${getEx(v, r.heaviest.exerciseId).name} · ${num(r.heaviest.kg)} kg`} />}
+          {r.heaviest && <Line k="Heaviest lift" v={`${getEx(v, r.heaviest.exerciseId).name} · ${fmtKg(r.heaviest.kg, v.unit)}`} />}
           <Line k="Best week" v={`${plural(r.bestWeek.workouts, 'workout')}, week of ${longDate(r.bestWeek.start)}`} />
           {r.km && r.volume ? <Line k="Distance" v={`${num(r.km)} km`} /> : null}
           {r.yoga ? <Line k="On the mat" v={fmtDur(r.yoga * 60)} /> : null}
