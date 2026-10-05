@@ -127,6 +127,7 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
   // Which exercise each Strong name becomes: a built-in, an existing custom one with the same name, or a new custom one.
   const mine = l.exercises.filter((e) => e.profileId === pid);
   const byName = new Map(mine.map((e) => [e.name.toLowerCase(), e.id]));
+  const taken = new Set(mine.map((e) => e.id));
   const idOf = new Map<string, string>();
   const created: CustomExercise[] = [];
   const timed = new Map<string, boolean>(); // every set is seconds-only (planks, cardio)
@@ -138,9 +139,14 @@ export function importStrong(l: Log, text: string, unit: 'kg' | 'lb', now = Date
   const exFor = (name: string) => {
     let id = idOf.get(name);
     if (id) return id;
-    id = STRONG_BUILT_IN[name.toLowerCase()] ?? byName.get(name.toLowerCase());
+    const key = name.slice(0, 80).toLowerCase();
+    id = STRONG_BUILT_IN[name.toLowerCase()] ?? byName.get(key);
     if (!id) {
-      id = `u_strong_${slug(name)}`;
+      // Different names can slug alike ("Curl (Cable)" / "Curl - Cable", non-Latin names): a repeated id makes the log unloadable.
+      const base = `u_strong_${slug(name)}`;
+      id = base;
+      for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+      taken.add(id); byName.set(key, id);
       const { weightType, equip } = weightTypeOf(name);
       created.push({ id, profileId: pid, name: name.slice(0, 80), group: groupOf(name), equip, weightType,
         ...(timed.get(name) ? { metric: 'secs' as const } : {}), setup: [], exec: [], avoid: [], updatedAt: now });
