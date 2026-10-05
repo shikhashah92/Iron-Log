@@ -189,7 +189,7 @@ function TrophyShelf() {
   return (
     <Section title={`Trophies · ${earned.length}`} right={<Button title="See all" kind="ghost" onPress={() => router.push('/trophies')} style={{ minHeight: 36, paddingHorizontal: space.sm }} />}>
       {[...earned].reverse().slice(0, 3).map((e) => <MilestoneCard key={e.id} icon={e.icon} title={e.title} detail={e.detail} sub={dateWithYear(e.date)} />)}
-      {next.map((u) => <MilestoneCard key={u.id} icon={u.icon} title={u.title} detail={u.detail} sub={progressLabel(u)} locked />)}
+      {next.map((u) => <MilestoneCard key={u.id} icon={u.icon} title={u.title} detail={u.detail} sub={progressLabel(u, v.unit)} locked />)}
     </Section>
   );
 }

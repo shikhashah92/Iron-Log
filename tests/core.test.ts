@@ -313,6 +313,13 @@ test('pounds: stored in kg, shown, typed and rounded in lb', async () => {
   l = putProfile(withUnits(l, { weight: 'kg', length: 'cm' }), v.profile.id, { progression: { step: 1.25 } });
   assert.deepEqual(viewOf(lb(l)).profile.progression, {});
   assert.equal(parseBackup(serialize(lb(l))).log.settings.units?.weight, 'lb');
+  // Weight trophies are said in pounds too (same thresholds, same comparisons).
+  const heavy = lb(did(newLog('B', at('2026-01-01')), '2026-09-25', [[bench, [[100, 10], [100, 10], [100, 10], [100, 10], [100, 10], [100, 10]]]])); // 6 t
+  const ms = f.milestonesOf(viewOf(heavy));
+  assert.deepEqual(ms.earned.filter((e) => e.track === 'tonnes').map((e) => e.title), ['2,200 lb lifted', '11,000 lb lifted']);
+  const next = ms.upcoming.find((u) => u.track === 'tonnes')!;
+  assert.equal(f.progressLabel(next, 'lb'), '13,200 of 26,500 lb');
+  assert.equal(f.progressLabel(next), '6 of 12 t');
 });
 
 test('body: trend smooths, plan is a steady % per week, status and warnings, BMI, units, reminders', async () => {

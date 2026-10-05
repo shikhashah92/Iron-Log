@@ -25,7 +25,7 @@ export default function Trophies() {
             <T v="label" style={{ marginBottom: space.xs }}>{label}</T>
             <Card pad={false} style={{ paddingHorizontal: space.md }}>
               {got.map((e) => <MilestoneCard key={e.id} icon={e.icon} title={e.title} detail={e.detail} sub={longDate(e.date)} />)}
-              {next ? <MilestoneCard icon={next.icon} title={next.title} detail={next.detail} sub={progressLabel(next)} locked /> : null}
+              {next ? <MilestoneCard icon={next.icon} title={next.title} detail={next.detail} sub={progressLabel(next, v.unit)} locked /> : null}
               {!got.length && !next ? <T v="small" style={{ paddingVertical: space.md }}>All done here. Remarkable.</T> : null}
             </Card>
           </View>

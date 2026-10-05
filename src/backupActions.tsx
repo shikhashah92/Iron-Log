@@ -105,8 +105,11 @@ export function useBackup() {
       const text = await pickTextFile('text/csv,.csv');
       if (!text) return;
       // Strong exports in whatever unit you used in the app; only newer files say which.
+      // The likely answer (the unit chosen in Uplift) is the highlighted button.
+      const mine = viewOf(log).unit, other = mine === 'lb' ? 'kg' : 'lb';
+      const name = { kg: 'Kilograms', lb: 'Pounds' };
       const unit = strongHeaderUnit(text)
-        ?? (await choose('Which unit did you use in Strong?', 'So the weights come in right.', 'Kilograms', 'Pounds') ? 'kg' : 'lb');
+        ?? (await choose('Which unit did you use in Strong?', 'So the weights come in right.', name[mine], name[other]) ? mine : other);
       const { log: next, summary: s } = importStrong(log, text, unit);
       const who = log.profiles.find((p) => p.id === log.settings.currentProfileId)?.name ?? 'you';
       const msg = [

@@ -62,6 +62,11 @@ export const MILESTONES: readonly Milestone[] = [
   ]),
 ];
 
+// In pounds: the same weight milestones, said in lb (5 tonnes is about 11,000 lb, still about an elephant).
+const LB_TITLE: Record<number, string> = { 1: '2,200 lb', 5: '11,000 lb', 12: '26,500 lb', 50: '110,000 lb', 150: '330,000 lb', 400: '880,000 lb', 1000: '2.2 million lb' };
+const inUnitTitle = <T extends Milestone>(ms: T, u: View['unit']): T =>
+  (u === 'lb' && ms.track === 'tonnes' && LB_TITLE[ms.at] ? { ...ms, title: `${LB_TITLE[ms.at]} lifted` } : ms);
+
 const cache = new WeakMap<View, Map<number, { earned: Earned[]; totals: Record<Track, number> }>>();
 /** Walk every workout, oldest first, and note which one crossed each milestone. `goal`: the weekly goal (0: none). */
 export function milestonesOf(v: View, goal = 0): { earned: Earned[]; upcoming: Upcoming[] } {
@@ -97,13 +102,14 @@ export function milestonesOf(v: View, goal = 0): { earned: Earned[]; upcoming: U
   const { earned, totals: t } = r;
   const upcoming = (Object.keys(t) as Track[]).filter((k) => k !== 'goals' || goal)
     .map((k) => MILESTONES.find((ms) => ms.track === k && !earned.some((x) => x.id === ms.id)))
-    .filter((ms): ms is Milestone => !!ms).map((ms) => ({ ...ms, progress: t[ms.track] }));
-  return { earned, upcoming };
+    .filter((ms): ms is Milestone => !!ms).map((ms) => inUnitTitle({ ...ms, progress: t[ms.track] }, v.unit));
+  return { earned: earned.map((e) => inUnitTitle(e, v.unit)), upcoming };
 }
 /** The milestones this workout reached. */
 export const newMilestones = (v: View, w: Workout, goal = 0) => milestonesOf(v, goal).earned.filter((e) => e.workoutId === w.id);
-/** "42 of 50 workouts", "3.2 of 5 t" for an upcoming milestone. */
-export function progressLabel(u: Upcoming): string {
+/** "42 of 50 workouts", "3.2 of 5 t" (or "7,100 of 11,000 lb") for an upcoming milestone. */
+export function progressLabel(u: Upcoming, weight: View['unit'] = 'kg'): string {
+  if (u.track === 'tonnes' && weight === 'lb' && LB_TITLE[u.at]) return `${(Math.floor(fromKg(u.progress * 1000, 'lb') / 100) * 100).toLocaleString('en-US')} of ${LB_TITLE[u.at]}`;
   const unit = { workouts: 'workouts', tonnes: 't', km: 'km', yoga: 'min', surya: 'rounds', bests: 'bests', goals: 'weeks' }[u.track];
   const n = u.track === 'tonnes' || u.track === 'km' ? num(Math.floor(u.progress * 10) / 10) : String(Math.floor(u.progress));
   return `${n} of ${num(u.at)} ${unit}`;
