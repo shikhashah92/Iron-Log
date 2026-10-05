@@ -88,7 +88,10 @@ function groupOf(name: string): string {
   // Whole words only ("chin" must not match "machine"). Cardio has no muscle group: Other.
   if (/\b(running|cycling|swimming|elliptical|treadmill|rowing|walk|jumping)\b/.test(n)) return 'Other';
   const rules: [RegExp, (typeof GROUPS)[number]][] = [
-    [/\b(curls?|biceps?|triceps?|skull\w*|push ?downs?|dips?)\b/, 'Arms'], [/\b(squats?|lunges?|legs?|calf|deadlifts?|step-ups?|hips?|glutes?)\b/, 'Legs'],
+    // Names that would otherwise hit a broader word below ("Leg Raise" isn't legs, "Upright Row" isn't back).
+    [/\b(leg raises?|knee raises?)\b/, 'Core'], [/\b(upright rows?|reverse fl(y|ies|yes)|rear delts?)\b/, 'Shoulders'],
+    [/\b(curls?|biceps?|triceps?|skull\w*|push ?downs?|dips?|wrists?|forearms?)\b/, 'Arms'],
+    [/\b(squats?|sqats?|lunges?|legs?|calf|deadlifts?|step-ups?|hips?|glutes?|hack|kickbacks?|hamstrings?|quads?)\b/, 'Legs'],
     [/\b(rows?|pull ?downs?|pull ?ups?|chin ?ups?|pullovers?|low pull|back)\b/, 'Back'], [/\b(bench|chest|fly|flyes|push ?ups?|pec)\b/, 'Chest'],
     [/\b(press|raises?|shoulders?|shrugs?|delts?|face pull)\b/, 'Shoulders'], [/\b(abs|crunch(es)?|plank|hold|twist|core|sit ?ups?)\b/, 'Core'],
   ];

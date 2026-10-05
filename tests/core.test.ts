@@ -303,6 +303,15 @@ test('Strong import: names that slug alike get distinct ids, so the saved log st
   assert.equal(parseBackup(serialize(bad)).log.exercises.length, 4);
 });
 
+test('Strong import: muscle group from the name, without the broad words winning', async () => {
+  const { importStrong } = await import('../src/strong.ts');
+  const names = { 'Linear Hack Press': 'Legs', 'Upright Row (Barbell)': 'Shoulders', 'Reverse Fly (Machine)': 'Shoulders', 'Flat Leg Raise': 'Core',
+    'Seated Calf Raise (Machine)': 'Legs', 'Wrist Roller': 'Arms', 'Triceps Kickback (Dumbbell)': 'Arms', 'Glute Kickback (Machine)': 'Legs', 'Shoulder Press (Plate Loaded)': 'Shoulders' };
+  const csv = ['Date,Workout Name,Exercise Name,Set Order,Weight,Reps', ...Object.keys(names).map((n) => `2026-09-01 07:00:00,Mix,"${n}",1,20,10`)].join('\n');
+  const got = Object.fromEntries(importStrong(newLog(), csv, 'kg', 5).log.exercises.map((e) => [e.name, e.group]));
+  assert.deepEqual(got, names);
+});
+
 test('body: trend smooths, plan is a steady % per week, status and warnings, BMI, units, reminders', async () => {
   const b = await import('../src/body.ts');
   const wi = (date: string, weight: number, at = 0) => ({ id: date, profileId: 'p', date, weight, at });

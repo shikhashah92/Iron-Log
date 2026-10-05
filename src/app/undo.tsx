@@ -4,10 +4,11 @@ import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { parseBackup } from '../backup';
 import { longDate, dayKey, plural } from '../model';
-import { listSnapshots, type Snapshot } from '../safety';
+import { listSnapshots, unreadableCopies, type Snapshot, type Unreadable } from '../safety';
+import { bringBack } from '../backupActions';
 import { useLog, useTheme } from '../store';
 import { goBack } from '../components';
-import { confirm, notify } from '../io';
+import { confirm, notify, saveFile } from '../io';
 import { Card, Gap, Header, IconButton, Row, Screen, T } from '../ui';
 import { space } from '../theme';
 
@@ -17,7 +18,8 @@ export default function Undo() {
   const { log, replace } = useLog();
   const { c } = useTheme();
   const [list, setList] = useState<Snapshot[] | null>(null);
-  const refresh = useCallback(() => { listSnapshots().then(setList); }, []);
+  const [kept, setKept] = useState<Unreadable[]>([]);
+  const refresh = useCallback(() => { listSnapshots().then(setList); unreadableCopies().then(setKept).catch(() => {}); }, []);
   useFocusEffect(refresh);
 
   async function restore(s: Snapshot) {
@@ -39,6 +41,27 @@ export default function Undo() {
       <Header title="Undo history" left={<IconButton icon="chevron-back" label="Back" onPress={() => goBack()} />} />
       <T v="small">Uplift keeps your last 10 versions on this device: one at the start of each day you make changes, and one before every restore or erase.</T>
       <Gap />
+      {kept.length ? (
+        <>
+          <T v="label">Data that couldn’t be opened</T>
+          <Gap h={space.sm} />
+          <Card pad={false} style={{ paddingHorizontal: space.lg }}>
+            {kept.map((u, i) => (
+              <Row key={u.key} last={i === kept.length - 1}
+                left={<View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="archive-outline" size={18} color={c.accent} /></View>}
+                title={when(u.at)} subtitle={u.log ? `Set aside by Start fresh · ${plural(u.log.workouts.length, 'workout')} · opens now` : 'Set aside by Start fresh · still can’t be opened'}
+                right={<T color={c.accent} style={{ fontWeight: '600' }}>{u.log ? 'Bring back' : 'Download'}</T>}
+                onPress={async () => {
+                  if (!u.log) { saveFile(`uplift-unreadable-${dayKey(new Date(u.at))}.json`, u.raw, 'application/json').catch((e) => notify('Download failed', e.message)); return; }
+                  if (!(await confirm('Bring this data back?', `${plural(u.log.workouts.length, 'workout')}. Your current data (${plural(log.workouts.length, 'workout')}) is saved to Undo history first.`, 'Bring back'))) return;
+                  await bringBack(u, replace); refresh();
+                }} />
+            ))}
+          </Card>
+          <Gap />
+        </>
+      ) : null}
       <Card pad={false} style={{ paddingHorizontal: space.lg }}>
         {list === null ? <View style={{ paddingVertical: space.lg }}><T v="small">Loading…</T></View>
           : list.length === 0 ? <View style={{ paddingVertical: space.lg }}><T v="small">No earlier versions yet. They appear after your first day of changes.</T></View>

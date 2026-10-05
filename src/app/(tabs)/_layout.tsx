@@ -10,6 +10,7 @@ import { TourOverlay } from '../../tour';
 import { stopRest } from '../../timer';
 import { backupDue } from '../../model';
 import { useForgottenWorkout } from '../../workout';
+import { offerUnreadable } from '../../backupActions';
 import { sans } from '../../theme';
 
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -25,7 +26,7 @@ export default function TabsLayout() {
   const { c } = useTheme();
   const narrow = useWindowDimensions().width < 360; // e.g. iPhone SE: smaller labels so "Exercises" fits
   const { bottom } = useSafeAreaInsets(); // home-indicator space in the installed app; 0 in a browser tab
-  const { log } = useStore();
+  const { log, replace } = useStore();
   const live = !!log?.workouts.some((w) => w.active && w.profileId === log.settings.currentProfileId);
   // A new person: onboarding's second step (optional), then the tour.
   const pending = !!log?.settings.setupPending;
@@ -34,6 +35,8 @@ export default function TabsLayout() {
   // The rest timer belongs to the workout in progress: once it's saved, discarded or deleted, the timer goes too.
   useEffect(() => { if (!live) stopRest(); }, [live]);
   useForgottenWorkout();
+  // Data "Start fresh" set aside because it wouldn't open: offer it back once this version can read it.
+  useEffect(() => { if (!pending) offerUnreadable(replace).catch(() => {}); }, [pending]); // eslint-disable-line react-hooks/exhaustive-deps
   // A challenge link that arrived before setup (see the root layout): open it now.
   useEffect(() => {
     if (pending) return;
