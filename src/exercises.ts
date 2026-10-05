@@ -1,5 +1,5 @@
 // The built-in exercise library (ships with the app, never stored). Custom exercises live in the log.
-import type { Exercise, Template } from "./model";
+import type { Exercise, Muscle, Muscles, Template } from "./model";
 import { YOGA } from "./yoga.ts";
 
 export const GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core"] as const;
@@ -1836,7 +1836,37 @@ const ACTIVITIES: readonly Exercise[] = [
  }
 ];
 
-export const BUILT_IN: readonly Exercise[] = [...STRENGTH, ...ACTIVITIES, ...YOGA];
+// What each lift works: main muscles, then helpers (each helper gets half a set on the body map).
+const WORKS: Record<string, string> = {
+  'bench-press-bb': 'chest / triceps deltoids', 'incline-barbell-press': 'chest deltoids / triceps', 'incline-db-press': 'chest deltoids / triceps',
+  'flat-db-press': 'chest / triceps deltoids', 'machine-chest-press': 'chest / triceps deltoids', 'pec-deck': 'chest / deltoids',
+  'cable-fly': 'chest / deltoids', 'push-up': 'chest / triceps deltoids abs',
+  deadlift: 'lower-back hamstring gluteal / upper-back trapezius forearm quadriceps', 'bb-bent-row': 'upper-back / biceps deltoids lower-back',
+  't-bar-row': 'upper-back / biceps deltoids lower-back', 'lat-pulldown': 'upper-back / biceps', 'seated-cable-row': 'upper-back / biceps deltoids',
+  'cable-row-close': 'upper-back / biceps', 'single-arm-cable-row': 'upper-back / biceps', 'one-arm-db-row': 'upper-back / biceps deltoids',
+  'pull-up': 'upper-back / biceps forearm', 'chest-supported-row': 'upper-back / biceps deltoids', 'straight-arm-pulldown': 'upper-back / triceps',
+  'db-shrug': 'trapezius / forearm', 'bb-shrug': 'trapezius / forearm', 'back-extension': 'lower-back / gluteal hamstring',
+  'ohp-bb': 'deltoids / triceps trapezius', 'seated-db-press': 'deltoids / triceps', 'machine-shoulder-press': 'deltoids / triceps',
+  'lateral-raise': 'deltoids / trapezius', 'db-front-raise': 'deltoids / chest', 'rear-delt-fly': 'deltoids / upper-back trapezius',
+  'face-pull': 'deltoids / trapezius upper-back', 'upright-row': 'deltoids trapezius / biceps',
+  'back-squat': 'quadriceps gluteal / adductors hamstring lower-back', 'front-squat': 'quadriceps / gluteal abs', 'goblet-squat': 'quadriceps gluteal / abs',
+  rdl: 'hamstring gluteal / lower-back forearm', 'leg-press': 'quadriceps gluteal / hamstring', 'bulgarian-split-squat': 'quadriceps gluteal / hamstring adductors',
+  'walking-lunge': 'quadriceps gluteal / hamstring calves', 'reverse-lunge': 'quadriceps gluteal / hamstring', 'step-up': 'quadriceps gluteal / hamstring calves',
+  'leg-extension': 'quadriceps', 'seated-leg-curl': 'hamstring / calves', 'lying-leg-curl': 'hamstring / calves', 'hip-thrust': 'gluteal / hamstring',
+  'glute-bridge': 'gluteal / hamstring', 'calf-raise': 'calves',
+  'bb-curl': 'biceps / forearm', 'ez-bar-curl': 'biceps / forearm', 'db-biceps-curl': 'biceps / forearm', 'alt-db-curl': 'biceps / forearm',
+  'hammer-curl': 'biceps forearm', 'incline-db-curl': 'biceps / forearm', 'cable-biceps-curl': 'biceps / forearm', 'preacher-curl': 'biceps / forearm',
+  'triceps-pushdown': 'triceps', 'rope-pushdown': 'triceps', 'overhead-triceps-ext': 'triceps', 'close-grip-bench': 'triceps chest / deltoids',
+  'ez-skull-crusher': 'triceps', 'bench-dips': 'triceps / chest deltoids',
+  plank: 'abs / obliques', 'hanging-leg-raise': 'abs / obliques forearm', 'cable-crunch': 'abs / obliques', 'russian-twist': 'obliques / abs',
+  'dead-bug': 'abs', 'ab-wheel': 'abs / obliques upper-back',
+};
+const works = (w: string): Muscles => {
+  const [main, help = ''] = w.split(' / ');
+  return { main: main.split(' ') as Muscle[], help: (help ? help.split(' ') : []) as Muscle[] };
+};
+
+export const BUILT_IN: readonly Exercise[] = [...STRENGTH.map((e) => (WORKS[e.id] ? { ...e, muscles: works(WORKS[e.id]) } : e)), ...ACTIVITIES, ...YOGA];
 
 /**
  * Ready-made templates (built in like the library, never stored). Editing or renaming one saves your own copy under

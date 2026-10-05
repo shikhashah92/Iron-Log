@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
-  setValue, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
+  setValue, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
@@ -922,4 +922,47 @@ test('challenges: every kind counts right, links round-trip, bad links are refus
   (junk.log ?? junk).profiles[0] = { ...(junk.log ?? junk).profiles[0], weeklyGoal: 99, trainTime: '25:00', challenges: [{ id: 'x', start: 'soon' }, { id: 'y', start: '2026-09-01', def: { kind: 'best' } }] };
   const clean = parseBackup(JSON.stringify(junk)).log.profiles[0];
   assert.deepEqual([clean.weeklyGoal, clean.trainTime, clean.challenges], [undefined, undefined, []]);
+});
+
+test('muscles: every built-in lift is tagged, and its first main muscle is in its group', () => {
+  for (const e of BUILT_IN.filter((x) => !x.kind)) {
+    assert.ok(e.muscles?.main.length, e.id);
+    assert.equal(MUSCLES[e.muscles!.main[0]], e.group, e.id);
+    for (const k of [...e.muscles!.main, ...e.muscles!.help]) assert.ok(Object.hasOwn(MUSCLES, k), `${e.id}: ${k}`);
+  }
+  assert.equal(musclesOf(getEx(viewOf(newLog('A', 1)), 'run')), undefined); // cardio has none
+});
+
+test('muscles: guessed from a custom or Strong name, the first guess that fits the exercise’s group', () => {
+  const g = (name: string, group: string) => guessMuscles(name, group)?.main.join(' ');
+  assert.equal(g('Tricep Press', 'Arms'), 'triceps');
+  assert.equal(g('Linear Hack Press', 'Legs'), 'quadriceps gluteal');
+  assert.equal(g('Seated Leg Curl (Machine)', 'Legs'), 'hamstring');
+  assert.equal(g('Hammer Curl (Cable)', 'Arms'), 'biceps forearm');
+  assert.equal(g('Pallof Press', 'Core'), 'abs'); // "press" says shoulders, but it was filed under Core
+  assert.equal(g('Running (Treadmill)', 'Other'), undefined);
+  assert.equal(fromName('Glute Kickback')?.main[0], 'gluteal');
+  assert.equal(g('Cable Kickback', 'Legs'), 'gluteal'); // the same word is triceps under Arms
+  assert.equal(g('Cable Kickback', 'Arms'), 'triceps');
+  assert.equal(g('Reverse Grip Tricep Push Down', 'Arms'), 'triceps');
+  assert.deepEqual(guessMuscles('Chest Fly (Dumbbell)', 'Chest')?.help, ['deltoids']);
+});
+
+test('muscleSets: main muscles get each working set, helpers half; warm-ups and other days ignored', () => {
+  const v = viewOf(did(sample(), D2, [['hammer-curl', [[10, 12], [10, 12]]]]));
+  const one = muscleSets(v, D1, D1);
+  assert.deepEqual([one.chest, one.triceps, one.deltoids, one.biceps], [2 + 1, 1 + 0.5, 1 + 0.5, 0]); // bench 2 + push-up 1
+  assert.deepEqual([muscleSets(v, D2, D2).biceps, muscleSets(v, D2, D2).forearm, muscleSets(v, D2, D2).chest], [2, 2, 0]);
+});
+
+test('muscles survive a backup; unknown names are dropped, and none left means guessing again', () => {
+  let l = putExercise(newLog('A', 1), { id: 'u_x', name: 'Pallof Press', group: 'Core', equip: '', weightType: 'cable', setup: [], exec: [], avoid: [], muscles: { main: ['obliques'], help: ['abs'] } });
+  assert.deepEqual(parseBackup(serialize(l)).log.exercises[0].muscles, { main: ['obliques'], help: ['abs'] });
+  const x = JSON.parse(serialize(l)); const ex = (x.log ?? x).exercises[0];
+  ex.muscles = { main: ['obliques', 'spleen', 7, 'obliques'], help: ['obliques', 'abs', 'toString'] };
+  assert.deepEqual(parseBackup(JSON.stringify(x)).log.exercises[0].muscles, { main: ['obliques'], help: ['abs'] });
+  ex.muscles = { main: ['spleen'] };
+  assert.equal(parseBackup(JSON.stringify(x)).log.exercises[0].muscles, undefined);
+  l = parseBackup(JSON.stringify(x)).log;
+  assert.deepEqual(musclesOf(viewOf(l).exercises[0])?.main, ['abs']);
 });
