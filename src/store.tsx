@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { dayKey, imgKey, newLog, today, viewOf, type Images, type Log, type View } from './model';
-import { latestSnapshotAt, takeSnapshot } from './safety';
+import { latestSnapshotAt, takeSnapshot, UNREADABLE } from './safety';
 import { parseBackup, parseImages, serialize } from './backup';
 import * as storage from './storage';
 import { useColors } from './theme';
@@ -151,7 +151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       replace: (next, reason) => swap(next.log, next.images, reason),
       async erase() {
         // If the old data was unreadable, keep a copy under a side key rather than destroying it.
-        if (corrupt) await storage.setItem(`${LOG_KEY}:unreadable:${Date.now()}`, corrupt.raw);
+        if (corrupt) await storage.setItem(`${UNREADABLE}${Date.now()}`, corrupt.raw);
         await swap(newLog(), {}, 'Before erase');
       },
     };

@@ -1,5 +1,5 @@
 // Undo history: the last 10 versions of the log, kept on this device only.
-import { pushSnapshot, serialize } from './backup';
+import { parseBackup, pushSnapshot, serialize } from './backup';
 import type { Log } from './model';
 import * as storage from './storage';
 
@@ -41,6 +41,21 @@ async function readSnapshots(): Promise<Snapshot[]> {
     return Array.isArray(list) ? list.filter((s) => typeof s?.at === 'number' && typeof s?.data === 'string').map((s) => ({ ...s, count: Number(s.count) || 0 })) : [];
   } catch { return []; }
 }
+
+/** Data that wouldn't open, set aside by "Start fresh" under this prefix and never deleted on its own. */
+export const UNREADABLE = 'log:v1:unreadable:';
+export interface Unreadable { key: string; at: number; raw: string; log: Log | null }
+/** Those copies, newest first. `log` is set when one opens now (a later app version can read what an earlier one couldn't). */
+export async function unreadableCopies(): Promise<Unreadable[]> {
+  const found = await Promise.all((await storage.keys()).filter((k) => k.startsWith(UNREADABLE)).map(async (key) => {
+    const raw = (await storage.getItem(key)) ?? '';
+    let log: Log | null = null;
+    try { log = parseBackup(raw).log; } catch { /* still unreadable: it can be downloaded */ }
+    return { key, at: Number(key.slice(UNREADABLE.length)) || 0, raw, log };
+  }));
+  return found.sort((a, b) => b.at - a.at);
+}
+export const forgetUnreadable = (key: string) => storage.removeItem(key);
 
 export async function listSnapshots(): Promise<Snapshot[]> {
   await chain;

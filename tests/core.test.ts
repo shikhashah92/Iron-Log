@@ -322,6 +322,31 @@ test('pounds: stored in kg, shown, typed and rounded in lb', async () => {
   assert.equal(f.progressLabel(next), '6 of 12 t');
 });
 
+test('Strong import: names that slug alike get distinct ids, so the saved log still loads', async () => {
+  const { importStrong } = await import('../src/strong.ts');
+  const csv = ['Date,Workout Name,Exercise Name,Set Order,Weight,Reps',
+    ...['Hack Squat (Machine)', 'Hack Squat - Machine', 'hack squat (machine)', 'Жим', 'Тяга'].map((n) => `2026-09-01 07:00:00,Legs,${n},1,100,5`)].join('\n');
+  const { log } = importStrong(newLog(), csv, 'kg', 5);
+  const ids = log.exercises.map((e) => e.id);
+  assert.equal(ids.length, 4, 'case-only variants are one exercise');
+  assert.equal(new Set(ids).size, ids.length);
+  parseBackup(serialize(log));
+  const again = importStrong(log, csv, 'kg', 6);
+  assert.equal(again.summary.newExercises, 0, 're-importing reuses them');
+  // A log saved by the old importer (duplicate exercise ids) still opens instead of locking the person out.
+  const bad = { ...log, exercises: [...log.exercises, { ...log.exercises[0], name: 'Hack Squat - Machine' }] };
+  assert.equal(parseBackup(serialize(bad)).log.exercises.length, 4);
+});
+
+test('Strong import: muscle group from the name, without the broad words winning', async () => {
+  const { importStrong } = await import('../src/strong.ts');
+  const names = { 'Linear Hack Press': 'Legs', 'Upright Row (Barbell)': 'Shoulders', 'Reverse Fly (Machine)': 'Shoulders', 'Flat Leg Raise': 'Core',
+    'Seated Calf Raise (Machine)': 'Legs', 'Wrist Roller': 'Arms', 'Triceps Kickback (Dumbbell)': 'Arms', 'Glute Kickback (Machine)': 'Legs', 'Shoulder Press (Plate Loaded)': 'Shoulders' };
+  const csv = ['Date,Workout Name,Exercise Name,Set Order,Weight,Reps', ...Object.keys(names).map((n) => `2026-09-01 07:00:00,Mix,"${n}",1,20,10`)].join('\n');
+  const got = Object.fromEntries(importStrong(newLog(), csv, 'kg', 5).log.exercises.map((e) => [e.name, e.group]));
+  assert.deepEqual(got, names);
+});
+
 test('body: trend smooths, plan is a steady % per week, status and warnings, BMI, units, reminders', async () => {
   const b = await import('../src/body.ts');
   const wi = (date: string, weight: number, at = 0) => ({ id: date, profileId: 'p', date, weight, at });

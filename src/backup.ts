@@ -80,9 +80,9 @@ export function parseBackup(text: string): { log: Log; images: Images } {
   const pids = new Set<string>(profiles.map((p: any) => p.id));
   const owned = (x: any) => pids.has(x?.profileId);
 
-  const exercises: CustomExercise[] = raw.exercises.map((e: any, i: number) => {
+  // A repeated exercise id (older Strong imports made them) keeps the first: refusing would lock the person out of everything.
+  const exercises: CustomExercise[] = raw.exercises.filter((e: any) => !seen.has(`e:${e?.profileId}:${e?.id}`) && seen.add(`e:${e?.profileId}:${e?.id}`)).map((e: any, i: number) => {
     if (!owned(e) || !isId(e.id) || !isName(e.name) || !isStr(e.group, 40) || !isStr(e.equip ?? '', 60) || !TYPES.has(e.weightType)) fail('exercise', i);
-    unique(`e:${e.profileId}:${e.id}`, 'exercise', i);
     return { id: e.id, profileId: e.profileId, name: e.name, group: e.group || 'Other', equip: e.equip ?? '', weightType: e.weightType,
       ...(e.metric === 'secs' ? { metric: 'secs' as const } : {}), ...(['cardio', 'activity', 'yoga'].includes(e.kind) ? { kind: e.kind } : {}),
       ...(e.kind === 'yoga' ? { yoga: ['hold', 'rounds', 'time'].includes(e.yoga) ? e.yoga : 'hold' } : {}),
