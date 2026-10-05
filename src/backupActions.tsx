@@ -9,8 +9,31 @@ import { BUILT_IN } from './exercises';
 import { dayKey, longDate, num, plural, today, type Images, type Log } from './model';
 import { importStrong, strongHeaderUnit } from './strong';
 import { useStore } from './store';
+import { forgetUnreadable, unreadableCopies, type Unreadable } from './safety';
 
 type Pending = { mode: 'set' | 'enter'; onSubmit: (pass: string) => Promise<void> } | null;
+
+type Replace = (next: { log: Log }, reason?: string) => Promise<void>;
+/** Swap in data "Start fresh" set aside. What's on the phone now goes to Undo history first. */
+export async function bringBack(u: Unreadable, replace: Replace) {
+  try {
+    await replace({ log: u.log! }, 'Before bringing back earlier data');
+    await forgetUnreadable(u.key);
+    notify('Your workouts are back', `${plural(u.log!.workouts.length, 'workout')}. What was on this phone a moment ago is in Undo history.`);
+  } catch (e) {
+    notify('Could not bring them back', (e as Error).message);
+  }
+}
+/** On opening: if data that once wouldn't open does now (an app fix), offer it back. Asked once per copy; it stays in Undo history. */
+export async function offerUnreadable(replace: Replace) {
+  const u = (await unreadableCopies()).find((x) => x.log);
+  if (!u) return;
+  const asked = `uplift.offered:${u.key}`;
+  try { if (localStorage.getItem(asked)) return; localStorage.setItem(asked, '1'); } catch { /* private mode: may ask again */ }
+  if (await confirm('Your earlier workouts can be opened now',
+    `On ${longDate(dayKey(new Date(u.at)))} Uplift couldn't open your data (${plural(u.log!.workouts.length, 'workout')}). It can now. Bring it back? What's on this phone now is kept in Undo history first.`,
+    'Bring them back')) await bringBack(u, replace);
+}
 
 export function useBackup() {
   const { log, images, update, replace, start } = useStore();

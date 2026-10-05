@@ -25,6 +25,7 @@ async function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRe
 export const getItem = async (key: string) => (await run<string | undefined>('readonly', (s) => s.get(key))) ?? null;
 export const setItem = async (key: string, value: string) => { await run('readwrite', (s) => s.put(value, key)); };
 export const removeItem = async (key: string) => { await run('readwrite', (s) => s.delete(key)); };
+export const keys = async () => (await run<IDBValidKey[]>('readonly', (s) => s.getAllKeys())).map(String);
 
 /** Ask the browser not to evict our data (Safari may still refuse unless installed to Home Screen). */
 export async function requestPersistence(): Promise<void> {
