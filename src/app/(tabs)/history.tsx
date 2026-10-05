@@ -3,10 +3,11 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { monthName as fullMonth, wrappedMonths, yearGrid } from '../../fun';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, fmtVolume, getEx, groupSets, longDate, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
+import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, fmtVolume, getEx, groupSets, longDate, MUSCLE_NAMES, MUSCLES, muscleSets, type Muscle, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
+import { BodyMap, mix } from '../../bodyMap';
 import { Empty, ProgressBlock, Records, Section, SetLines, ShareWorkout, useSaveAsTemplate } from '../../components';
 import { Button, Card, Field, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { sans, radius, space } from '../../theme';
@@ -116,8 +117,6 @@ function Trends() {
   const kg = (n: number) => fmtVolume(n, v.unit, '');
   const fmt = (n: number) => (metric === 'workouts' ? num(Math.round(n * 10) / 10) : metric === 'minutes' ? mins(Math.round(n)) : kg(n));
   const short = (n: number) => (metric === 'minutes' && n >= 60 ? `${num(Math.round(n / 6) / 10)}h` : fmt(n)); // fits over a bar
-  const groups = groupSets(v, addDays(now, -29), now);
-  const gmax = Math.max(1, ...groups.map((g) => g.sets));
   const vs = (a: number, b: number, f: (n: number) => string) => (b || a ? `${a >= b ? '▲' : '▼'} ${f(b)} last month` : '');
   return (
     <>
@@ -166,18 +165,7 @@ function Trends() {
 
       <YearMap />
 
-      <Section title="Muscle groups · last 30 days">
-        <T v="small" style={{ marginBottom: space.sm, fontSize: 12 }}>Working sets per group. A short bar is what you’ve been skipping.</T>
-        {groups.map((g) => (
-          <View key={g.group} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: 6 }}>
-            <T style={{ width: 78, fontSize: 14 }}>{g.group}</T>
-            <View style={{ flex: 1, height: 14, borderRadius: 7, backgroundColor: c.chip, overflow: 'hidden' }}>
-              <View style={{ width: `${(g.sets / gmax) * 100}%`, height: '100%', borderRadius: 7, backgroundColor: c.brand }} />
-            </View>
-            <T v="mono" style={{ width: 28, textAlign: 'right', fontSize: 12 }}>{g.sets}</T>
-          </View>
-        ))}
-      </Section>
+      <MuscleMap />
 
       <Section title="Monthly wraps" pad={false}>
         <View style={{ paddingHorizontal: space.lg, paddingBottom: space.sm }}>
@@ -188,6 +176,63 @@ function Trends() {
         </View>
       </Section>
     </>
+  );
+}
+
+const PERIODS = [{ id: '7', label: '7 days' }, { id: '30', label: '30 days' }, { id: '90', label: '3 months' }, { id: '365', label: '1 year' }] as const;
+type Period = (typeof PERIODS)[number]['id'];
+
+/**
+ * Sets per muscle over a chosen period, on a front and back body: the more sets, the deeper the mint (against your
+ * most-trained muscle). Tap a muscle or a group for its count; with nothing chosen it points at your lightest group.
+ */
+function MuscleMap() {
+  const { v } = useLog();
+  const { c } = useTheme();
+  const [period, setPeriod] = useState<Period>('30');
+  const [sel, setSel] = useState<string>(); // a muscle, or a group
+  const now = today(), days = Number(period), from = addDays(now, 1 - days);
+  const sets = muscleSets(v, from, now), groups = groupSets(v, from, now);
+  const max = Math.max(1, ...Object.values(sets));
+  const shade = (n: number) => (n ? mix(c.chip, c.brand, Math.ceil((n / max) * 4) / 4) : c.chip);
+  const picked = (k: Muscle) => sel === k || MUSCLES[k] === sel;
+  const tap = (k: string) => setSel(sel === k ? undefined : k);
+  const inPeriod = days === 7 ? 'in the last 7 days' : `in ${PERIODS.find((p) => p.id === period)!.label}`;
+  const weekly = (n: number) => (days > 7 && n ? `, about ${num(Math.round((n / days) * 7 * 10) / 10)} a week` : '');
+  const lightest = [...groups].sort((a, b) => a.sets - b.sets)[0];
+  const starter = v.templates.find((t) => t.id === `starter-${lightest.group.toLowerCase()}`);
+  const info = sel && Object.hasOwn(MUSCLES, sel)
+    ? `${MUSCLE_NAMES[sel as Muscle]}: ${plural(Math.round(sets[sel as Muscle]), 'set')} ${inPeriod}${weekly(sets[sel as Muscle])}. Helper muscles count half a set.`
+    : sel ? `${plural(groups.find((g) => g.group === sel)!.sets, 'working set')} of ${sel.toLowerCase()} exercises ${inPeriod}${weekly(groups.find((g) => g.group === sel)!.sets)}.`
+    : !groups.some((g) => g.sets) ? `No strength sets ${inPeriod}.`
+    : `${lightest.group} is your lightest: ${plural(lightest.sets, 'set')} ${inPeriod}.`;
+  return (
+    <Section title="Muscles worked">
+      <Segmented value={period} onChange={setPeriod} options={[...PERIODS]} />
+      <T v="small" style={{ marginTop: space.sm, fontSize: 12 }}>Working sets per muscle. Pale is what you’ve been skipping.</T>
+      <View style={{ marginTop: space.sm }} accessibilityLabel={`Sets ${inPeriod}: ${groups.map((g) => `${g.group} ${g.sets}`).join(', ')}`}>
+        <BodyMap fill={(k) => shade(sets[k])} selected={picked} onPress={tap} />
+      </View>
+      <View style={{ backgroundColor: c.bg, borderRadius: radius.md, padding: space.sm + 2, marginTop: space.sm, gap: 2 }}>
+        <T v="small" style={{ color: c.text }}>{info}</T>
+        {!sel && starter && groups.some((g) => g.sets) && <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/template', params: { id: starter.id } })}>
+          <T v="small" color={c.accent} style={{ textDecorationLine: 'underline' }}>Open the {starter.name} workout</T>
+        </Pressable>}
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: space.sm }}>
+        <T v="small" style={{ fontSize: 11 }}>Less</T>
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => <View key={t} style={{ width: 16, height: 10, borderRadius: 3, backgroundColor: mix(c.chip, c.brand, t) }} />)}
+        <T v="small" style={{ fontSize: 11 }}>More</T>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: space.sm }}>
+        {groups.map((g) => (
+          <Pressable key={g.group} accessibilityRole="button" aria-pressed={sel === g.group} accessibilityLabel={`${g.group}, ${g.sets} sets`} onPress={() => tap(g.group)}
+            style={{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: sel === g.group ? c.brand : c.chip }}>
+            <T style={{ fontSize: 13, color: sel === g.group ? c.onAccent : c.text }}>{g.group}</T>
+          </Pressable>
+        ))}
+      </View>
+    </Section>
   );
 }
 

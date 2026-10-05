@@ -28,6 +28,8 @@ export interface Exercise {
   id: string; name: string; group: string; equip: string; weightType: WeightType; metric?: 'secs';
   setup: string[]; exec: string[]; avoid: string[];
   kind?: 'cardio' | 'activity' | 'yoga'; met?: [number, number, number]; art?: false;
+  /** Strength: the muscles it works, main ones and helpers (a helper counts half a set). Unset: guessed from the name. */
+  muscles?: Muscles;
   /** Yoga: how a set is logged. w = rounds, r = seconds, the hold per round ('hold') or the total ('rounds', 'time'). */
   yoga?: YogaLog;
 }
@@ -433,6 +435,68 @@ export function weekRecap(v: View, date: string) {
   const light = usual.map((g, k) => ({ group: g.group, avg: g.sets / 4, sets: now[k].sets }))
     .filter((g) => g.avg >= 4 && g.sets < g.avg / 2).sort((a, b) => a.sets / a.avg - b.sets / b.avg)[0];
   return { start, last, before, light: light ? { group: light.group, sets: light.sets, usual: Math.round(light.avg) } : undefined };
+}
+/** The muscles the body map draws (react-native-body-highlighter's names), with the group each belongs to. */
+export const MUSCLES = {
+  chest: 'Chest', 'upper-back': 'Back', 'lower-back': 'Back', trapezius: 'Back', deltoids: 'Shoulders',
+  biceps: 'Arms', triceps: 'Arms', forearm: 'Arms', quadriceps: 'Legs', hamstring: 'Legs', gluteal: 'Legs',
+  adductors: 'Legs', calves: 'Legs', tibialis: 'Legs', abs: 'Core', obliques: 'Core',
+} as const;
+export type Muscle = keyof typeof MUSCLES;
+export interface Muscles { main: Muscle[]; help: Muscle[] }
+export const MUSCLE_NAMES: Record<Muscle, string> = {
+  chest: 'Chest', 'upper-back': 'Upper back', 'lower-back': 'Lower back', trapezius: 'Traps', deltoids: 'Shoulders',
+  biceps: 'Biceps', triceps: 'Triceps', forearm: 'Forearms', quadriceps: 'Quads', hamstring: 'Hamstrings', gluteal: 'Glutes',
+  adductors: 'Inner thighs', calves: 'Calves', tibialis: 'Shins', abs: 'Abs', obliques: 'Obliques',
+};
+const m = (main: string, help = ''): Muscles => ({ main: main.split(' ') as Muscle[], help: (help ? help.split(' ') : []) as Muscle[] });
+// The first match that fits the exercise's group wins, so narrower names come before broad words ("Leg Curl" before
+// "curl", "Tricep Press" before "press"), and "Kickback" can be glutes under Legs but triceps under Arms.
+const GUESS: [RegExp, Muscles][] = [
+  [/\b(leg|knee) raises?\b/, m('abs', 'obliques')], [/\bupright rows?\b/, m('deltoids trapezius', 'biceps')],
+  [/\b(reverse fl(y|ies|yes)|rear delts?|face pulls?)\b/, m('deltoids', 'upper-back trapezius')],
+  [/\bhammer curls?\b/, m('biceps forearm')], [/\b(leg curls?|hamstring curls?|hamstrings?|nordic)\b/, m('hamstring', 'calves')],
+  [/\b(wrists?|forearms?|farmers?)\b/, m('forearm', 'trapezius')], [/\b(curls?|biceps?)\b/, m('biceps', 'forearm')],
+  [/\b(glutes?|hip thrusts?|bridges?|abduct\w*|kickbacks?)\b/, m('gluteal', 'hamstring')],
+  [/\b(triceps?|skull\w*|push ?downs?|dips?|kickbacks?)\b/, m('triceps')],
+  [/\b(romanian|rdl|stiff[- ]leg\w*|good ?mornings?)\b/, m('hamstring gluteal', 'lower-back')],
+  [/\bdeadlifts?\b/, m('hamstring gluteal lower-back', 'upper-back trapezius forearm quadriceps')],
+  [/\b(calf|calves)\b/, m('calves')], [/\badduct\w*\b/, m('adductors')], [/\b(leg extensions?|quads?)\b/, m('quadriceps')],
+  [/\b(squats?|sqats?|lunges?|step-ups?|hack|legs?)\b/, m('quadriceps gluteal', 'hamstring')],
+  [/\bshrugs?\b/, m('trapezius', 'forearm')], [/\b(back extensions?|hyper ?extensions?|supermans?)\b/, m('lower-back', 'gluteal hamstring')],
+  [/\b(rows?|pull ?downs?|pull ?ups?|chin ?ups?|pullovers?|lats?)\b/, m('upper-back', 'biceps')],
+  [/\b(fly|flys|flyes|flies|pec deck)\b/, m('chest', 'deltoids')], [/\b(bench|chest|push ?ups?|pec)\b/, m('chest', 'triceps deltoids')],
+  [/\b(press|raises?|shoulders?|delts?)\b/, m('deltoids', 'triceps')],
+  [/\b(twists?|obliques?|side bends?|woodchop\w*)\b/, m('obliques', 'abs')],
+  [/\b(abs?|crunch(es)?|planks?|core|sit ?ups?|hollow|rollouts?)\b/, m('abs', 'obliques')],
+];
+/** What a name alone suggests ("Linear Hack Press": quads and glutes, hamstrings helping). */
+export const fromName = (name: string) => GUESS.find(([re]) => re.test(name.toLowerCase()))?.[1];
+const BY_GROUP: Record<string, Muscles> = {
+  Chest: m('chest', 'triceps deltoids'), Back: m('upper-back', 'biceps'), Shoulders: m('deltoids', 'triceps'),
+  Legs: m('quadriceps gluteal', 'hamstring'), Arms: m('biceps triceps'), Core: m('abs', 'obliques'),
+};
+/**
+ * What a name suggests, kept only if it agrees with the exercise's group (that was chosen, the name is a guess);
+ * otherwise the group's usual muscles. Nothing for cardio, activities and "Other".
+ */
+export function guessMuscles(name: string, group: string): Muscles | undefined {
+  const n = name.toLowerCase();
+  return GUESS.find(([re, ms]) => MUSCLES[ms.main[0]] === group && re.test(n))?.[1] ?? BY_GROUP[group];
+}
+export const musclesOf = (ex: Exercise): Muscles | undefined => (ex.kind ? undefined : ex.muscles ?? guessMuscles(ex.name, ex.group));
+
+/** Working sets per muscle from `from` to `to` (strength only); a helper muscle gets half of each set. */
+export function muscleSets(v: View, from: string, to: string): Record<Muscle, number> {
+  const n = Object.fromEntries(Object.keys(MUSCLES).map((k) => [k, 0])) as Record<Muscle, number>;
+  for (const e of v.entries) {
+    if (e.date < from || e.date > to) continue;
+    const ms = musclesOf(getEx(v, e.exerciseId)), sets = working(e.sets).length;
+    if (!ms || !sets) continue;
+    for (const k of ms.main) n[k] += sets;
+    for (const k of ms.help) n[k] += sets / 2;
+  }
+  return n;
 }
 /** Working sets per muscle group (strength only) from `from` to `to`, in the library's group order. */
 export function groupSets(v: View, from: string, to: string) {

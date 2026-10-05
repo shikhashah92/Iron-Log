@@ -1,8 +1,9 @@
 import { Image, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { shareChallenge } from './challenges';
-import { addExercises, delExercise, getEx, hasArt, historyOf, isCustom, isTimed, fmtKg, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
+import { addExercises, delExercise, getEx, hasArt, historyOf, isCustom, isTimed, fmtKg, MUSCLE_NAMES, musclesOf, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
 import { useLog, useTheme } from '../store';
+import { BodyMap, mix } from '../bodyMap';
 import { confirm, notify, pickImage } from '../io';
 import { Empty, goBack, Illustration, ProgressBlock, Star, Tag } from '../components';
 import { Button, Gap, Header, IconButton, Screen, T } from '../ui';
@@ -18,6 +19,7 @@ export default function ExerciseDetail() {
   const pr = prOf(v, id);
   const uri = photo(id);
   const logged = historyOf(v, id).length > 0;
+  const muscles = musclesOf(ex);
 
   async function addPhoto() {
     try { const img = await pickImage(); if (img) setImage(id, img); }
@@ -96,6 +98,15 @@ export default function ExerciseDetail() {
           {ex.kind === 'yoga' && <T v="small">{ex.yoga === 'hold' ? 'Log rounds and how long you held each: a number on its own is seconds (30 = 0:30).' : ex.yoga === 'rounds' ? 'Log the rounds; add the time too for a calorie estimate.' : 'Log the time (a number on its own is minutes), and rounds if you count them.'}</T>}
         </View>
       ) : <Empty>No form notes for this one yet{custom ? '. Tap Edit to add some.' : '.'}</Empty>}
+      {muscles && <View style={{ gap: space.xs, marginTop: space.lg }}>
+        <T v="label">Muscles it works</T>
+        <BodyMap fill={(k) => (muscles.main.includes(k) ? c.brand : muscles.help.includes(k) ? mix(c.chip, c.brand, 0.35) : mix(c.chip, c.muted, 0.25))} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+          {muscles.main.map((k) => <Tag key={k} label={MUSCLE_NAMES[k]} tone="accent" />)}
+          {muscles.help.map((k) => <Tag key={k} label={`${MUSCLE_NAMES[k]} · helper`} />)}
+        </View>
+        {custom && <T v="small">Not right? Tap Edit to change them.</T>}
+      </View>}
       <Gap />
       <Button title={v.active ? `Add to ${v.active.name}` : 'Start a workout with this'} onPress={addToWorkout} />
       {custom && (

@@ -12,15 +12,17 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-body-highlighter": "^3.2.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
-    "typescript": "~6.0.3",
-    "eslint-config-expo": "~57.0.2"
+    "eslint-config-expo": "~57.0.2",
+    "typescript": "~6.0.3"
   },
   "scripts": {
     "build:web": "expo export -p web",

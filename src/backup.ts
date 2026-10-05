@@ -1,7 +1,7 @@
 // Pure backup logic (no platform I/O) so it can be unit tested with node --test.
 import {
-  isRealDay, MAX_R, MAX_W, MEASURES, SCHEMA_VERSION, WEIGHT_TYPES, timeOfDayName,
-  type ChallengeDef, type CustomExercise, type Images, type Log, type SetRow, type Template, type WeighIn, type Workout,
+  isRealDay, MAX_R, MAX_W, MEASURES, MUSCLES, SCHEMA_VERSION, WEIGHT_TYPES, timeOfDayName,
+  type ChallengeDef, type CustomExercise, type Images, type Log, type Muscle, type Muscles, type SetRow, type Template, type WeighIn, type Workout,
 } from './model.ts';
 import { BUILT_IN } from './exercises.ts';
 import { STRONG_BUILT_IN } from './strong.ts';
@@ -24,6 +24,12 @@ const isId = (v: unknown): v is string => isStr(v, 100) && v.length > 0;
 const isTime = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 const isKg = (v: unknown): v is number => Number.isFinite(v) && (v as number) >= 20 && (v as number) <= 400;
 const time = (v: unknown) => (isTime(v) ? v : 0);
+const muscleList = (v: unknown): Muscle[] => (Array.isArray(v) ? [...new Set(v.filter((k): k is Muscle => typeof k === 'string' && Object.hasOwn(MUSCLES, k)))] : []);
+/** An exercise's muscles, keeping only names the map knows; none left means it's guessed again. */
+function musclesIn(v: any): Muscles | undefined {
+  const main = muscleList(v?.main);
+  return main.length ? { main, help: muscleList(v?.help).filter((k) => !main.includes(k)) } : undefined;
+}
 const lines = (v: unknown) => (Array.isArray(v) ? v.filter((x) => isStr(x, 500)).slice(0, 30) : []);
 const TYPES = new Set(WEIGHT_TYPES.map((t) => t.id));
 const isPhoto = (v: unknown): v is string => isStr(v, 2_000_000) && /^data:image\/(jpeg|png|gif|webp);base64,/.test(v);
@@ -86,6 +92,7 @@ export function parseBackup(text: string): { log: Log; images: Images } {
     return { id: e.id, profileId: e.profileId, name: e.name, group: e.group || 'Other', equip: e.equip ?? '', weightType: e.weightType,
       ...(e.metric === 'secs' ? { metric: 'secs' as const } : {}), ...(['cardio', 'activity', 'yoga'].includes(e.kind) ? { kind: e.kind } : {}),
       ...(e.kind === 'yoga' ? { yoga: ['hold', 'rounds', 'time'].includes(e.yoga) ? e.yoga : 'hold' } : {}),
+      ...(musclesIn(e.muscles) ? { muscles: musclesIn(e.muscles) } : {}),
       setup: lines(e.setup), exec: lines(e.exec), avoid: lines(e.avoid), updatedAt: time(e.updatedAt) };
   });
   const favorites = raw.favorites.map((f: any, i: number) => {
