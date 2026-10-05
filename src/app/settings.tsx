@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { num, plural, putProfile, type Settings as S, type Theme } from '../model';
 import { useLog, useTheme } from '../store';
 import { useBackup } from '../backupActions';
+import { defaultStep } from '../fun';
 import { clearSnapshots } from '../safety';
 import { confirm, menu, notify } from '../io';
 import { isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
@@ -23,8 +24,8 @@ const ago = (ms?: number) => {
 
 export default function Settings() {
   async function progression() {
-    const steps = [1.25, 2.5, 5];
-    const pick = await menu('Weight suggestions', [...steps.map((n) => ({ label: `On, ${num(n)} kg steps${n === 2.5 ? ' (usual)' : ''}` })), { label: 'Off' }]);
+    const steps = v.unit === 'lb' ? [2.5, 5, 10] : [1.25, 2.5, 5];
+    const pick = await menu('Weight suggestions', [...steps.map((n) => ({ label: `On, ${num(n)} ${v.unit} steps${n === defaultStep(v.unit) ? ' (usual)' : ''}` })), { label: 'Off' }]);
     if (pick === null) return;
     update((l) => putProfile(l, v.profile.id, { progression: pick < steps.length ? { step: steps[pick] } : { off: true } }));
   }
@@ -76,7 +77,7 @@ export default function Settings() {
       <T v="small" style={{ marginTop: space.xs }}>Starts when you tick a set as done.</T>
       <Gap h={space.sm} />
       <Card pad={false} style={{ paddingHorizontal: space.lg }}>
-        <Row left={icon('trending-up')} title="Weight suggestions" subtitle={v.profile.progression?.off ? 'Off' : `“Beat last time”, going up ${num(v.profile.progression?.step ?? 2.5)} kg at a time`} right={chevron} onPress={progression} />
+        <Row left={icon('trending-up')} title="Weight suggestions" subtitle={v.profile.progression?.off ? 'Off' : `“Beat last time”, going up ${num(v.profile.progression?.step ?? defaultStep(v.unit))} ${v.unit} at a time`} right={chevron} onPress={progression} />
         <Row left={icon('calendar-outline')} title="Training reminders" subtitle={v.profile.trainDays?.length ? `${v.profile.trainDays.map((d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d]).join(', ')} at ${v.profile.trainTime ?? '07:00'}` : 'Your training days in your own calendar'} right={chevron} onPress={() => router.push('/training')} last />
       </Card>
       <Gap />

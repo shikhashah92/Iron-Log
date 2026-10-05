@@ -166,6 +166,21 @@ export function duration(ms: number): string {
   return `${h > 0 ? `${h}:${pad(m)}` : m}:${pad(s % 60)}`;
 }
 export const num = (n: number) => (Number.isFinite(n) ? String(Math.round(n * 100) / 100) : '0');
+// Weights are always stored in kg; the person's unit (Settings) only changes what's shown and typed.
+export type WeightUnit = 'kg' | 'lb';
+const LB = 2.20462262;
+export const toKg = (v: number, u: WeightUnit) => (u === 'lb' ? v / LB : v);
+export const fromKg = (kg: number, u: WeightUnit) => (u === 'lb' ? kg * LB : kg);
+/** A stored weight in the person's unit, as they'd read it: 90.72 kg → 200 lb. Pounds to 0.1, so kg kept to 0.01 (Strong) reads back clean. */
+export const inUnit = (kg: number, u: WeightUnit) => (u === 'lb' ? Math.round(kg * LB * 10) / 10 : kg);
+export const wt = (kg: number, u: WeightUnit) => num(inUnit(kg, u));
+/** "200 lb", "90.72 kg". */
+export const fmtKg = (kg: number, u: WeightUnit) => `${wt(kg, u)} ${u}`;
+/** Volume: "850 kg", or "12.3 t" / "27.1k lb" when it's big. */
+export const fmtVolume = (kg: number, u: WeightUnit, space = ' ') => {
+  const n = fromKg(kg, u);
+  return n < 1000 ? `${num(Math.round(n))} ${u}` : u === 'kg' ? `${num(Math.round(n / 100) / 10)}${space}t` : `${num(Math.round(n / 100) / 10)}k lb`;
+};
 export const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 // ---- a new log ----
@@ -190,6 +205,8 @@ export interface View {
   weighIns: WeighIn[];
   /** For volume, bodyweight exercises and calories: the latest weigh-in, else the profile's number (0 if unknown). */
   bodyweight: number;
+  /** The unit weights are shown and typed in. */
+  unit: WeightUnit;
 }
 export function viewOf(l: Log): View {
   const pid = l.settings.currentProfileId;
@@ -205,7 +222,7 @@ export function viewOf(l: Log): View {
   return {
     profile, exercises: mine(l.exercises), favorites: mine(l.favorites).sort((a, b) => b.at - a.at), templates: withStarters(mine(l.templates)),
     workouts, active: workouts.find((w) => w.active), entries, weighIns,
-    bodyweight: weighIns.at(-1)?.weight ?? profile.bodyweight,
+    bodyweight: weighIns.at(-1)?.weight ?? profile.bodyweight, unit: l.settings.units?.weight ?? 'kg',
   };
 }
 
@@ -286,14 +303,14 @@ export function parseClock(text: string): number | null {
 }
 /** Minutes per km, e.g. "5:30 /km". */
 export const pace = (km: number, secs: number) => (km > 0 && secs > 0 ? `${clock(secs / km)} /km` : '');
-export function fmtSet(s: SetRow, ex: Exercise): string {
+export function fmtSet(s: SetRow, ex: Exercise, u: WeightUnit = 'kg'): string {
   if (ex.kind === 'cardio') return [s.w ? `${num(s.w)} km` : '', fmtDur(s.r)].filter(Boolean).join(' · ');
   if (ex.kind === 'activity') return `${Math.round(s.r / 60)} min${s.w ? ` · ${INTENSITIES[s.w] ?? ''}` : ''}`;
   if (ex.kind === 'yoga') return ex.yoga === 'hold' ? `${Math.max(1, s.w)}×${fmtDur(s.r)}` : [s.w ? plural(s.w, 'round') : '', s.r ? fmtDur(s.r) : ''].filter(Boolean).join(' · ');
   const rep = ex.metric === 'secs' ? `${s.r}s` : String(s.r);
-  if (ex.weightType === 'bodyweight') return s.w ? `BW${s.w > 0 ? '+' : ''}${num(s.w)}×${rep}` : `BW×${rep}`;
+  if (ex.weightType === 'bodyweight') return s.w ? `BW${s.w > 0 ? '+' : ''}${wt(s.w, u)}×${rep}` : `BW×${rep}`;
   if (!s.w) return ex.metric === 'secs' ? rep : `${rep} reps`;
-  return `${num(s.w)}${ex.weightType === 'dumbbell' ? '/DB' : ''}×${rep}`;
+  return `${wt(s.w, u)}${ex.weightType === 'dumbbell' ? '/DB' : ''}×${rep}`;
 }
 /** Exercises by most recent use (newest first). */
 export function recentExIds(v: View): string[] {
@@ -351,8 +368,8 @@ export function recordsOf(v: View, w: Workout): PersonalBest[] {
   return out;
 }
 /** "Heaviest: 85 kg", "Most reps: 14"… for a record. */
-export function recordLabel(r: PersonalBest): string {
-  const kg = (n: number) => `${num(Math.round(n * 10) / 10)} kg`;
+export function recordLabel(r: PersonalBest, u: WeightUnit = 'kg'): string {
+  const kg = (n: number) => `${num(Math.round(fromKg(n, u) * 10) / 10)} ${u}`;
   return r.kind === 'weight' ? `Heaviest: ${kg(r.value)}` : r.kind === 'e1rm' ? `Best est. 1RM: ${kg(r.value)}` : r.kind === 'volume' ? `Most volume: ${kg(r.value)}`
     : r.kind === 'reps' ? `Most reps: ${r.value}` : r.kind === 'distance' ? `Longest: ${num(Math.round(r.value * 100) / 100)} km` : `Longest hold: ${fmtDur(r.value)}`;
 }
@@ -583,23 +600,27 @@ const round = (n: number, step: number) => Math.round(n / step) * step;
  * Warm-up sets building up to a working weight: the empty bar, then about 40 / 60 / 80 % for a barbell; about
  * 50 / 75 % for dumbbells, machines and cables. Nothing for bodyweight or timed exercises, or a very light weight.
  */
-export function warmupsFor(ex: Exercise, top: number, bar = 20): SetRow[] {
+export function warmupsFor(ex: Exercise, top: number, u: WeightUnit = 'kg'): SetRow[] {
   if (isTimed(ex) || ex.metric === 'secs' || ex.weightType === 'bodyweight' || top <= 0) return [];
   const steps: [number, number][] = ex.weightType === 'barbell' ? [[0.4, 5], [0.6, 3], [0.8, 2]] : [[0.5, 8], [0.75, 4]];
-  const step = ex.weightType === 'dumbbell' ? 1 : 2.5;
-  const out: SetRow[] = ex.weightType === 'barbell' && top > bar ? [{ w: bar, r: 10, kind: 'W' }] : [];
+  // Round in the person's unit, so warm-ups land on weights they can load: 2.5 kg / 5 lb, dumbbells 1 kg / 2.5 lb.
+  const step = ex.weightType === 'dumbbell' ? (u === 'lb' ? 2.5 : 1) : u === 'lb' ? 5 : 2.5;
+  const bar = BAR[u], t = fromKg(top, u);
+  const out: SetRow[] = ex.weightType === 'barbell' && t > bar ? [{ w: bar, r: 10, kind: 'W' }] : [];
   for (const [pct, r] of steps) {
-    const kg = round(top * pct, step);
-    if (kg > (out.at(-1)?.w ?? 0) && kg < top) out.push({ w: kg, r, kind: 'W' });
+    const w = round(t * pct, step);
+    if (w > (out.at(-1)?.w ?? 0) && w < t) out.push({ w, r, kind: 'W' });
   }
-  return out;
+  return out.map((s) => ({ ...s, w: toKg(s.w, u) }));
 }
 /** Put warm-up sets in front of exercise i's sets, planned (you tick each one). Any earlier warm-ups are replaced. */
 export const addWarmups = (w: Workout, i: number, sets: SetRow[]): Workout =>
   mapEx(w, i, (e) => ({ ...e, sets: [...sets.map((s) => ({ ...s, done: false as const, typed: true as const })), ...e.sets.filter((s) => s.kind !== 'W')] }));
-export const PLATES = [25, 20, 15, 10, 5, 2.5, 1.25] as const;
+export const PLATES = { kg: [25, 20, 15, 10, 5, 2.5, 1.25], lb: [45, 35, 25, 10, 5, 2.5] } as const;
+/** The usual Olympic bar. */
+export const BAR = { kg: 20, lb: 45 } as const;
 /** Plates for each side of the bar, heaviest first; `left`: what they can't make up (an odd total). */
-export function platesFor(total: number, bar = 20, have: readonly number[] = PLATES): { side: number[]; left: number } {
+export function platesFor(total: number, bar = 20, have: readonly number[] = PLATES.kg): { side: number[]; left: number } {
   let rest = Math.max(0, (total - bar) / 2);
   const side: number[] = [];
   for (const p of have) while (rest >= p - 1e-9) { side.push(p); rest -= p; }
@@ -629,9 +650,10 @@ export const addSetTo = (w: Workout, i: number, done = false): Workout => mapEx(
 });
 export const delSetFrom = (w: Workout, i: number, j: number): Workout => mapEx(w, i, (e) => ({ ...e, sets: e.sets.filter((_, k) => k !== j) }));
 /** `minus`: a negative weight means something here (assistance on a bodyweight exercise); elsewhere it can't be below 0. */
-export function setValue(w: Workout, i: number, j: number, field: 'w' | 'r', raw: string, minus = false): Workout {
+/** `u`: the weight was typed in this unit (stored in kg). Leave it out for anything that isn't a weight (km, rounds). */
+export function setValue(w: Workout, i: number, j: number, field: 'w' | 'r', raw: string, minus = false, u?: WeightUnit): Workout {
   const t = raw.trim().replace(',', '.');
-  const n = field === 'w' ? parseFloat(t) : parseInt(t, 10);
+  const n = field === 'w' ? toKg(parseFloat(t), u ?? 'kg') : parseInt(t, 10);
   const val = t === '' || !Number.isFinite(n) ? 0 : Math.max(field === 'w' && minus ? -MAX_W : 0, Math.min(field === 'w' ? MAX_W : MAX_R, n));
   return mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((s, k) => (k !== j ? s : { ...s, [field]: val, ...(s.done === false ? { typed: true as const } : {}) })) }));
 }
@@ -663,6 +685,12 @@ export function setLabels(sets: SetRow[]): string[] {
 export function addProfile(l: Log, name: string, now = Date.now()): Log {
   const p: Profile = { id: newId('p'), name, bodyweight: 0, createdAt: now };
   return { ...l, profiles: [...l.profiles, p], settings: { ...l.settings, currentProfileId: p.id } };
+}
+/** Change units. A weight-suggestion step is in the old unit (2.5 kg isn't 2.5 lb), so it goes back to the default. */
+export function withUnits(l: Log, units: NonNullable<Settings['units']>): Log {
+  if ((l.settings.units?.weight ?? 'kg') === units.weight) return { ...l, settings: { ...l.settings, units } };
+  return { ...l, settings: { ...l.settings, units },
+    profiles: l.profiles.map((p) => (p.progression?.step ? { ...p, progression: p.progression.off ? { off: true as const } : {} } : p)) };
 }
 export const putProfile = (l: Log, id: string, patch: Partial<Omit<Profile, 'id' | 'createdAt'>>) =>
   ({ ...l, profiles: l.profiles.map((p) => {

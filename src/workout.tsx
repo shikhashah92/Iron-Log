@@ -5,8 +5,8 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   addSetTo, addWarmups, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
-  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, unfinished,
-  type Log, type SetRow, type Workout,
+  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, unfinished, inUnit,
+  type Log, type SetRow, type WeightUnit, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
 import { applySuggestion, suggestFor, usesSuggestion } from './fun';
@@ -79,7 +79,7 @@ export function useWorkoutFlow() {
   return { start, finish, cancel };
 }
 
-const prevText = (s: SetRow | undefined, ex: ReturnType<typeof getEx>) => (s ? fmtSet(s, ex).replace('×', ' × ') : '—');
+const prevText = (s: SetRow | undefined, ex: ReturnType<typeof getEx>, u: WeightUnit) => (s ? fmtSet(s, ex, u).replace('×', ' × ') : '—');
 
 /** Every exercise of a workout as a Strong-style table: Set · Previous · kg · Reps · ✓. `live`: sets can be ticked. */
 export function WorkoutEditor({ workout, live }: { workout: Workout; live: boolean }) {
@@ -103,11 +103,11 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
             [e.note ? 'Edit note' : 'Add a note', note],
             ...(e.note ? [['Remove note', () => edit((w) => setNote(w, i, ''))] as [string, () => void]] : []),
             ...(lifting ? [['Add warm-up sets', () => {
-              const sets = warmupsFor(ex, top);
+              const sets = warmupsFor(ex, top, v.unit);
               if (!sets.length) return notify('Enter your working weight first', 'Warm-ups build up to the heaviest set, so Uplift needs to know it.');
               edit((w) => addWarmups(w, i, sets));
             }] as [string, () => void]] : []),
-            ...(ex.weightType === 'barbell' ? [['Plate calculator', () => { router.push({ pathname: '/plates', params: { kg: String(top || 60) } }); }] as [string, () => void]] : []),
+            ...(ex.weightType === 'barbell' ? [['Plate calculator', () => { router.push({ pathname: '/plates', params: top ? { kg: String(top) } : {} }); }] as [string, () => void]] : []),
             ...(i < workout.exercises.length - 1 && !(e.group !== undefined && workout.exercises[i + 1].group === e.group)
               ? [['Superset with next exercise', () => edit((w) => supersetWithNext(w, i))] as [string, () => void]] : []),
             ...(inSuperset ? [['Take out of superset', () => edit((w) => leaveSuperset(w, i))] as [string, () => void]] : []),
@@ -198,7 +198,8 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   const ex = getEx(v, e.exerciseId);
   const labels = setLabels(e.sets);
   const yoga = ex.kind === 'yoga';
-  const unit = ex.kind === 'cardio' ? 'km' : ex.kind === 'activity' ? 'Effort' : ex.weightType === 'bodyweight' ? '+kg' : ex.weightType === 'dumbbell' ? 'kg/DB' : 'kg';
+  const u = v.unit;
+  const unit = ex.kind === 'cardio' ? 'km' : ex.kind === 'activity' ? 'Effort' : ex.weightType === 'bodyweight' ? `+${u}` : ex.weightType === 'dumbbell' ? `${u}/DB` : u;
   // A plain number means seconds in a hold and minutes in other times: the header says which.
   const reps = ex.yoga === 'hold' ? 'Hold (sec)' : isTimed(ex) ? 'Time (min)' : ex.metric === 'secs' ? 'Secs' : 'Reps';
   // Time first for cardio and activities; yoga reads "3 rounds, 30 s hold".
@@ -254,7 +255,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               <T style={{ fontFamily: sans, fontWeight: '600', textAlign: 'center', color: s.kind === 'W' ? c.warnText : s.kind === 'D' ? c.accent : c.text }}>{labels[j]}</T>
               {s.rpe ? <T style={{ fontSize: 9, lineHeight: 11, textAlign: 'center' }} color={c.muted}>@{num(s.rpe)}</T> : null}
             </Pressable>
-            <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex)}</T>
+            <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex, u)}</T>
             {yoga ? (
               <>
                 <SetInput value={s.w} hint={hint} label={`Set ${labels[j]} rounds`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', String(Math.round(Number(t.replace(',', '.')) || 0))))} />
@@ -273,10 +274,10 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               </>
             ) : (
               <>
-                <SetInput value={s.w} hint={hint} decimal label={`Set ${labels[j]} weight`} onCommit={(t) => {
+                <SetInput value={inUnit(s.w, u)} hint={hint} decimal label={`Set ${labels[j]} weight in ${u}`} onCommit={(t) => {
                   // Only a bodyweight exercise takes minus kg (assistance); anywhere else it's a typo, so say so rather than keep it.
-                  if (!minus && parseFloat(t.replace(',', '.')) < 0) return notify('Weight can’t be below 0 kg. Minus kg is only for assisted bodyweight exercises, like an assisted pull-up.');
-                  edit((w) => setValue(w, i, j, 'w', t, minus));
+                  if (!minus && parseFloat(t.replace(',', '.')) < 0) return notify(`Weight can’t be below 0 ${u}. Minus ${u} is only for assisted bodyweight exercises, like an assisted pull-up.`);
+                  edit((w) => setValue(w, i, j, 'w', t, minus, u));
                 }} />
                 <SetInput value={s.r} hint={hint} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setValue(w, i, j, 'r', t))} />
               </>

@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams } from 'expo-router';
 import { fromFtIn, ftIn, parseHeight, planWarning, toKg } from '../body';
-import { addDays, GENDERS, GOALS, newId, putProfile, putWeighIn, today, type Gender, type Goal, type Log } from '../model';
+import { addDays, GENDERS, GOALS, newId, putProfile, putWeighIn, withUnits, today, type Gender, type Goal, type Log } from '../model';
 import { useLog, useTheme } from '../store';
 import { notify } from '../io';
 import { goBack } from '../components';
@@ -63,7 +63,7 @@ export default function About() {
     const w = kg !== null && skip !== 'weight' ? toKg(kg, units.weight) : null;
     if (w !== null && (w < 20 || w > 400)) return notify('Check your weight', `Enter it in ${units.weight}.`);
     update((l) => {
-      let n: Log = putProfile({ ...l, settings: { ...l.settings, units } }, p.id, {
+      let n: Log = putProfile(withUnits(l, units), p.id, {
         ...(onboarding ? {} : { name: name.trim().slice(0, 40) || p.name, dob: dob || undefined, gender }),
         goal: skip === 'goal' ? undefined : goal, ...(cm ? { height: cm } : {}),
         ...(draft && w !== null && skip !== 'target' && draft.weight >= 20 && draft.weight <= 400 ? { target: { ...draft, weight: Math.round(draft.weight * 100) / 100, startWeight: Math.round(draft.startWeight * 100) / 100 } } : {}),

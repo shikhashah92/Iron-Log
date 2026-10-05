@@ -1,6 +1,6 @@
 // A finished workout as a picture to post (Instagram / WhatsApp stories: 1080 × 1920), drawn on a canvas on the phone.
 // Nothing is uploaded: the image goes straight to the share sheet, with a line of text that links to the site.
-import { bestSet, fmtDur, fmtSet, getEx, isTimed, longDate, num, plural, recordLabel, recordsOf, workoutStats, type View, type Workout } from './model';
+import { bestSet, fmtDur, fmtKg, fmtSet, fmtVolume, getEx, isTimed, longDate, num, plural, recordLabel, recordsOf, workoutStats, type View, type Workout } from './model';
 import { workoutCalories } from './calories';
 import { monthName, newMilestones, type Wrapped } from './fun';
 import { saveFile } from './io';
@@ -70,7 +70,7 @@ export async function drawWorkout(v: View, w: Workout): Promise<Blob> {
   // Three numbers.
   const { sets, volume } = workoutStats(v, w);
   const kcal = workoutCalories(v, w);
-  const stats: [string, string][] = [['Time', mins ? fmtDur(mins * 60) : '–'], volume ? ['Volume', volume >= 1000 ? `${num(Math.round(volume / 100) / 10)} t` : `${num(Math.round(volume))} kg`] : ['Sets', String(sets)],
+  const stats: [string, string][] = [['Time', mins ? fmtDur(mins * 60) : '–'], volume ? ['Volume', fmtVolume(volume, v.unit)] : ['Sets', String(sets)],
     kcal ? ['Calories', `≈${kcal}`] : ['Exercises', String(w.exercises.length)]];
   const bw = (W - PAD * 2 - 2 * 24) / 3;
   stats.forEach(([k, val], i) => {
@@ -93,7 +93,7 @@ export async function drawWorkout(v: View, w: Workout): Promise<Blob> {
     ctx.fillText(`★  ${recs.length === 1 ? 'New personal best' : `${recs.length} new personal bests`}`, PAD + 40, y + 76);
     shown.forEach((id, i) => {
       const yy = y + 76 + (i + 1) * 78;
-      const labels = recs.filter((r) => r.exerciseId === id).map(recordLabel).join(' · ');
+      const labels = recs.filter((r) => r.exerciseId === id).map((r) => recordLabel(r, v.unit)).join(' · ');
       ctx.font = `700 36px ${FONT}`; ctx.fillStyle = TEXT; const name = fit(ctx, getEx(v, id).name, 420); ctx.fillText(name, PAD + 40, yy);
       ctx.font = `500 32px ${FONT}`; ctx.fillStyle = TEXT; ctx.textAlign = 'right'; ctx.fillText(fit(ctx, labels, W - PAD * 2 - 80 - 440), W - PAD - 40, yy); ctx.textAlign = 'left';
     });
@@ -120,7 +120,7 @@ export async function drawWorkout(v: View, w: Workout): Promise<Blob> {
     const best = isTimed(ex) ? e.sets[0] : bestSet(e.sets.filter((s) => s.kind !== 'W').length ? e.sets.filter((s) => s.kind !== 'W') : e.sets);
     y += 92;
     ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(PAD, y - 62); ctx.lineTo(W - PAD, y - 62); ctx.stroke();
-    const right = best ? fmtSet(best, ex) : '';
+    const right = best ? fmtSet(best, ex, v.unit) : '';
     ctx.font = `500 36px ${FONT}`; const rw = ctx.measureText(right).width;
     ctx.font = `700 40px ${FONT}`; ctx.fillStyle = TEXT;
     ctx.fillText(fit(ctx, isTimed(ex) ? ex.name : `${e.sets.length} × ${ex.name}`, W - PAD * 2 - rw - 32), PAD, y);
@@ -166,7 +166,7 @@ export async function drawWrapped(v: View, r: Wrapped): Promise<Blob> {
   ctx.font = `500 40px ${FONT}`; ctx.fillStyle = MUTED; ctx.fillText(`on ${plural(r.days, 'day')}`, PAD + wW + 28, y + 26);
   y += 90;
   const tiles: [string, string][] = [['Time', !r.minutes ? '–' : r.minutes >= 60 ? `${Math.round(r.minutes / 60)} h` : `${r.minutes} min`],
-    r.volume ? ['Lifted', r.volume >= 1000 ? `${num(Math.round(r.volume / 100) / 10)} t` : `${num(Math.round(r.volume))} kg`] : r.km ? ['Distance', `${num(r.km)} km`] : ['Yoga', `${r.yoga} min`],
+    r.volume ? ['Lifted', fmtVolume(r.volume, v.unit)] : r.km ? ['Distance', `${num(r.km)} km`] : ['Yoga', `${r.yoga} min`],
     ['Personal bests', String(r.bests)]];
   const bw = (W - PAD * 2 - 48) / 3;
   tiles.forEach(([k, val], i) => {
@@ -183,7 +183,7 @@ export async function drawWrapped(v: View, r: Wrapped): Promise<Blob> {
     y += 44;
   };
   if (r.top) line('Most done', `${getEx(v, r.top.exerciseId).name} · ${plural(r.top.sets, 'set')}`);
-  if (r.heaviest) line('Heaviest lift', `${getEx(v, r.heaviest.exerciseId).name} · ${num(r.heaviest.kg)} kg`);
+  if (r.heaviest) line('Heaviest lift', `${getEx(v, r.heaviest.exerciseId).name} · ${fmtKg(r.heaviest.kg, v.unit)}`);
   line('Best week', `${plural(r.bestWeek.workouts, 'workout')}, week of ${longDate(r.bestWeek.start).replace(/^\w+,? /, '')}`);
   if (r.milestones.length) line('Milestones', r.milestones.slice(0, 2).map((m) => m.title).join(' · '));
   ctx.fillStyle = MINT; roundRect(ctx, PAD, H - 210, W - PAD * 2, 120, 60); ctx.fill();

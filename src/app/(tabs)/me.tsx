@@ -6,7 +6,7 @@ import {
   bmi, bmiLabel, fmtHeight, fmtLength, fmtWeight, fromKg, healthyRange, googleCalendarURL, planCurve, planRate, planStatus, reminderFile, reminderICS, reminderStart,
   trendChange, trendOf, weighInDue, type WeighEvery,
 } from '../../body';
-import { ageOn, backupDue, dateWithYear, dayKey, daysAgo, GENDERS, GOALS, imgKey, MEASURES, plural, putProfile, today } from '../../model';
+import { ageOn, backupDue, dateWithYear, dayKey, daysAgo, GENDERS, GOALS, imgKey, MEASURES, plural, putProfile, today, withUnits } from '../../model';
 import { useBackup } from '../../backupActions';
 import { useLog, useTheme } from '../../store';
 import { notify, saveFile } from '../../io';
@@ -38,7 +38,7 @@ export default function Me() {
   const latest = [...v.weighIns].reverse();
   const measured = (k: 'fat' | (typeof MEASURES)[number]['id']) => latest.find((x) => x[k] !== undefined);
   const photos = latest.filter((x) => x.photo && images[imgKey(p.id, `weigh-${x.id}`)]);
-  const setUnits = (patch: Partial<typeof units>) => update((l) => ({ ...l, settings: { ...l.settings, units: { ...units, ...patch } } }));
+  const setUnits = (patch: Partial<typeof units>) => update((l) => withUnits(l, { ...units, ...patch }));
 
   async function addReminder() {
     if (every === 'off') return notify('Reminders are off', 'Pick how often first.');
@@ -137,7 +137,7 @@ export default function Me() {
         <Row left={<Ionicons name="resize-outline" size={22} color={c.accent} />} title="Height" subtitle={p.height ? fmtHeight(p.height, units.length) : 'Used for BMI'}
           right={<Ionicons name="chevron-forward" size={20} color={c.muted} />} onPress={() => router.push('/about')} />
         <View style={{ paddingVertical: space.sm, gap: space.sm }}>
-          <T v="small">Units for body weight and measurements (lifts stay in kg)</T>
+          <T v="small">Units, everywhere in the app (lifts, plates, body weight)</T>
           <View style={{ flexDirection: 'row', gap: space.sm }}>
             <View style={{ flex: 1 }}><Segmented value={units.weight} onChange={(weight) => setUnits({ weight })} options={[{ id: 'kg', label: 'kg' }, { id: 'lb', label: 'lb' }]} /></View>
             <View style={{ flex: 1 }}><Segmented value={units.length} onChange={(length) => setUnits({ length })} options={[{ id: 'cm', label: 'cm' }, { id: 'in', label: 'ft / in' }]} /></View>
@@ -189,7 +189,7 @@ function TrophyShelf() {
   return (
     <Section title={`Trophies · ${earned.length}`} right={<Button title="See all" kind="ghost" onPress={() => router.push('/trophies')} style={{ minHeight: 36, paddingHorizontal: space.sm }} />}>
       {[...earned].reverse().slice(0, 3).map((e) => <MilestoneCard key={e.id} icon={e.icon} title={e.title} detail={e.detail} sub={dateWithYear(e.date)} />)}
-      {next.map((u) => <MilestoneCard key={u.id} icon={u.icon} title={u.title} detail={u.detail} sub={progressLabel(u)} locked />)}
+      {next.map((u) => <MilestoneCard key={u.id} icon={u.icon} title={u.title} detail={u.detail} sub={progressLabel(u, v.unit)} locked />)}
     </Section>
   );
 }

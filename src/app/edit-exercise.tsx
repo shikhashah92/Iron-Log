@@ -58,7 +58,7 @@ export default function EditExercise() {
         {kind === 'strength' && <View style={{ gap: space.xs }}>
           <T v="label">How weight is recorded</T>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            {WEIGHT_TYPES.map((t) => <Chip key={t.id} label={t.label} selected={weightType === t.id} onPress={() => setWeightType(t.id)} />)}
+            {WEIGHT_TYPES.map((t) => <Chip key={t.id} label={t.label.replaceAll('kg', v.unit)} selected={weightType === t.id} onPress={() => setWeightType(t.id)} />)}
           </View>
         </View>}
         {kind === 'strength' && <View style={{ gap: space.xs }}>

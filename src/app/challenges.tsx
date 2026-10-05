@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { longDate, num, plural, putProfile, today, type ChallengeDef, type JoinedChallenge } from '../model';
-import { CHALLENGES, challengeLink, challengeProgress, challengeUnit, readChallenge } from '../fun';
+import { CHALLENGES, challengeLink, challengeNum, challengeProgress, challengeUnit, readChallenge } from '../fun';
 import { useLog, useTheme } from '../store';
 import { confirm, notify } from '../io';
 import { goBack } from '../components';
@@ -59,7 +59,7 @@ export default function Challenges() {
               <View style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 5, backgroundColor: p!.over ? c.muted : c.brand }} />
             </View>
             <T v="small" style={{ color: c.text }}>
-              {p!.def.kind === 'best' ? `Best so far: ${num(p!.done)} of ${num(p!.target)} ${unit}` : `${num(p!.done)} of ${num(p!.target)} ${unit}`}
+              {p!.def.kind === 'best' ? `Best so far: ${challengeNum(p!.def, v, p!.done)} of ${challengeNum(p!.def, v, p!.target)} ${unit}` : `${num(p!.done)} of ${num(p!.target)} ${unit}`}
               {' · '}{p!.completedOn ? `Done on ${longDate(p!.completedOn)}` : p!.over ? 'Time ran out' : `${plural(p!.daysLeft + 1, 'day')} left`}
             </T>
             <View style={{ flexDirection: 'row', gap: space.sm, justifyContent: 'flex-end' }}>
