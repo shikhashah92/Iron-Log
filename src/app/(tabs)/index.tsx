@@ -130,7 +130,7 @@ function WeightCard() {
         <Ionicons name="scale-outline" size={24} color={c.accent} />
         <View style={{ flex: 1 }}>
           <T style={{ fontWeight: '600' }}>{now ? `${fmtWeight(now.trend, units.weight)} trend` : 'Log your weight'}</T>
-          <T v="small">{due ? 'Weigh-in due' : status || 'See your trend in Me'}</T>
+          <T v="small">{[now && now.weight !== now.trend ? `Last weigh-in ${fmtWeight(now.weight, units.weight)}` : '', due ? 'Weigh-in due' : status].filter(Boolean).join(' · ') || 'See your trend in Me'}</T>
         </View>
         <Ionicons name="chevron-forward" size={20} color={c.muted} />
       </Card>

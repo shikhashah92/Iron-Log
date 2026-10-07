@@ -591,8 +591,28 @@ export function startWorkout(l: Log, templateId?: string, now = Date.now()): Log
 }
 export const putWorkout = (l: Log, w: Workout, now = Date.now()): Log =>
   ({ ...l, workouts: l.workouts.map((x) => (x.id === w.id ? { ...w, updatedAt: now } : x)) });
+/**
+ * Move a workout in time: never into the future, its day follows the start, the end never comes before the start,
+ * and a name the app gave it ("Morning Workout") follows the new time.
+ */
+export function setTimes(w: Workout, startedAt: number, endedAt = w.endedAt, now = Date.now()): Workout {
+  startedAt = Math.min(startedAt, now);
+  const name = w.name === timeOfDayName(w.startedAt) ? timeOfDayName(startedAt) : w.name;
+  return { ...w, name, startedAt, date: dayKey(new Date(startedAt)), ...(endedAt !== undefined ? { endedAt: Math.min(Math.max(endedAt, startedAt), Math.max(now, startedAt)) } : {}) };
+}
+/** A workout you forgot to log: already finished, empty, an hour long. Fill it in on "Edit workout". */
+export function logPastWorkout(l: Log, startedAt: number, now = Date.now()): { log: Log; id: string } {
+  const w: Workout = { id: newId('w'), profileId: pidOf(l), date: dayKey(new Date(startedAt)), name: timeOfDayName(startedAt), startedAt, endedAt: startedAt + 3_600_000, exercises: [], updatedAt: now };
+  return { log: { ...l, workouts: [...l.workouts, w] }, id: w.id };
+}
 export const delWorkout = (l: Log, id: string): Log => ({ ...l, workouts: l.workouts.filter((w) => w.id !== id) });
 export const unfinished = (w: Workout) => w.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done === false).length, 0);
+/** A set with nothing in it: no reps or time (for Surya Namaskar, no rounds either). */
+export const isEmptySet = (v: View, exerciseId: string, s: SetRow) => !(s.r > 0 || (getEx(v, exerciseId).yoga === 'rounds' && s.w > 0));
+export const emptySets = (v: View, w: Workout) => w.exercises.reduce((n, e) => n + e.sets.filter((s) => isEmptySet(v, e.exerciseId, s)).length, 0);
+/** Remove empty sets, and exercises left with none. */
+export const dropEmptySets = (v: View, w: Workout): Workout =>
+  ({ ...w, exercises: w.exercises.map((e) => ({ ...e, sets: e.sets.filter((s) => !isEmptySet(v, e.exerciseId, s)) })).filter((e) => e.sets.length) });
 /**
  * Finish: unticked sets are dropped (or, with `markDone`, logged as shown), exercises left with no sets go, and a
  * workout with nothing logged is removed altogether (returns `empty`).
@@ -603,8 +623,7 @@ export function finishWorkout(l: Log, id: string, markDone: boolean, now = Date.
   const logged = (s: SetRow): SetRow => ({ w: s.w, r: s.r, ...(s.kind ? { kind: s.kind } : {}), ...(s.rpe ? { rpe: s.rpe } : {}) });
   const v = viewOf(l);
   const exercises = w.exercises
-    .map((e) => { const byRounds = getEx(v, e.exerciseId).yoga === 'rounds'; // Surya Namaskar: rounds alone count
-      return { ...e, sets: e.sets.filter((s) => s.done !== false || (markDone && (s.r > 0 || (byRounds && s.w > 0)))).map(logged) }; })
+    .map((e) => ({ ...e, sets: e.sets.filter((s) => s.done !== false || (markDone && !isEmptySet(v, e.exerciseId, s))).map(logged) }))
     .filter((e) => e.sets.length);
   if (!exercises.length) return { log: delWorkout(l, id) };
   const { active: _a, ...rest } = w;

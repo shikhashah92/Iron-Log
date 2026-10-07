@@ -54,17 +54,21 @@ export function useWorkoutFlow() {
     const open = unfinished(w);
     let markDone = false;
     if (open) markDone = await choose(`${plural(open, 'set')} not ticked`, 'Log them as they’re shown, or leave them out?', 'Mark all done', 'Discard unfinished');
-    const preview = finishWorkout(log, w.id, markDone).workout;
+    // Forgot to close it: end at the last change, not hours later.
+    const idle = Date.now() - w.updatedAt > 3_600_000;
+    const end = idle && await choose('When did you finish?', 'Nothing has changed in this workout for over an hour.',
+      `At ${new Date(w.updatedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`, 'Just now') ? w.updatedAt : Date.now();
+    const preview = finishWorkout(log, w.id, markDone, end).workout;
     if (!preview) {
       if (!(await confirm('Nothing was logged', 'No sets are ticked, so there’s nothing to save. Discard this workout?', 'Discard', true))) return null;
-      update((l) => finishWorkout(l, w.id, false).log);
+      update((l) => finishWorkout(l, w.id, false, end).log);
       return 'discarded';
     }
     const t = preview.templateId ? v.templates.find((x) => x.id === preview.templateId) : undefined;
     const updateTemplate = !!t && differsFromTemplate(preview)
       && await choose(`Update “${t.name}”?`, 'This workout had different exercises or set counts than the template. Save them to the template for next time?', 'Update template', 'Keep original');
     update((l: Log) => {
-      const done = finishWorkout(l, w.id, markDone);
+      const done = finishWorkout(l, w.id, markDone, end);
       return updateTemplate && t && done.workout ? putTemplate(done.log, { ...t, exercises: templateFrom(done.workout) }) : done.log;
     });
     return preview.id;

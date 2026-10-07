@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
-  setValue, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
+  setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
@@ -965,4 +965,39 @@ test('muscles survive a backup; unknown names are dropped, and none left means g
   assert.equal(parseBackup(JSON.stringify(x)).log.exercises[0].muscles, undefined);
   l = parseBackup(JSON.stringify(x)).log;
   assert.deepEqual(musclesOf(viewOf(l).exercises[0])?.main, ['abs']);
+});
+
+test('moving a workout in time: its day follows the start, the end never comes before it', () => {
+  const w = viewOf(sample()).workouts[0];
+  const moved = setTimes(w, at('2026-08-31', '23:30'), at('2026-09-01', '00:15'));
+  assert.equal(moved.date, '2026-08-31');
+  assert.equal(moved.name, 'Night Workout'); // the app's name follows the time; one you chose stays
+  assert.equal(setTimes({ ...w, name: 'Legs' }, at(D1, '19:00')).name, 'Legs');
+  assert.equal(moved.endedAt! - moved.startedAt, 45 * 60_000);
+  assert.equal(setTimes(w, at(D1, '09:00'), at(D1, '08:00')).endedAt, at(D1, '09:00'));
+});
+
+test('a past workout is logged finished, empty and on its own day, never as the one in progress', () => {
+  const { log, id } = logPastWorkout(sample(), at(D2, '18:00'));
+  const w = log.workouts.find((x) => x.id === id)!;
+  assert.equal(w.date, D2);
+  assert.equal(w.endedAt! - w.startedAt, 3_600_000);
+  assert.equal(viewOf(log).active, undefined);
+  assert.equal(w.exercises.length, 0);
+});
+
+test('a workout can\'t be moved into the future', () => {
+  const w = viewOf(sample()).workouts[0], now = at(D2, '12:00');
+  const moved = setTimes(w, at(D2, '11:30'), at(D2, '13:00'), now);
+  assert.equal(moved.endedAt, now);
+  assert.equal(setTimes(w, at(D2, '14:00'), undefined, now).startedAt, now);
+});
+
+test('empty sets in a past workout can be counted and removed, and an exercise left with none goes too', () => {
+  const l = sample(), v = viewOf(l), w = v.workouts[0];
+  const messy: Workout = { ...w, exercises: [...w.exercises, { exerciseId: row, sets: [{ w: 0, r: 0 }, { w: 40, r: 0 }] }].map((e, i) => (i === 0 ? { ...e, sets: [...e.sets, { w: 0, r: 0 }] } : e)) };
+  assert.equal(emptySets(v, messy), 3);
+  const clean = dropEmptySets(v, messy);
+  assert.deepEqual(clean.exercises.map((e) => e.exerciseId), [bench, 'push-up']);
+  assert.equal(emptySets(v, clean), 0);
 });

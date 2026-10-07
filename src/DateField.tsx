@@ -1,6 +1,6 @@
 // Web: the browser's native <input type="date">, accessible, localised, zero dependencies (from Munshi).
 import { createElement, useState } from 'react';
-import { ageOn, dateWithYear, dobMask, dobParse, today } from './model';
+import { ageOn, dateWithYear, dayKey, dobMask, dobParse, today } from './model';
 import { useTheme } from './store';
 
 /** `min` / `max` bound the choice (by default: no future dates). */
@@ -19,6 +19,20 @@ export function DateField({ value, onChange, min, max = today(), label = 'Date' 
   return createElement('div', { style: { position: 'relative', display: 'inline-block' } }, input,
     createElement('span', { 'aria-hidden': true, style: { position: 'absolute', left: 14, top: 0, bottom: 0, display: 'flex', alignItems: 'center', pointerEvents: 'none',
       color: c.muted, fontSize: 16, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' } }, 'Choose a date'));
+}
+
+/** A moment (ms), as the browser's native date-and-time picker. By default the picker stops at today. */
+export function DateTimeField({ value, onChange, min, max, label = 'Date and time' }: { value: number; onChange: (ms: number) => void; min?: number; max?: number; label?: string }) {
+  const { c, dark } = useTheme();
+  const local = (ms: number) => { const d = new Date(ms); return `${dayKey(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  return createElement('input', {
+    type: 'datetime-local', value: local(value), min: min === undefined ? undefined : local(min), max: max === undefined ? `${today()}T23:59` : local(max), 'aria-label': label,
+    onChange: (e: { target: { value: string } }) => { const ms = new Date(e.target.value).getTime(); if (Number.isFinite(ms)) onChange(max === undefined ? ms : Math.min(ms, max)); },
+    style: {
+      minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: c.chip, color: c.text,
+      fontSize: 16, fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', colorScheme: dark ? 'dark' : 'light',
+    },
+  });
 }
 
 /**
