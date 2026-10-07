@@ -1,6 +1,7 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
-import { duration, longDate } from '../model';
+import { duration, setTimes } from '../model';
+import { DateTimeField } from '../DateField';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../store';
 import { useNow } from '../timer';
@@ -51,7 +52,11 @@ function Live() {
         <Pressable accessibilityRole="button" accessibilityLabel={`${w.name}. Rename`} onPress={rename}>
           <T numberOfLines={2} style={{ fontFamily: sans, fontWeight: '800', fontSize: 28, letterSpacing: -0.56, marginTop: space.sm }}>{w.name}</T>
         </Pressable>
-        <T v="small">{longDate(w.date)} · <T v="small" style={{ fontFamily: sans }}>{duration(now - w.startedAt)}</T> · tap the name to rename</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs }}>
+          <T v="small">Started</T>
+          <DateTimeField value={w.startedAt} label="Workout start" onChange={(ms) => edit((x) => setTimes(x, ms))} />
+          <T v="small" style={{ fontFamily: sans }}>{duration(now - w.startedAt)}</T>
+        </View>
         <Pressable accessibilityRole="button" accessibilityLabel={w.note ? `Workout note: ${w.note}. Edit` : 'Add a note about this workout'} onPress={note}
           style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-start', marginTop: space.sm, minHeight: 32 }}>
           <Ionicons name="document-text-outline" size={16} color={c.accent} style={{ marginTop: 2 }} />
@@ -60,6 +65,7 @@ function Live() {
         <Gap h={space.sm} />
         <WorkoutEditor workout={w} live />
         <Button title="Add exercises" icon="add" kind="secondary" onPress={() => router.push({ pathname: '/picker', params: { workout: w.id } })} />
+        {w.exercises.length > 0 && <><Gap h={space.sm} /><Button title="Finish" onPress={finish} /></>}
         <Gap h={space.sm} />
         <Button title="Cancel workout" kind="danger" onPress={async () => { if (await flow.cancel(w)) goBack(); }} />
         <Gap />

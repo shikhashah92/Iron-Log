@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { daysAgo, duration, getEx, newId, nextInPlan, putTemplate, today, upNext, type Template } from '../../model';
+import { daysAgo, duration, getEx, logPastWorkout, newId, nextInPlan, putTemplate, today, upNext, type Template } from '../../model';
 import { PLANS } from '../../exercises';
 import { useLog, useTheme } from '../../store';
 import { useNow } from '../../timer';
@@ -77,6 +77,13 @@ export default function StartWorkout() {
       <Button title={v.active ? 'Add an activity to your workout' : 'Log an activity'} icon="walk-outline" kind="secondary"
         onPress={() => router.push({ pathname: '/picker', params: { activity: '1', ...(v.active ? { workout: v.active.id } : {}) } })} />
       <T v="small" style={{ marginTop: 4, fontSize: 12 }}>A run, a yoga class, a match: time, distance or intensity, and calories.</T>
+      <Gap h={space.sm} />
+      <Button title="Log a past workout" icon="time-outline" kind="secondary" onPress={() => {
+        let id = '';
+        update((l) => { const r = logPastWorkout(l, Date.now() - 86_400_000); id = r.id; return r.log; });
+        router.push({ pathname: '/edit-workout', params: { id } });
+      }} />
+      <T v="small" style={{ marginTop: 4, fontSize: 12 }}>Forgot to log one? Set when it was, then add what you did.</T>
       <Gap />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <T v="label">My templates ({mine.length})</T>

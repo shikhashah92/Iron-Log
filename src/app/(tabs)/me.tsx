@@ -70,7 +70,13 @@ export default function Me() {
           <>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.sm }}>
               <T style={{ fontFamily: sans, fontSize: font.big }}>{w(now.trend)}</T>
-              <T v="small">{units.weight} trend · last weigh-in {fmtWeight(now.weight, units.weight)}, {dateWithYear(now.date)}</T>
+              <T v="small" style={{ flexShrink: 1 }}>{units.weight} trend · last weigh-in {fmtWeight(now.weight, units.weight)}, {dateWithYear(now.date)}</T>
+              <IconButton icon="information-circle-outline" size={18} label="What is the trend?" color={c.accent} onPress={() => notify('Why the trend, not your last weigh-in',
+                `Your weight swings ${units.weight === 'kg' ? '1–2 kg' : '2–4 lb'} from day to day on water and food alone, so one weigh-in can mislead. `
+                + `The trend is a running average: each weigh-in moves it 10% of the way towards the new number (more if days have passed).\n\n`
+                + `Your last weigh-in was ${fmtWeight(now.weight, units.weight)}, and the trend moved towards it, to ${fmtWeight(now.trend, units.weight)}. `
+                + 'If the new weight is real, the trend keeps heading there over the next week or two. If it was a one-off, it barely moves.\n\n'
+                + 'Your target, BMI and the 1 week / 1 month changes all use the trend.')} />
             </View>
             {b ? <T v="small">BMI {b.toFixed(1)} · {bmiLabel(b)}</T> : null}
             {weighInDue(v.weighIns, every, iso) && <T v="small" color={c.accent}>Weigh-in due</T>}
