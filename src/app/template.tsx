@@ -5,7 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { daysAgo, delTemplate, getEx, planSets, plural, putTemplate, today, type Template } from '../model';
 import { useLog, useTheme } from '../store';
 import { ask, confirm } from '../io';
-import { Empty, ExArt, goBack } from '../components';
+import { Empty, ExArt, goBack, openExercise } from '../components';
 import { useWorkoutFlow } from '../workout';
 import { Button, Card, Gap, Header, IconButton, Screen, T } from '../ui';
 import { sans, space } from '../theme';
@@ -55,11 +55,14 @@ export default function TemplateScreen() {
           return (
             <View key={e.exerciseId} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 64, paddingVertical: space.sm,
               borderBottomWidth: i === t.exercises.length - 1 ? 0 : 1, borderBottomColor: c.border }}>
-              <ExArt id={e.exerciseId} size={40} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{editing ? ex.name : `${count(i)} × ${ex.name}`}</T>
-                <T v="small" numberOfLines={1}>{ex.group}{e.sets ? '' : ' · sets as last time'}</T>
-              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel={`${ex.name}: form and history`} onPress={() => openExercise(e.exerciseId)}
+                style={({ pressed }) => ({ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: space.sm, opacity: pressed ? 0.6 : 1 })}>
+                <ExArt id={e.exerciseId} size={40} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{editing ? ex.name : `${count(i)} × ${ex.name}`}</T>
+                  <T v="small" numberOfLines={1}>{ex.group}{e.sets ? '' : ' · sets as last time'}</T>
+                </View>
+              </Pressable>
               {editing && (
                 <>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Fewer sets of ${ex.name}`} onPress={() => setCount(i, count(i) - 1)} hitSlop={4}>
