@@ -3,12 +3,12 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { monthName as fullMonth, wrappedMonths, yearGrid } from '../../fun';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { addDays, bestSet, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, fmtVolume, getEx, groupSets, longDate, MUSCLE_NAMES, MUSCLES, muscleSets, type Muscle, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
+import { addDays, bestSet, exercisesFor, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, fmtVolume, getEx, groupSets, longDate, MUSCLE_NAMES, MUSCLES, muscleSets, type Muscle, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
 import { confirm } from '../../io';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
 import { BodyMap, mix } from '../../bodyMap';
-import { Empty, ProgressBlock, Records, Section, SetLines, ShareWorkout, useSaveAsTemplate } from '../../components';
+import { Empty, openExercise, ProgressBlock, Records, Section, SetLines, ShareWorkout, useSaveAsTemplate } from '../../components';
 import { Button, Card, Field, Gap, Header, IconButton, Row, Screen, Segmented, T } from '../../ui';
 import { sans, radius, space } from '../../theme';
 
@@ -218,6 +218,14 @@ function MuscleMap() {
         {!sel && starter && groups.some((g) => g.sets) && <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/template', params: { id: starter.id } })}>
           <T v="small" color={c.accent} style={{ textDecorationLine: 'underline' }}>Open the {starter.name} workout</T>
         </Pressable>}
+        {sel && <>
+          <T v="small" style={{ marginTop: space.xs }}>Exercises for it:</T>
+          {exercisesFor(v, sel).map((ex) => (
+            <Pressable key={ex.id} accessibilityRole="link" onPress={() => openExercise(ex.id)}>
+              <T v="small" color={c.accent} style={{ textDecorationLine: 'underline' }}>{ex.name}</T>
+            </Pressable>
+          ))}
+        </>}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: space.sm }}>
         <T v="small" style={{ fontSize: 11 }}>Less</T>

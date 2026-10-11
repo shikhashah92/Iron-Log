@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
-  setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
+  exercisesFor, setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
@@ -1002,4 +1002,13 @@ test('empty sets in a past workout can be counted and removed, and an exercise l
   const clean = dropEmptySets(v, messy);
   assert.deepEqual(clean.exercises.map((e) => e.exerciseId), [bench, 'push-up']);
   assert.equal(emptySets(v, clean), 0);
+});
+
+test('exercisesFor: lifts for a muscle or group, favourites first', () => {
+  const v = viewOf(sample());
+  const quads = exercisesFor(v, 'quadriceps');
+  assert.ok(quads.length > 0 && quads.every((ex) => musclesOf(ex)?.main.includes('quadriceps')));
+  assert.ok(exercisesFor(v, 'Back', 50).every((ex) => ex.group === 'Back'));
+  const v2 = viewOf(toggleFav(sample(), 'step-up'));
+  assert.equal(exercisesFor(v2, 'quadriceps')[0].id, 'step-up');
 });

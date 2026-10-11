@@ -489,6 +489,12 @@ export function guessMuscles(name: string, group: string): Muscles | undefined {
   return GUESS.find(([re, ms]) => MUSCLES[ms.main[0]] === group && re.test(n))?.[1] ?? BY_GROUP[group];
 }
 export const musclesOf = (ex: Exercise): Muscles | undefined => (ex.kind ? undefined : ex.muscles ?? guessMuscles(ex.name, ex.group));
+/** Exercises for a muscle (it's a main muscle) or a group: favourites first, then the most recently done, then A–Z. */
+export function exercisesFor(v: View, sel: string, max = 5): Exercise[] {
+  const recent = recentExIds(v), rank = (ex: Exercise) => (isFav(v, ex.id) ? -1e6 : 0) + (recent.includes(ex.id) ? recent.indexOf(ex.id) - 1e5 : 0);
+  return allExercises(v).filter((ex) => !ex.kind && (Object.hasOwn(MUSCLES, sel) ? musclesOf(ex)?.main.includes(sel as Muscle) : ex.group === sel))
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).slice(0, max);
+}
 
 /** Working sets per muscle from `from` to `to` (strength only); a helper muscle gets half of each set. */
 export function muscleSets(v: View, from: string, to: string): Record<Muscle, number> {

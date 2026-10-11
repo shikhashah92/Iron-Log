@@ -4,7 +4,7 @@ import { Animated, Easing, Image, Modal, Pressable, StyleSheet, View } from 'rea
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, wt, twoDb,
+  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, twoDb,
   type Entry, type Exercise, type TemplateExercise, type View as LogView, type Workout,
 } from './model';
 import { drawWorkout, shareWorkout } from './share';
