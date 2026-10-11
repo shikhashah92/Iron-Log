@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { addExercises, allExercises, getEx, isFav, isTimed, matches, putTemplate, putWorkout, recentExIds, replaceExercise, startWorkout, viewOf } from '../model';
 import { useLog, useTheme } from '../store';
-import { ExRow, goBack, Tag } from '../components';
+import { ExRow, goBack, openExercise, Tag } from '../components';
 import { Button, Card, Field, Header, IconButton, Screen, T } from '../ui';
 import { space } from '../theme';
 
@@ -66,6 +66,7 @@ export default function Picker() {
             const inIt = already.includes(e.id);
             return (
               <ExRow key={e.id} ex={e} star={false} last={i === items.length - 1} onPress={() => tap(e.id)}
+                actions={<IconButton icon="information-circle-outline" label={`${e.name}: form and history`} size={22} color={c.muted} onPress={() => openExercise(e.id)} />}
                 right={inIt ? <Tag label="Added" tone="good" />
                   : swapping !== null || onlyActivities ? <T style={{ fontWeight: '600' }} color={c.accent}>{onlyActivities ? 'Start' : 'Use'}</T>
                   : <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={on ? c.accent : c.border} />} />
