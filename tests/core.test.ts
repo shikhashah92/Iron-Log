@@ -9,6 +9,7 @@ import {
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
 import { BUILT_IN, STARTERS } from '../src/exercises.ts';
+import { LATEST, RELEASES } from '../src/whatsNew.ts';
 
 const bench = 'bench-press-bb', row = 'bb-bent-row';
 const at = (day: string, time = '07:00') => new Date(`${day}T${time}:00`).getTime();
@@ -1011,4 +1012,12 @@ test('exercisesFor: lifts for a muscle or group, favourites first', () => {
   assert.ok(exercisesFor(v, 'Back', 50).every((ex) => ex.group === 'Back'));
   const v2 = viewOf(toggleFav(sample(), 'step-up'));
   assert.equal(exercisesFor(v2, 'quadriceps')[0].id, 'step-up');
+});
+
+test("what's new: newest first, one entry per day, and a new log starts up to date", () => {
+  const days = RELEASES.map((r) => r.date);
+  assert.deepEqual(days, [...days].sort().reverse());
+  assert.equal(new Set(days).size, days.length);
+  assert.ok(RELEASES.every((r) => r.changes.length && /^\d{4}-\d{2}-\d{2}$/.test(r.date)));
+  assert.equal(newLog().settings.newsSeen, LATEST);
 });
