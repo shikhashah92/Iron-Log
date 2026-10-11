@@ -7,6 +7,9 @@ export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
   { date: '2026-10-11', title: 'A cleaner, smarter Uplift', changes: [
+    { kind: 'better', icon: 'flag-outline', title: 'Targets in one tap', text: 'Pick 8, 12, 16 or 24 weeks for your target weight. It starts from your trend, and you can change it if you need to.' },
+    { kind: 'better', icon: 'list-outline', title: 'Weigh-ins by month', text: 'Every weigh-in shows its change on the one before, grouped by month.' },
+    { kind: 'better', icon: 'trophy-outline', title: 'See how close you are', text: 'Trophies you haven’t earned yet show a progress bar, and challenges show how long they run.' },
     { kind: 'better', icon: 'apps-outline', title: 'Four tabs, not five', text: 'Workout and Exercises are now one Train tab: your workouts and the exercise library side by side.' },
     { kind: 'new', icon: 'timer-outline', title: 'Your workout lives in the tab bar', text: 'While you train, the Train tab shows the clock. Tap it to jump back in. A slim strip says what’s next.' },
     { kind: 'fixed', icon: 'calculator-outline', title: 'Totals you can trust', text: 'This week, This month and Wrapped no longer count sets from a workout you haven’t finished yet.' },

@@ -614,16 +614,22 @@ export function Confetti({ on }: { on: boolean }) {
 }
 
 /** A milestone as a small card: icon in a mint circle, title and the fun line. `locked`: greyed, with progress. */
-export function MilestoneCard({ icon, title, detail, sub, locked }: { icon: string; title: string; detail: string; sub?: string; locked?: boolean }) {
+/** A trophy: earned, or locked with `progress` (0–1) as a bar towards it. */
+export function MilestoneCard({ icon, title, detail, sub, locked, progress }: { icon: string; title: string; detail: string; sub?: string; locked?: boolean; progress?: number }) {
   const { c } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm, opacity: locked ? 0.55 : 1 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm, opacity: locked ? 0.75 : 1 }}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: locked ? c.chip : c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name={(locked ? 'lock-closed-outline' : icon) as keyof typeof Ionicons.glyphMap} size={22} color={locked ? c.muted : c.accent} />
       </View>
       <View style={{ flex: 1 }}>
         <T style={{ fontWeight: '700' }}>{title}</T>
         <T v="small">{detail}{sub ? ` · ${sub}` : ''}</T>
+        {locked && progress !== undefined && (
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: c.chip, marginTop: 4, overflow: 'hidden' }}>
+            <View style={{ width: `${Math.max(2, Math.min(1, progress) * 100)}%`, height: '100%', backgroundColor: c.brand }} />
+          </View>
+        )}
       </View>
     </View>
   );

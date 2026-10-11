@@ -38,9 +38,10 @@ export default function WrappedScreen() {
         </View>
         <Gap h={space.sm} />
         <View style={{ flexDirection: 'row', gap: space.sm }}>
-          <Stat k="Time" v={r.minutes ? fmtDur(r.minutes * 60) : '–'} />
-          {r.volume ? <Stat k="Lifted" v={fmtVolume(r.volume, v.unit, '')} /> : r.km ? <Stat k="Distance" v={`${num(r.km)} km`} /> : <Stat k="Yoga" v={`${r.yoga}m`} />}
-          <Stat k="Bests" v={r.bests} />
+          {/* Only what the month had: no empty tiles. */}
+          {r.minutes ? <Stat k="Time" v={fmtDur(r.minutes * 60)} /> : null}
+          {r.volume ? <Stat k="Lifted" v={fmtVolume(r.volume, v.unit, '')} /> : r.km ? <Stat k="Distance" v={`${num(r.km)} km`} /> : r.yoga ? <Stat k="Yoga" v={`${r.yoga}m`} /> : null}
+          {r.bests ? <Stat k="Bests" v={r.bests} /> : null}
         </View>
         <Gap />
         <Card style={{ gap: space.md }}>
