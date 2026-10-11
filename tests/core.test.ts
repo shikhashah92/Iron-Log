@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
-  delWeighIn, longDate, needsBackupNudge, newLog, planSets, repeatWorkout, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
+  delWeighIn, duration, stopwatch, longDate, needsBackupNudge, newLog, planSets, repeatWorkout, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
   exercisesFor, setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
@@ -1047,4 +1047,22 @@ test('do again: the template if it still exists, else the same exercises and set
   assert.equal(active(repeatWorkout(l, { ...done, templateId: 't1' }, at(D2))).templateId, 't1');
   const going = startWorkout(l, undefined, at(D2));
   assert.equal(repeatWorkout(going, done, at(D2)), going, 'one workout at a time');
+});
+
+test('totals and the week count finished workouts only, not sets ticked in the one still going', () => {
+  let l = did(newLog('Asha', 1), D1, [[bench, [[60, 10]]]]);
+  const before = totals(viewOf(l), D1, D2), week = weekStats(viewOf(l), D1);
+  l = startWorkout(l, undefined, at(D1, '18:00'));
+  const w = active(l);
+  l = putWorkout(l, { ...w, exercises: [{ exerciseId: bench, sets: [{ w: 100, r: 5 }] }] });
+  assert.deepEqual(totals(viewOf(l), D1, D2), before);
+  assert.deepEqual(weekStats(viewOf(l), D1), week);
+});
+
+test('a workout length says its unit; the live clock is a stopwatch', () => {
+  assert.equal(duration(12_000), '12s');
+  assert.equal(duration(52 * 60_000 + 9_000), '52m');
+  assert.equal(duration(65 * 60_000), '1h 05m');
+  assert.equal(stopwatch(7 * 60_000 + 10_000), '7:10');
+  assert.equal(stopwatch(3_912_000), '1:05:12');
 });

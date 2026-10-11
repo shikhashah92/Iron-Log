@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { Text, useWindowDimensions, View } from 'react-native';
 import { router, Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,8 +7,8 @@ import { useStore, useTheme } from '../../store';
 import { WorkoutBar } from '../../components';
 import { MAX_WIDTH } from '../../ui';
 import { TourOverlay } from '../../tour';
-import { stopRest } from '../../timer';
-import { backupDue } from '../../model';
+import { stopRest, useNow } from '../../timer';
+import { backupDue, stopwatch } from '../../model';
 import { useForgottenWorkout } from '../../workout';
 import { offerUnreadable } from '../../backupActions';
 import { sans } from '../../theme';
@@ -16,8 +16,7 @@ import { sans } from '../../theme';
 type Icon = keyof typeof Ionicons.glyphMap;
 const TABS: { name: string; title: string; icon: Icon; on: Icon }[] = [
   { name: 'index', title: 'Home', icon: 'home-outline', on: 'home' },
-  { name: 'exercises', title: 'Exercises', icon: 'list-outline', on: 'list' },
-  { name: 'workout', title: 'Workout', icon: 'barbell-outline', on: 'barbell' },
+  { name: 'workout', title: 'Train', icon: 'barbell-outline', on: 'barbell' },
   { name: 'history', title: 'History', icon: 'stats-chart-outline', on: 'stats-chart' },
   { name: 'me', title: 'Me', icon: 'person-circle-outline', on: 'person-circle' },
 ];
@@ -27,7 +26,8 @@ export default function TabsLayout() {
   const narrow = useWindowDimensions().width < 360; // e.g. iPhone SE: smaller labels so "Exercises" fits
   const { bottom } = useSafeAreaInsets(); // home-indicator space in the installed app; 0 in a browser tab
   const { log, replace } = useStore();
-  const live = !!log?.workouts.some((w) => w.active && w.profileId === log.settings.currentProfileId);
+  const liveW = log?.workouts.find((w) => w.active && w.profileId === log.settings.currentProfileId);
+  const live = !!liveW;
   // A new person: onboarding's second step (optional), then the tour.
   const pending = !!log?.settings.setupPending;
   const due = !!log && backupDue(log);
@@ -64,12 +64,26 @@ export default function TabsLayout() {
           title: t.title,
           // A dot on Me when a backup is overdue (Settings, from Me, is where you save one).
           ...(t.name === 'me' && due ? { tabBarBadge: '', tabBarBadgeStyle: { backgroundColor: c.warnText, minWidth: 10, height: 10, borderRadius: 5, top: 4 } } : {}),
-          tabBarIcon: ({ color, focused, size }) => <Ionicons name={focused ? t.on : t.icon} size={size} color={color} />,
-        }} />
+          tabBarIcon: ({ color, focused, size }) => (t.name === 'workout' && liveW ? <LiveClock since={liveW.startedAt} /> : <Ionicons name={focused ? t.on : t.icon} size={size} color={color} />),
+          // A workout going: Train is that workout. Its clock is the icon, its name the label, and a tap opens it.
+          ...(t.name === 'workout' && liveW ? { title: liveW.name, tabBarActiveTintColor: c.accent, tabBarInactiveTintColor: c.accent } : {}),
+        }} listeners={t.name === 'workout' && liveW ? { tabPress: (e) => { e.preventDefault(); router.push('/active'); } } : undefined} />
       ))}
     </Tabs>
     <WorkoutBar bottom={78 + bottom} />
     <TourOverlay inset={bottom} />
+    </View>
+  );
+}
+
+/** The running clock on the Train tab while a workout is in progress. */
+function LiveClock({ since }: { since: number }) {
+  const { c } = useTheme();
+  const now = useNow(true);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.brand, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.onAccent }} />
+      <Text style={{ fontFamily: sans, fontSize: 13, fontWeight: '700', color: c.onAccent, fontVariant: ['tabular-nums'] }}>{stopwatch(now - since)}</Text>
     </View>
   );
 }

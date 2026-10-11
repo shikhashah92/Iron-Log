@@ -39,6 +39,17 @@ export function DateTimeField({ value, onChange, min, max, label = 'Date and tim
  * Date of birth, typed as DD/MM/YYYY on the number pad. Android Chrome's date picker opens near `max` (decades from a
  * birthday) and, typing the year, can save the `min` year (1900) instead. Reports '' until the date is whole and real.
  */
+/** A time of day ("07:00"), with the phone's own time picker (12- or 24-hour, as the phone is set). */
+export function TimeField({ value, onChange, label = 'Time' }: { value: string; onChange: (hhmm: string) => void; label?: string }) {
+  const { c, dark } = useTheme();
+  return createElement('input', {
+    type: 'time', value, 'aria-label': label, onChange: (e: { target: { value: string } }) => { if (e.target.value) onChange(e.target.value); },
+    style: {
+      minHeight: 44, padding: '0 14px', borderRadius: 999, border: 'none', background: c.chip, color: c.text, alignSelf: 'flex-start',
+      fontSize: 16, fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', colorScheme: dark ? 'dark' : 'light',
+    },
+  });
+}
 export function DobField({ value, onChange, min = '1900-01-01', max }: { value: string; onChange: (day: string) => void; min?: string; max: string }) {
   const { c } = useTheme();
   const fromValue = (v: string) => (v ? v.split('-').reverse().join('/') : '');

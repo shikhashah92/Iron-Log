@@ -51,8 +51,7 @@ function Sessions() {
         </View>
       )}
       {months.map((m) => {
-        // Finished workouts only (totals() also counts sets ticked in the one still going).
-        const inMonth = done.filter((w) => w.date.startsWith(m)), t = { workouts: inMonth.length, volume: inMonth.reduce((n, w) => n + workoutStats(v, w).volume, 0) };
+        const t = totals(v, `${m}-01`, `${m}-31`);
         return (
           <View key={m}>
             {!day && <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: space.sm, marginBottom: space.sm, marginHorizontal: 2 }}>

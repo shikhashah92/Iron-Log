@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { daysAgo, duration, getEx, logPastWorkout, newId, nextInPlan, putTemplate, today, upNext, type Template } from '../../model';
-import { PLANS } from '../../exercises';
+import { ACTIVITY_GROUPS, allExercises, isCustom, matches, daysAgo, duration, getEx, logPastWorkout, newId, nextInPlan, putTemplate, today, type Template } from '../../model';
+import { GROUPS, PLANS } from '../../exercises';
+import { Empty, ExRow, GroupChips, inGroup } from '../../components';
 import { useLog, useTheme } from '../../store';
 import { useNow } from '../../timer';
 import { ask } from '../../io';
 import { useWorkoutFlow } from '../../workout';
-import { Button, Card, Gap, Header, Screen, T } from '../../ui';
+import { Button, Card, Field, Gap, Header, Screen, Segmented, T } from '../../ui';
 import { sans, radius, space } from '../../theme';
 
 const ago = (day: string) => { const d = daysAgo(day, today()); return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 60 ? `${d} days ago` : new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); };
@@ -48,6 +49,7 @@ export default function StartWorkout() {
   const mine = v.templates.filter((t) => !t.starter);
   const singles = v.templates.filter((t) => t.starter);
   const [all, setAll] = useState(false);
+  const [tab, setTab] = useState<'start' | 'library'>('start');
   async function newTemplate() {
     const name = await ask('Template name (e.g. Leg Day)');
     if (!name) return;
@@ -58,7 +60,10 @@ export default function StartWorkout() {
 
   return (
     <Screen>
-      <Header title="Start workout" />
+      <Header title="Train" right={tab === 'library' ? <Button title="Add" icon="add" kind="secondary" onPress={() => router.push('/edit-exercise')} style={{ minHeight: 44, paddingHorizontal: space.md }} /> : undefined} />
+      <Segmented value={tab} onChange={setTab} options={[{ id: 'start', label: 'Workouts' }, { id: 'library', label: 'Exercises' }]} />
+      <Gap h={space.md} />
+      {tab === 'library' ? <Library /> : <>
       {v.active && (
         <Pressable accessibilityRole="button" accessibilityLabel={`Resume ${v.active.name}`} onPress={() => router.push('/active')}>
           <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderColor: c.accent, marginBottom: space.md }}>
@@ -71,7 +76,6 @@ export default function StartWorkout() {
           </Card>
         </Pressable>
       )}
-      {!v.active && <UpNext />}
       {/* The other ways in, side by side: an empty workout, an activity, one you forgot to log. */}
       <View style={{ flexDirection: 'row', gap: space.sm }}>
         {([
@@ -136,27 +140,36 @@ export default function StartWorkout() {
         <Tiles list={all ? singles : singles.slice(0, 4)} />
         {singles.length > 4 && <Button title={all ? 'Show fewer' : `See all ${singles.length}`} kind="ghost" onPress={() => setAll(!all)} style={{ marginTop: space.xs }} />}
       </View>
+      </>}
     </Screen>
   );
 }
 
-/** What to do today: the next workout of your plan, or one for the muscles you've skipped. */
-function UpNext() {
+/** The exercise library: search, filter, and every exercise by group (custom ones last). */
+function Library() {
   const { v } = useLog();
-  const { c } = useTheme();
-  const flow = useWorkoutFlow();
-  const n = upNext(v, today());
-  const t = v.templates.find((x) => x.id === n.templateId);
-  if (!t) return null;
+  const [q, setQ] = useState('');
+  const [group, setGroup] = useState('All');
+  const all = allExercises(v);
+  const query = q.trim().toLowerCase();
+  const items = all.filter((e) => inGroup(v, e, group) && matches(e, query)).sort((a, b) => a.name.localeCompare(b.name));
+  // Grouped by muscle when browsing everything; a flat list when searching or filtered.
+  const sections = query || group !== 'All'
+    ? [{ title: '', list: items }]
+    : [...[...GROUPS, ...ACTIVITY_GROUPS].map((g) => ({ title: g, list: items.filter((e) => e.group === g && !isCustom(v, e.id)) })),
+      { title: 'Custom', list: items.filter((e) => isCustom(v, e.id)) }].filter((x) => x.list.length);
   return (
-    <View style={{ backgroundColor: c.accentSoft, borderRadius: radius.lg, padding: space.md, marginBottom: space.lg, gap: 4 }}>
-      <T v="label" color={c.accent}>What to do today</T>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${t.name}: see the template`} onPress={() => router.push({ pathname: '/template', params: { id: t.id } })}>
-        <T style={{ fontFamily: sans, fontWeight: '800', fontSize: 22 }}>{t.name}</T>
-        <T v="small" style={{ color: c.text }}>{n.reason}</T>
-        <T v="small" numberOfLines={2} style={{ marginTop: 2 }}>{t.exercises.map((e) => getEx(v, e.exerciseId).name).join(', ')}</T>
-      </Pressable>
-      <Button title={`Start ${t.name}`} icon="play" onPress={() => flow.start(t.id)} style={{ marginTop: space.sm }} />
-    </View>
+    <>
+      <Field placeholder={`Search ${all.length} exercises…`} value={q} onChangeText={setQ} autoCorrect={false} accessibilityLabel="Search exercises" inputMode="search" />
+      <GroupChips group={group} onChange={setGroup} />
+      {!items.length ? <Empty>No exercises match.</Empty> : sections.map((x) => (
+        <View key={x.title} style={{ marginBottom: space.md }}>
+          {x.title ? <T v="label" style={{ marginBottom: space.xs, marginLeft: 2 }}>{x.title}</T> : null}
+          <Card pad={false} style={{ paddingHorizontal: space.md }}>
+            {x.list.map((e, i) => <ExRow key={e.id} ex={e} last={i === x.list.length - 1} />)}
+          </Card>
+        </View>
+      ))}
+    </>
   );
 }
