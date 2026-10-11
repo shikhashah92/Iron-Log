@@ -207,7 +207,10 @@ export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in 
     const t = x0 + (((e.clientX - r.left) / r.width) * W - pl) / (W - pl - pr) * span;
     setAt(days.reduce((b, d) => (Math.abs(dayMs(d) - t) < Math.abs(dayMs(b) - t) ? d : b), days[0]));
   };
-  const readings = shownAt ? read.filter((s) => s.points.length).map((s) => ({ s, p: nearest(s.points, shownAt) })) : [];
+  // A series only reads where it has data: dots on their own days, lines between their first and last day (never your last weigh-in on a future day).
+  const covers = (s: ChartSeries, d: string) => (s.style === 'dots' ? s.points.some((p) => p.date === d) : s.points.some((p) => p.date <= d) && s.points.some((p) => p.date >= d));
+  const readings = shownAt ? read.filter((s) => s.points.length && covers(s, shownAt)).map((s) => ({ s, p: nearest(s.points, shownAt) })) : [];
+  const now = today(), future = last > now && first <= now; // a plan running ahead: mark where today is
   return (
     <View style={{ marginVertical: space.sm }}>
     <View accessibilityLiveRegion="polite" style={{ minHeight: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: space.md }}>
@@ -233,6 +236,10 @@ export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in 
       <text x={W - pr + 3} y={Y(mn) + 3} {...text}>{num(mn)}{unit}</text>
       <text x={pl} y={H - 5} {...text}>{dateWithYear(first)}</text>
       <text x={W - pr} y={H - 5} textAnchor="end" {...text}>{dateWithYear(last)}</text>
+      {future && <>
+        <line x1={X(now)} x2={X(now)} y1={pt} y2={H - pb} stroke={c.border} strokeWidth={1} />
+        <text x={X(now) + 3} y={pt + 8} {...text}>Today</text>
+      </>}
       {shownAt && <>
         <line x1={X(shownAt)} x2={X(shownAt)} y1={pt} y2={H - pb} stroke={c.muted} strokeWidth={1} strokeDasharray="2 2" />
         {readings.map(({ s, p }, i) => <circle key={i} cx={X(p.date)} cy={Y(p.v)} r={4} fill={c.card} stroke={s.color ?? c.accent} strokeWidth={2} />)}
@@ -343,12 +350,18 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
   const now = useNow(!!w);
   const rest = useRest(); // outside the workout screen, the rest countdown rides along here instead of a bar of its own
   if (!w) return null;
+  // What's next: the first exercise with a set still to tick.
+  const ni = w.exercises.findIndex((e) => e.sets.some((x) => x.done === false));
+  const nextUp = ni < 0 ? 'All sets done' : `Next: ${getEx(v, w.exercises[ni].exerciseId).name}, set ${w.exercises[ni].sets.findIndex((x) => x.done === false) + 1}`;
   return (
     <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress${rest !== null ? rest > 0 ? `, rest ${rest} seconds left` : ', rest over' : ''}`} onPress={() => router.push('/active')}
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress. ${nextUp}${rest !== null ? rest > 0 ? `, rest ${rest} seconds left` : ', rest over' : ''}`} onPress={() => router.push('/active')}
         style={({ pressed }) => [st.rest, { backgroundColor: c.brand, borderColor: c.brand, opacity: pressed ? 0.85 : 1 }]}>
         <Ionicons name="chevron-up" size={20} color={c.onAccent} />
-        <T numberOfLines={1} style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 17 }} color={c.onAccent}>{w.name}</T>
+        <View style={{ flex: 1 }}>
+          <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '700', fontSize: 17 }} color={c.onAccent}>{w.name}</T>
+          {w.exercises.length > 0 && <T numberOfLines={1} style={{ fontSize: 12 }} color={c.onAccent}>{nextUp}</T>}
+        </View>
         {rest !== null ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.onAccent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
             <Ionicons name="timer-outline" size={15} color={c.brand} />

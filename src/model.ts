@@ -578,13 +578,13 @@ export function timeOfDayName(ms: number): string {
   return `${h < 5 ? 'Night' : h < 11 ? 'Morning' : h < 14 ? 'Midday' : h < 17 ? 'Afternoon' : h < 21 ? 'Evening' : 'Night'} Workout`;
 }
 /**
- * Planned sets for an exercise: last time's sets as grey hints (warm-up / drop marks kept), `count` of them if given
- * (repeating the last one or trimming), or 3 empty sets for an exercise you've never done.
+ * Planned sets for an exercise: last time's sets as grey hints (warm-up / drop marks kept), at least `count` of them if
+ * given (a template's sets, repeating the last one), never fewer than last time; or 3 empty sets for one never done.
  */
 export function planSets(v: View, exerciseId: string, count?: number, except?: string): SetRow[] {
   const prev = lastEntry(v, exerciseId, except)?.sets ?? [];
   const ex = getEx(v, exerciseId);
-  const n = Math.max(1, Math.min(50, count ?? (prev.length || (isTimed(ex) ? 1 : 3))));
+  const n = Math.max(1, Math.min(50, Math.max(count ?? 0, prev.length) || (isTimed(ex) ? 1 : 3)));
   const fresh = ex.kind === 'activity' ? 2 : ex.kind === 'yoga' ? 1 : 0; // a new activity starts at moderate intensity; a pose at one round
   const hint = (s?: SetRow): SetRow => ({ w: s?.w ?? fresh, r: s?.r ?? 0, done: false, ...(s?.kind ? { kind: s.kind } : {}) });
   return Array.from({ length: n }, (_, i) => hint(prev[i] ?? (prev.length ? { w: prev.at(-1)!.w, r: prev.at(-1)!.r } : undefined)));
@@ -765,7 +765,9 @@ export function toggleDone(w: Workout, i: number, j: number, roundsCount = false
   if (s.done !== false) return { workout: mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((x, k) => (k === j ? { ...x, done: false, typed: true } : x)) })), ticked: false };
   if (s.r <= 0 && !(roundsCount && s.w > 0)) return { workout: w, ticked: false };
   const { done: _d, typed: _t, ...logged } = s;
-  return { workout: mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((x, k) => (k === j ? logged : x)) })), ticked: true };
+  // The next set, if it's still blank, gets this one's numbers as a hint: one tap logs the same again.
+  const blank = (x: SetRow) => x.done === false && !x.typed && !x.w && !x.r && x.kind === s.kind;
+  return { workout: mapEx(w, i, (e) => ({ ...e, sets: e.sets.map((x, k) => (k === j ? logged : k === j + 1 && blank(x) ? { ...x, w: s.w, r: s.r } : x)) })), ticked: true };
 }
 /** How hard a set was (RPE), or none. */
 export const setRpe = (w: Workout, i: number, j: number, rpe?: number): Workout =>
