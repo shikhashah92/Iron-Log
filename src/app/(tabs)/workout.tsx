@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -6,7 +7,6 @@ import { PLANS } from '../../exercises';
 import { useLog, useTheme } from '../../store';
 import { useNow } from '../../timer';
 import { ask } from '../../io';
-import { Empty } from '../../components';
 import { useWorkoutFlow } from '../../workout';
 import { Button, Card, Gap, Header, Screen, T } from '../../ui';
 import { sans, radius, space } from '../../theme';
@@ -46,6 +46,8 @@ export default function StartWorkout() {
   const flow = useWorkoutFlow();
   const now = useNow(!!v.active);
   const mine = v.templates.filter((t) => !t.starter);
+  const singles = v.templates.filter((t) => t.starter);
+  const [all, setAll] = useState(false);
   async function newTemplate() {
     const name = await ask('Template name (e.g. Leg Day)');
     if (!name) return;
@@ -70,28 +72,38 @@ export default function StartWorkout() {
         </Pressable>
       )}
       {!v.active && <UpNext />}
-      <T v="label">Quick start</T>
-      <Gap h={space.sm} />
-      <Button title="Start an empty workout" icon="add" onPress={() => flow.start()} kind="secondary" />
-      <Gap h={space.sm} />
-      <Button title={v.active ? 'Add an activity to your workout' : 'Log an activity'} icon="walk-outline" kind="secondary"
-        onPress={() => router.push({ pathname: '/picker', params: { activity: '1', ...(v.active ? { workout: v.active.id } : {}) } })} />
-      <T v="small" style={{ marginTop: 4, fontSize: 12 }}>A run, a yoga class, a match: time, distance or intensity, and calories.</T>
-      <Gap h={space.sm} />
-      <Button title="Log a past workout" icon="time-outline" kind="secondary" onPress={() => {
-        let id = '';
-        update((l) => { const r = logPastWorkout(l, Date.now() - 86_400_000); id = r.id; return r.log; });
-        router.push({ pathname: '/edit-workout', params: { id } });
-      }} />
-      <T v="small" style={{ marginTop: 4, fontSize: 12 }}>Forgot to log one? Set when it was, then add what you did.</T>
-      <Gap />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <T v="label">My templates ({mine.length})</T>
-        <Button title="Template" icon="add" kind="ghost" onPress={newTemplate} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
+      {/* The other ways in, side by side: an empty workout, an activity, one you forgot to log. */}
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
+        {([
+          ['add', 'Empty', 'workout', () => flow.start()],
+          ['walk-outline', 'Activity', v.active ? 'add to this one' : 'run, class, match', () => router.push({ pathname: '/picker', params: { activity: '1', ...(v.active ? { workout: v.active.id } : {}) } })],
+          ['time-outline', 'Past', 'workout you forgot', () => {
+            let id = '';
+            update((l) => { const r = logPastWorkout(l, Date.now() - 86_400_000); id = r.id; return r.log; });
+            router.push({ pathname: '/edit-workout', params: { id } });
+          }],
+        ] as [keyof typeof Ionicons.glyphMap, string, string, () => void][]).map(([icon, title, sub, go]) => (
+          <Pressable key={title} accessibilityRole="button" accessibilityLabel={`${title}: ${sub}`} onPress={go}
+            style={({ pressed }) => ({ flex: 1, alignItems: 'center', gap: 2, padding: space.md, borderRadius: radius.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, opacity: pressed ? 0.7 : 1 })}>
+            <Ionicons name={icon} size={22} color={c.accent} />
+            <T style={{ fontWeight: '600' }}>{title}</T>
+            <T v="small" center numberOfLines={2} style={{ fontSize: 12, lineHeight: 15 }}>{sub}</T>
+          </Pressable>
+        ))}
       </View>
-      <Gap h={space.sm} />
-      {mine.length ? <Tiles list={mine} /> : (
-        <Card><Empty>No templates yet. Start from a ready-made one below, build your own, or save a finished workout as a template from History.</Empty></Card>
+      <Gap />
+      {mine.length ? <>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <T v="label">My templates ({mine.length})</T>
+          <Button title="Template" icon="add" kind="ghost" onPress={newTemplate} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
+        </View>
+        <Gap h={space.sm} />
+        <Tiles list={mine} />
+      </> : (
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.sm }}>
+          <T style={{ flex: 1 }}>My templates <T v="small">· none yet</T></T>
+          <Button title="Template" icon="add" kind="ghost" onPress={newTemplate} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
+        </Card>
       )}
       {/* Ready-made ones sit in their own mint panel, so they never read as yours. */}
       <View style={{ marginTop: space.xl, backgroundColor: c.accentSoft, borderRadius: radius.lg, padding: space.md, paddingTop: space.lg }}>
@@ -99,8 +111,8 @@ export default function StartWorkout() {
           <Ionicons name="sparkles-outline" size={20} color={c.accent} />
           <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 20 }}>Ready-made by Uplift</T>
         </View>
-        <T v="small" style={{ marginTop: 4, marginBottom: space.md, color: c.text }}>Plans by muscle group to get you going. Open one to start it, or change it and it becomes yours.</T>
-        <T v="label" style={{ marginBottom: space.sm }}>Plans · one template per session, in turn</T>
+        <T v="small" style={{ marginTop: 4, marginBottom: space.md, color: c.text }}>Open one to start it. Change it and it becomes yours.</T>
+        <T v="label" style={{ marginBottom: space.sm }}>Plans · one workout per session, in turn</T>
         <View style={{ gap: space.sm, marginBottom: space.lg }}>
           {PLANS.map((p) => {
             const last = v.workouts.find((w) => !w.active && w.templateId && p.templates.includes(w.templateId));
@@ -114,15 +126,15 @@ export default function StartWorkout() {
                   <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>{p.name}</T>
                   <T v="small" style={{ fontSize: 12 }}>{p.days}</T>
                 </View>
-                <T v="small" style={{ fontSize: 13 }}>{p.about}</T>
-                <T style={{ fontSize: 14, marginTop: 2 }}>{names.join(' → ')}</T>
+                <T v="small" style={{ fontSize: 13 }}>{names.join(' → ')}</T>
                 <T style={{ fontSize: 13, fontWeight: '700', marginTop: 2 }} color={c.accent}>{last ? `Next up: ${v.templates.find((t) => t.id === next)?.name}` : `Start with ${names[0]}`} →</T>
               </Pressable>
             );
           })}
         </View>
         <T v="label" style={{ marginBottom: space.sm }}>Single workouts</T>
-        <Tiles list={v.templates.filter((t) => t.starter)} />
+        <Tiles list={all ? singles : singles.slice(0, 4)} />
+        {singles.length > 4 && <Button title={all ? 'Show fewer' : `See all ${singles.length}`} kind="ghost" onPress={() => setAll(!all)} style={{ marginTop: space.xs }} />}
       </View>
     </Screen>
   );

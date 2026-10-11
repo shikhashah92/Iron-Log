@@ -97,7 +97,7 @@ function Calendar({ trained, day, onDay }: { trained: Set<string>; day: string |
 
 const mins = (m: number) => (m ? fmtDur(m * 60) : '0m');
 
-/** This month against the same point last month, the weekly streak, twelve weeks of bars, and sets per muscle group. */
+/** Sets per muscle, twelve weeks of bars, this month against the same point last month (and the weekly streak), the year, and the monthly wraps. */
 function Trends() {
   const { v } = useLog();
   const { c } = useTheme();
@@ -117,32 +117,11 @@ function Trends() {
   const kg = (n: number) => fmtVolume(n, v.unit, '');
   const fmt = (n: number) => (metric === 'workouts' ? num(Math.round(n * 10) / 10) : metric === 'minutes' ? mins(Math.round(n)) : kg(n));
   const short = (n: number) => (metric === 'minutes' && n >= 60 ? `${num(Math.round(n / 6) / 10)}h` : fmt(n)); // fits over a bar
-  const vs = (a: number, b: number, f: (n: number) => string) => (b || a ? `${a >= b ? '▲' : '▼'} ${f(b)} last month` : '');
+  // The change on last month: "▲ 2 on last month", "Same as last month".
+  const vs = (a: number, b: number, f: (n: number) => string) => (!a && !b ? '' : Math.round(a - b) === 0 ? 'Same as last month' : `${a > b ? '▲' : '▼'} ${f(Math.abs(a - b))} on last month`);
   return (
     <>
-      <Section title={`This month · ${monthName(now.slice(0, 7)).split(' ')[0]}`}>
-        <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
-          {[['Workouts', num(month.workouts), vs(month.workouts, before.workouts, num)], ['Time', mins(month.minutes), vs(month.minutes, before.minutes, mins)],
-            ['Volume', kg(month.volume), vs(month.volume, before.volume, kg)]].map(([k, value, delta]) => (
-            <View key={k} style={{ flex: 1, backgroundColor: c.chip, borderRadius: 10, padding: space.sm + 2 }}>
-              <T v="label" style={{ fontSize: 11 }}>{k}</T>
-              <T style={{ fontFamily: sans, fontSize: 20, marginTop: 2 }}>{value}</T>
-              {delta ? <T v="small" style={{ fontSize: 11 }}>{delta}</T> : null}
-            </View>
-          ))}
-        </View>
-        <T v="small" style={{ marginTop: space.sm, fontSize: 12 }}>Last month is counted up to the same day, so it’s a fair comparison.</T>
-      </Section>
-
-      <Card style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="flame-outline" size={26} color={c.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 20 }}>{streak.current ? `${plural(streak.current, 'week')} in a row` : 'No streak yet'}</T>
-          <T v="small">{streak.current ? 'Weeks with at least one workout.' : 'Train this week to start one.'}{streak.best > streak.current ? ` Best: ${plural(streak.best, 'week')}.` : streak.best > 1 ? ' Your best yet.' : ''}</T>
-        </View>
-      </Card>
+      <MuscleMap />
 
       <Section title="Last 12 weeks">
         <Segmented value={metric} onChange={setMetric} options={[{ id: 'workouts', label: 'Workouts' }, { id: 'minutes', label: 'Time' }, { id: 'volume', label: 'Volume' }]} />
@@ -163,9 +142,26 @@ function Trends() {
         <T v="small" style={{ marginTop: space.sm }}>Average {fmt(avg)} a week over the 11 weeks before this one.</T>
       </Section>
 
-      <YearMap />
+      <Section title={`This month · ${monthName(now.slice(0, 7)).split(' ')[0]}`}>
+        <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
+          {[['Workouts', num(month.workouts), vs(month.workouts, before.workouts, num)], ['Time', month.workouts && !month.minutes ? '<1m' : mins(month.minutes), vs(month.minutes, before.minutes, mins)],
+            ['Volume', kg(month.volume), vs(month.volume, before.volume, kg)]].map(([k, value, delta]) => (
+            <View key={k} style={{ flex: 1, backgroundColor: c.chip, borderRadius: 10, padding: space.sm + 2 }}>
+              <T v="label" style={{ fontSize: 11 }}>{k}</T>
+              <T style={{ fontFamily: sans, fontSize: 20, marginTop: 2 }}>{value}</T>
+              {delta ? <T v="small" style={{ fontSize: 11 }}>{delta}</T> : null}
+            </View>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.md }}>
+          <Ionicons name="flame-outline" size={22} color={c.accent} />
+          <T style={{ flex: 1 }}><T style={{ fontWeight: '700' }}>{streak.current ? `${plural(streak.current, 'week')} in a row` : 'No streak yet'}</T>
+            <T v="small">{streak.current ? ' with a workout' : ': train this week to start one'}{streak.best > streak.current ? ` · best ${plural(streak.best, 'week')}` : ''}</T></T>
+        </View>
+        <T v="small" style={{ marginTop: space.sm, fontSize: 12 }}>Last month is counted up to the same day, so it’s a fair comparison.</T>
+      </Section>
 
-      <MuscleMap />
+      <YearMap />
 
       <Section title="Monthly wraps" pad={false}>
         <View style={{ paddingHorizontal: space.lg, paddingBottom: space.sm }}>
