@@ -12,6 +12,7 @@ import { menu } from '../../io';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
 import { radius, sans, space } from '../../theme';
 import { useNow } from '../../timer';
+import { LATEST, RELEASES } from '../../whatsNew';
 
 export default function Home() {
   const { log, v, saveError } = useLog();
@@ -78,6 +79,7 @@ export default function Home() {
           <><Banner text="It’s been a week since your last backup." action="Back up" onPress={backup.exportLocked} /><Gap h={space.md} /></>
         ) : null}
 
+        <NewsCard />
         <WelcomeBack />
         <GoalCard />
         <WrappedCard />
@@ -253,6 +255,31 @@ function WelcomeBack() {
 }
 
 /** The first week of a month: last month, wrapped, one tap away. */
+/** After an update: the newest release, once, until it's opened or closed. */
+function NewsCard() {
+  const { log, update } = useLog();
+  const { c } = useTheme();
+  if (log.settings.newsSeen === LATEST) return null;
+  const r = RELEASES[0];
+  const seen = () => update((l) => ({ ...l, settings: { ...l.settings, newsSeen: LATEST } }));
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`What’s new: ${r.title}. Open`} onPress={() => router.push('/whats-new')}>
+      <Card style={{ marginBottom: space.md, gap: 4, borderColor: c.brand, backgroundColor: c.accentSoft }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <Ionicons name="sparkles" size={16} color={c.accent} />
+          <T style={{ flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 1 }} color={c.accent}>WHAT’S NEW</T>
+          <Pressable accessibilityRole="button" accessibilityLabel="Hide" hitSlop={10} onPress={seen}>
+            <Ionicons name="close" size={18} color={c.muted} />
+          </Pressable>
+        </View>
+        <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 20 }}>{r.title}</T>
+        <T v="small" style={{ color: c.text }}>{r.changes.slice(0, 3).map((ch) => ch.title).join(' · ')}</T>
+        <T v="small" style={{ fontWeight: '600' }} color={c.accent}>See everything that’s new →</T>
+      </Card>
+    </Pressable>
+  );
+}
+
 function WrappedCard() {
   const { log, v, update } = useLog();
   const { c } = useTheme();

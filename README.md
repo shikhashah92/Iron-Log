@@ -25,6 +25,9 @@ Every push to `main` runs `.github/workflows/deploy.yml`: `npm run check`, then 
 The workflow copies `index.html` to `404.html` so deep links work. **One-time setup:** repo **Settings → Pages →
 Source: GitHub Actions**.
 
+**Every user-facing change adds a card to `src/whatsNew.ts`** in the same PR (newest release first, one per date). It
+feeds Settings → What’s new and the one-time Home card.
+
 If the repo is renamed, change `experiments.baseUrl` in `app.json` and the path check in `tests/core.test.ts`.
 
 ## Install on iPhone

@@ -135,6 +135,7 @@ export default function Settings() {
       <T v="label">Help</T>
       <Gap h={space.sm} />
       <Card pad={false} style={{ paddingHorizontal: space.lg }}>
+        <Row left={icon('sparkles-outline')} title="What’s new" subtitle="Every change to Uplift, newest first" right={chevron} onPress={() => router.push('/whats-new')} />
         <Row left={icon('map-outline')} title="App tour" subtitle="A quick walk through each screen" right={chevron} onPress={() => { goBack(); startTour(); }} />
         <Row left={icon('mail-outline')} title="Contact support" subtitle={`Questions, bugs or ideas: ${SUPPORT_EMAIL}`} right={chevron} onPress={contact} last />
       </Card>

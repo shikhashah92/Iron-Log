@@ -1,5 +1,6 @@
 // The data model and every change to it, as pure functions (no I/O), so it can be unit tested with node --test.
 import { BUILT_IN, GROUPS, PLANS, STARTERS, type Plan } from './exercises.ts';
+import { LATEST } from './whatsNew.ts';
 
 export const SCHEMA_VERSION = 4;
 export type Theme = 'system' | 'light' | 'dark';
@@ -128,6 +129,8 @@ export interface Settings {
   recapSeen?: string;
   /** The month ("2026-09") whose Wrapped card was closed on Home. */
   wrappedSeen?: string;
+  /** The latest What's new release seen (its date). New logs start up to date. */
+  newsSeen?: string;
 }
 export interface Log {
   schemaVersion: number; profiles: Profile[]; exercises: CustomExercise[]; favorites: Favorite[];
@@ -193,7 +196,7 @@ export function newLog(name = 'Me', now = Date.now()): Log {
   const p: Profile = { id: newId('p'), name, bodyweight: 0, createdAt: now };
   return {
     schemaVersion: SCHEMA_VERSION, profiles: [p], exercises: [], favorites: [], templates: [], workouts: [], weighIns: [],
-    settings: { theme: 'system', restSecs: 90, currentProfileId: p.id },
+    settings: { theme: 'system', restSecs: 90, currentProfileId: p.id, newsSeen: LATEST },
   };
 }
 
