@@ -178,11 +178,13 @@ export interface ChartSeries { points: { date: string; v: number }[]; style: 'do
 /**
  * Values over real time: the x-axis is dates (a long break shows as a gap), labelled with years. Several series share
  * the axes (e.g. weigh-in dots, the trend line, the planned curve); `band` shades a y-range (e.g. healthy BMI weights).
+ * Touch or hover to read a day: it snaps to the nearest logged day and shows each labelled series there.
  */
 export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in this range.' }: {
   series: ChartSeries[]; band?: { lo: number; hi: number }; unit?: string; empty?: string;
 }) {
   const { c } = useTheme();
+  const [at, setAt] = useState<string | null>(null); // the day being read
   const all = series.flatMap((s) => s.points);
   // A line needs two different days (one weigh-in plus its own trend point is still one day).
   if (new Set(all.map((p) => p.date)).size < 2) return <T v="small" style={{ fontStyle: 'italic', marginVertical: space.sm }}>{all.length ? 'Log this on at least two days to see a trend.' : empty}</T>;
@@ -195,8 +197,28 @@ export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in 
   const Y = (v: number) => pt + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - pt - pb);
   const text = { fontSize: 9, fill: c.muted, fontFamily: sans };
   const first = all.reduce((m, p) => (p.date < m ? p.date : m), all[0].date), last = all.reduce((m, p) => (p.date > m ? p.date : m), all[0].date);
+  // What a reading shows: the labelled series (or the first, if none are), each at its point nearest the day.
+  const read = series.some((s) => s.label) ? series.filter((s) => s.label) : series.slice(0, 1);
+  const days = [...new Set(read.flatMap((s) => s.points.map((p) => p.date)))];
+  const nearest = (pts: { date: string; v: number }[], d: string) => pts.reduce((b, p) => (Math.abs(dayMs(p.date) - dayMs(d)) < Math.abs(dayMs(b.date) - dayMs(d)) ? p : b), pts[0]);
+  const shownAt = at && days.includes(at) ? at : null; // a range change can drop the day
+  const pick = (e: { clientX: number; currentTarget: Element }) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const t = x0 + (((e.clientX - r.left) / r.width) * W - pl) / (W - pl - pr) * span;
+    setAt(days.reduce((b, d) => (Math.abs(dayMs(d) - t) < Math.abs(dayMs(b) - t) ? d : b), days[0]));
+  };
+  const readings = shownAt ? read.filter((s) => s.points.length).map((s) => ({ s, p: nearest(s.points, shownAt) })) : [];
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Chart from ${dateWithYear(first)} to ${dateWithYear(last)}`} style={{ width: '100%', height: 'auto', margin: `${space.sm}px 0` }}>
+    <View style={{ marginVertical: space.sm }}>
+    <View accessibilityLiveRegion="polite" style={{ minHeight: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: space.md }}>
+      {shownAt ? <>
+        <T v="small" style={{ fontWeight: '600', color: c.text }}>{longDate(shownAt)}</T>
+        {readings.map(({ s, p }, i) => <T key={i} v="small">{s.label ? `${s.label} ` : ''}<T v="small" style={{ fontWeight: '700' }} color={s.color ?? c.accent}>{num(Math.round(p.v * 10) / 10)}{unit}</T></T>)}
+      </> : <T v="small" style={{ fontSize: 12 }} color={c.hint}>Touch the chart to read a day</T>}
+    </View>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Chart from ${dateWithYear(first)} to ${dateWithYear(last)}`}
+      onPointerDown={pick} onPointerMove={(e) => { if (e.pointerType === 'mouse' || e.buttons) pick(e); }} onPointerLeave={(e) => { if (e.pointerType === 'mouse') setAt(null); }}
+      style={{ width: '100%', height: 'auto', touchAction: 'pan-y', cursor: 'crosshair', userSelect: 'none' }}>
       {band && band.hi > lo && band.lo < hi && (
         <rect x={pl} width={W - pl - pr} y={Y(Math.min(hi, band.hi))} height={Math.max(0, Y(Math.max(lo, band.lo)) - Y(Math.min(hi, band.hi)))} fill={c.goodSoft} opacity={0.6} />
       )}
@@ -211,7 +233,12 @@ export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in 
       <text x={W - pr + 3} y={Y(mn) + 3} {...text}>{num(mn)}{unit}</text>
       <text x={pl} y={H - 5} {...text}>{dateWithYear(first)}</text>
       <text x={W - pr} y={H - 5} textAnchor="end" {...text}>{dateWithYear(last)}</text>
+      {shownAt && <>
+        <line x1={X(shownAt)} x2={X(shownAt)} y1={pt} y2={H - pb} stroke={c.muted} strokeWidth={1} strokeDasharray="2 2" />
+        {readings.map(({ s, p }, i) => <circle key={i} cx={X(p.date)} cy={Y(p.v)} r={4} fill={c.card} stroke={s.color ?? c.accent} strokeWidth={2} />)}
+      </>}
     </svg>
+    </View>
   );
 }
 
