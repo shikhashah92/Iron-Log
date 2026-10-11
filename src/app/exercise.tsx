@@ -1,4 +1,4 @@
-import { Image, View } from 'react-native';
+import { Image, Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { shareChallenge } from './challenges';
 import { addExercises, delExercise, getEx, hasArt, historyOf, isCustom, isTimed, fmtKg, MUSCLE_NAMES, musclesOf, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
@@ -98,6 +98,9 @@ export default function ExerciseDetail() {
           {ex.kind === 'yoga' && <T v="small">{ex.yoga === 'hold' ? 'Log rounds and how long you held each: a number on its own is seconds (30 = 0:30).' : ex.yoga === 'rounds' ? 'Log the rounds; add the time too for a calorie estimate.' : 'Log the time (a number on its own is minutes), and rounds if you count them.'}</T>}
         </View>
       ) : <Empty>No form notes for this one yet{custom ? '. Tap Edit to add some.' : '.'}</Empty>}
+      {/* ponytail: a YouTube search, not picked videos: never a dead link, works for custom exercises too. */}
+      {ex.kind !== 'cardio' && ex.kind !== 'activity' && <Button title="Watch how on YouTube" icon="logo-youtube" kind="ghost" style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 40, marginTop: space.sm }}
+        onPress={() => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${ex.name} ${ex.kind === 'yoga' ? 'how to' : 'exercise form'}`)}`)} />}
       {muscles && <View style={{ gap: space.xs, marginTop: space.lg }}>
         <T v="label">Muscles it works</T>
         <BodyMap fill={(k) => (muscles.main.includes(k) ? c.brand : muscles.help.includes(k) ? mix(c.chip, c.brand, 0.35) : mix(c.chip, c.muted, 0.25))} />
