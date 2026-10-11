@@ -6,7 +6,7 @@ import { longDate, num, plural, putProfile, today, type ChallengeDef, type Joine
 import { CHALLENGES, challengeLink, challengeNum, challengeProgress, challengeUnit, readChallenge } from '../fun';
 import { useLog, useTheme } from '../store';
 import { confirm, notify } from '../io';
-import { goBack } from '../components';
+import { goBack, Tag } from '../components';
 import { Button, Card, Field, Gap, Header, IconButton, Screen, T } from '../ui';
 import { radius, sans, space } from '../theme';
 
@@ -72,10 +72,13 @@ export default function Challenges() {
       {open.length ? <T v="label" style={{ marginTop: space.md, marginBottom: space.xs }}>Join one</T> : null}
       {open.map((x) => (
         <Card key={x.id} style={{ marginBottom: space.sm, gap: 4 }}>
-          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 17 }}>{x.name}</T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+            <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 17 }}>{x.name}</T>
+            <Tag label={x.days % 7 ? plural(x.days, 'day') : plural(x.days / 7, 'week')} />
+          </View>
           <T v="small">{x.about}</T>
           <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
-            <Button title="Join" icon="flag-outline" onPress={() => join(x.id)} style={{ minHeight: 40, paddingHorizontal: space.lg }} />
+            <Button title="Join" icon="flag-outline" kind="secondary" onPress={() => join(x.id)} style={{ minHeight: 40, paddingHorizontal: space.lg }} />
             <Button title="Challenge a friend" icon="share-social-outline" kind="ghost" onPress={() => shareChallenge(x, v.profile.name)} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
           </View>
         </Card>

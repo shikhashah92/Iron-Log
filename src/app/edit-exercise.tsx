@@ -26,6 +26,7 @@ export default function EditExercise() {
   const [setup, setSetup] = useState(ed?.setup.join('\n') ?? '');
   const [exec, setExec] = useState(ed?.exec.join('\n') ?? '');
   const [avoid, setAvoid] = useState(ed?.avoid.join('\n') ?? '');
+  const [notes, setNotes] = useState(!!ed && (ed.setup.length + ed.exec.length + ed.avoid.length > 0));
   const { c } = useTheme();
   // Filled in from the name as it's typed, until a muscle is tapped.
   const [muscles, setMuscles] = useState<Muscles>((ed && musclesOf(ed)) || { main: [], help: [] });
@@ -97,9 +98,12 @@ export default function EditExercise() {
           <T v="label">Count</T>
           <Segmented value={metric} onChange={setMetric} options={[{ id: 'reps', label: 'Reps' }, { id: 'secs', label: 'Seconds (holds)' }]} />
         </View>}
-        <Field label="Set up cues (one per line, optional)" value={setup} onChangeText={setSetup} {...area} />
-        <Field label="Execute cues" value={exec} onChangeText={setExec} {...area} />
-        <Field label="Avoid cues" value={avoid} onChangeText={setAvoid} {...area} />
+        {/* Form notes are optional: folded away until wanted (open when there are some already). */}
+        {notes ? <>
+          <Field label="Set up (one per line)" value={setup} onChangeText={setSetup} {...area} />
+          <Field label="Execute" value={exec} onChangeText={setExec} {...area} />
+          <Field label="Avoid" value={avoid} onChangeText={setAvoid} {...area} />
+        </> : <Button title="Add form notes (optional)" icon="add" kind="ghost" onPress={() => setNotes(true)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />}
         {!ed && <T v="small">You can add your own photo once the exercise is saved.</T>}
         <Button title={ed ? 'Save changes' : 'Add exercise'} onPress={save} />
       </View>

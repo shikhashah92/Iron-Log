@@ -69,7 +69,7 @@ export default function Undo() {
             <Row key={`${s.at}-${i}`} last={i === list.length - 1}
               left={<View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="time-outline" size={18} color={c.accent} /></View>}
-              title={when(s.at)} subtitle={`${s.reason} · ${plural(s.count, 'workout')}`}
+              title={when(s.at)} subtitle={`${s.reason} · had ${plural(s.count, 'workout')}`}
               right={<T color={c.accent} style={{ fontWeight: '600' }}>Go back</T>} onPress={() => restore(s)} />
           ))}
       </Card>

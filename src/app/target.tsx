@@ -6,7 +6,7 @@ import { useLog, useTheme } from '../store';
 import { notify } from '../io';
 import { goBack } from '../components';
 import { DateField } from '../DateField';
-import { Banner, Button, Card, Field, Gap, Header, IconButton, Screen, selectAll, T } from '../ui';
+import { Banner, Button, Card, Chip, Field, Gap, Header, IconButton, Screen, selectAll, T } from '../ui';
 import { space } from '../theme';
 
 const r1 = (n: number) => String(Math.round(n * 10) / 10);
@@ -23,6 +23,7 @@ export default function TargetScreen() {
   const [start, setStart] = useState(trend ? r1(fromKg(trend, units.weight)) : '');
   const [goal, setGoal] = useState(cur ? r1(fromKg(cur.weight, units.weight)) : '');
   const [date, setDate] = useState(cur?.date && cur.date > iso ? cur.date : addDays(iso, 84));
+  const [editStart, setEditStart] = useState(!trend); // with a trend, it's just a line you can change
   const s = parse(start), g = parse(goal);
   const draft: WeightTarget | null = s && g && date > iso ? { weight: toKg(g, units.weight), date, startWeight: toKg(s, units.weight), startDate: iso } : null;
   const valid = !!draft && draft.weight >= 20 && draft.weight <= 400 && draft.startWeight >= 20 && draft.startWeight <= 400 && Math.abs(draft.weight - draft.startWeight) >= 0.1;
@@ -39,10 +40,18 @@ export default function TargetScreen() {
     <Screen edges={['top', 'bottom']}>
       <Header title="Target weight" right={<IconButton icon="close" label="Close" onPress={goBack} />} />
       <View style={{ gap: space.md }}>
-        <Field label={`Now (${units.weight})${trend ? ', your trend' : ''}`} value={start} onChangeText={setStart} inputMode="decimal" onFocus={selectAll} />
+        {editStart ? <Field label={`Starting weight (${units.weight})`} value={start} onChangeText={setStart} inputMode="decimal" onFocus={selectAll} />
+          : <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+            <T v="small" style={{ flex: 1 }}>Starting from your trend, {start} {units.weight}</T>
+            <Button title="Change" kind="ghost" onPress={() => setEditStart(true)} style={{ minHeight: 36, paddingHorizontal: space.sm }} />
+          </View>}
         <Field label={`Target (${units.weight})`} value={goal} onChangeText={setGoal} inputMode="decimal" autoFocus onFocus={selectAll} />
         <View style={{ gap: space.xs }}>
           <T v="label">By</T>
+          {/* The usual lengths in one tap; the date for anything else. */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+            {[8, 12, 16, 24].map((wk) => <Chip key={wk} label={`${wk} weeks`} selected={date === addDays(iso, wk * 7)} onPress={() => setDate(addDays(iso, wk * 7))} />)}
+          </View>
           <DateField value={date} onChange={setDate} min={addDays(iso, 7)} max={addDays(iso, 3 * 365)} label="Target date" />
         </View>
         {rate && (
