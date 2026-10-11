@@ -1,4 +1,5 @@
-import { Image, Linking, View } from 'react-native';
+import { Image, View } from 'react-native';
+import { isIOS, isStandalone } from '../pwa';
 import { router, useLocalSearchParams } from 'expo-router';
 import { shareChallenge } from './challenges';
 import { addExercises, delExercise, getEx, hasArt, historyOf, isCustom, isTimed, fmtKg, MUSCLE_NAMES, musclesOf, prOf, putWorkout, startWorkout, viewOf, WEIGHT_TYPES } from '../model';
@@ -10,6 +11,20 @@ import { Button, Gap, Header, IconButton, Screen, T } from '../ui';
 import { radius, space } from '../theme';
 
 /** One exercise: form cues, your photo, and your progress on it. */
+/**
+ * Open YouTube. In the iPhone Home Screen app, window.open makes a new Safari window that the YouTube app then takes
+ * the link from, leaving it blank ("Search or enter website name") when you come back. So there: open the app
+ * directly, and only if it isn't installed (Uplift is still showing a moment later) open the site.
+ */
+function watch(url: string) {
+  if (isIOS() && isStandalone()) {
+    location.href = url.replace(/^https:\/\//, 'youtube://');
+    setTimeout(() => { if (document.visibilityState === 'visible') window.open(url, '_blank'); }, 1500);
+    return;
+  }
+  window.open(url, '_blank', 'noopener');
+}
+
 export default function ExerciseDetail() {
   const { id = '' } = useLocalSearchParams<{ id: string }>();
   const { v, update, photo, setImage } = useLog();
@@ -81,7 +96,7 @@ export default function ExerciseDetail() {
       {(!uri || (ex.kind !== 'cardio' && ex.kind !== 'activity')) && <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
         {/* ponytail: a YouTube search, not picked videos: never a dead link, works for custom exercises too. */}
         {ex.kind !== 'cardio' && ex.kind !== 'activity' && <Button title="Watch how" icon="logo-youtube" kind="secondary" style={{ flex: 1, minHeight: 44 }}
-          onPress={() => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${ex.name} ${ex.kind === 'yoga' ? 'how to' : 'exercise form'}`)}`)} />}
+          onPress={() => watch(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${ex.name} ${ex.kind === 'yoga' ? 'how to' : 'exercise form'}`)}`)} />}
         {!uri && <Button title="Your photo" icon="camera-outline" kind="secondary" onPress={addPhoto} style={{ flex: 1, minHeight: 44 }} />}
       </View>}
       <Gap h={space.lg} />

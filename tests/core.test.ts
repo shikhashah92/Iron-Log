@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
-  delWeighIn, longDate, needsBackupNudge, newLog, planSets, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
+  delWeighIn, longDate, needsBackupNudge, newLog, planSets, repeatWorkout, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
   exercisesFor, setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
@@ -1034,4 +1034,17 @@ test('a template never plans fewer sets than last time, and a ticked set fills t
   assert.deepEqual(t.workout.exercises[0].sets.slice(1), [{ w: 40, r: 10, done: false }, { w: 0, r: 0, done: false }]);
   const typed = { ...w, exercises: [{ exerciseId: row, sets: [w.exercises[0].sets[0], { w: 0, r: 5, done: false, typed: true }] }] };
   assert.deepEqual(toggleDone(typed, 0, 0).workout.exercises[0].sets[1], { w: 0, r: 5, done: false, typed: true });
+});
+
+test('do again: the template if it still exists, else the same exercises and set counts as hints', () => {
+  let l = did(newLog('Asha', 1), D1, [[bench, [[60, 8], [60, 8]]], [row, [[40, 10]]]]);
+  const done = viewOf(l).workouts[0];
+  const w = active(repeatWorkout(l, done, at(D2)));
+  assert.equal(w.name, done.name);
+  assert.deepEqual(w.exercises.map((e) => [e.exerciseId, e.sets.length]), [[bench, 2], [row, 1]]);
+  assert.deepEqual(w.exercises[0].sets[0], { w: 60, r: 8, done: false });
+  l = putTemplate(l, { id: 't1', name: 'Push', exercises: [{ exerciseId: bench, sets: 3 }] });
+  assert.equal(active(repeatWorkout(l, { ...done, templateId: 't1' }, at(D2))).templateId, 't1');
+  const going = startWorkout(l, undefined, at(D2));
+  assert.equal(repeatWorkout(going, done, at(D2)), going, 'one workout at a time');
 });

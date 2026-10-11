@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   addSetTo, addWarmups, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
-  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, inUnit, isEmptySet, twoDb,
+  putWorkout, removeExercise, repeatWorkout, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, inUnit, isEmptySet, twoDb,
   type Log, type SetRow, type WeightUnit, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
@@ -30,8 +30,8 @@ export function useEditWorkout(id: string) {
 export function useWorkoutFlow() {
   const { log, v, update } = useLog();
 
-  /** `replace`: open the workout in place of the current screen (e.g. a template's preview), not on top of it. */
-  async function start(templateId?: string, replace = false) {
+  /** `replace`: open the workout in place of the current screen (e.g. a template's preview), not on top of it. `again`: repeat this one from History. */
+  async function start(templateId?: string, replace = false, again?: Workout) {
     const go = () => (replace ? router.replace('/active') : router.push('/active'));
     const cur = v.active;
     if (cur) {
@@ -41,7 +41,7 @@ export function useWorkoutFlow() {
       if (resume) return go();
       if (!(await finish(cur))) return;
     }
-    update((l) => startWorkout(l, templateId));
+    update((l) => (again ? repeatWorkout(l, again) : startWorkout(l, templateId)));
     go();
   }
 

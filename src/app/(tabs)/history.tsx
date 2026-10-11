@@ -3,8 +3,9 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { monthName as fullMonth, wrappedMonths, yearGrid } from '../../fun';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { addDays, bestSet, exercisesFor, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, fmtVolume, getEx, groupSets, longDate, MUSCLE_NAMES, MUSCLES, muscleSets, type Muscle, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
-import { confirm } from '../../io';
+import { addDays, weekStart, bestSet, exercisesFor, isTimed, daysAgo, delWorkout, duration, fmtDur, fmtSet, fmtVolume, getEx, groupSets, longDate, MUSCLE_NAMES, MUSCLES, muscleSets, type Muscle, matches, num, plural, recordsOf, templateFrom, today, totals, weekly, weekStreak, workoutStats, type Workout } from '../../model';
+import { confirm, menu } from '../../io';
+import { useWorkoutFlow } from '../../workout';
 import { workoutCalories } from '../../calories';
 import { useLog, useTheme } from '../../store';
 import { BodyMap, mix } from '../../bodyMap';
@@ -30,8 +31,16 @@ function Sessions() {
   const [shown, setShown] = useState(30);
   const [day, setDay] = useState<string | null>(null);
   const done = v.workouts.filter((w) => !w.active);
-  if (!done.length) return <Card><Empty>No workouts logged yet.</Empty></Card>;
+  if (!done.length) return (
+    <Card style={{ alignItems: 'center', gap: space.sm, paddingVertical: space.xl }}>
+      <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 18 }}>Your history starts here</T>
+      <T v="small" center>Every workout you finish lands in this list.</T>
+      <Button title="Start a workout" onPress={() => router.navigate('/workout')} style={{ alignSelf: 'stretch', marginTop: space.xs }} />
+    </Card>
+  );
   const list = day ? done.filter((w) => w.date === day) : done.slice(0, shown);
+  // Newest first, under a heading per month with its totals.
+  const months = [...new Set(list.map((w) => w.date.slice(0, 7)))];
   return (
     <>
       <Calendar trained={new Set(done.map((w) => w.date))} day={day} onDay={(d) => setDay(d === day ? null : d)} />
@@ -41,7 +50,19 @@ function Sessions() {
           <Button title="Show all" kind="ghost" onPress={() => setDay(null)} style={{ minHeight: 40, paddingHorizontal: space.sm }} />
         </View>
       )}
-      {list.map((w) => <WorkoutCard key={w.id} w={w} open={open === w.id} onToggle={() => setOpen(open === w.id ? null : w.id)} />)}
+      {months.map((m) => {
+        // Finished workouts only (totals() also counts sets ticked in the one still going).
+        const inMonth = done.filter((w) => w.date.startsWith(m)), t = { workouts: inMonth.length, volume: inMonth.reduce((n, w) => n + workoutStats(v, w).volume, 0) };
+        return (
+          <View key={m}>
+            {!day && <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: space.sm, marginBottom: space.sm, marginHorizontal: 2 }}>
+              <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 16 }}>{monthName(m)}</T>
+              <T v="small">{[plural(t.workouts, 'workout'), t.volume ? fmtVolume(t.volume, v.unit) : ''].filter(Boolean).join(' · ')}</T>
+            </View>}
+            {list.filter((w) => w.date.startsWith(m)).map((w) => <WorkoutCard key={w.id} w={w} open={open === w.id} onToggle={() => setOpen(open === w.id ? null : w.id)} />)}
+          </View>
+        );
+      })}
       {!day && shown < done.length && <Button title={`Show more (${done.length - shown})`} kind="ghost" onPress={() => setShown(shown + 30)} />}
     </>
   );
@@ -55,6 +76,45 @@ function Calendar({ trained, day, onDay }: { trained: Set<string>; day: string |
   const { c } = useTheme();
   const now = today();
   const [month, setMonth] = useState(now.slice(0, 7));
+  const [full, setFull] = useState(false); // this week's strip until you open the month
+  const dot = (d: string) => {
+    const on = trained.has(d), picked = d === day;
+    return (
+      <Pressable disabled={!on} onPress={() => onDay(d)} accessibilityRole="button" accessibilityLabel={`${longDate(d)}${on ? ', trained' : ''}`}
+        aria-pressed={picked} aria-disabled={!on}
+        style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.brand : 'transparent',
+          borderWidth: 2, borderColor: picked ? c.text : d === now ? c.accent : 'transparent', opacity: d > now ? 0.35 : 1 }}>
+        <T style={{ fontSize: 14, fontWeight: on ? '700' : '400' }} color={on ? c.onAccent : c.text}>{Number(d.slice(8))}</T>
+      </Pressable>
+    );
+  };
+  const toggle = (label: string) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={full ? 'Show this week' : 'Show the month'} onPress={() => { setFull(!full); setMonth(now.slice(0, 7)); }} hitSlop={8}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 32 }}>
+      <T v="small" style={{ fontWeight: '600' }} color={c.accent}>{label}</T>
+      <Ionicons name={full ? 'chevron-up' : 'chevron-down'} size={14} color={c.accent} />
+    </Pressable>
+  );
+  if (!full) {
+    const mon = weekStart(now), week = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+    const n = week.filter((d) => trained.has(d)).length;
+    return (
+      <Card style={{ marginBottom: space.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.xs }}>
+          <T style={{ flex: 1, fontWeight: '600' }}>This week · {plural(n, 'workout day')}</T>
+          {toggle('Month')}
+        </View>
+        <View style={{ flexDirection: 'row' }}>
+          {week.map((d, i) => (
+            <View key={d} style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+              <T v="small" style={{ fontSize: 11 }}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}</T>
+              {dot(d)}
+            </View>
+          ))}
+        </View>
+      </Card>
+    );
+  }
   const first = `${month}-01`;
   const lead = (new Date(`${first}T12:00:00`).getDay() + 6) % 7;
   const count = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
@@ -74,23 +134,18 @@ function Calendar({ trained, day, onDay }: { trained: Set<string>; day: string |
       {Array.from({ length: cells.length / 7 }, (_, r) => (
         <View key={r} style={{ flexDirection: 'row' }}>
           {cells.slice(r * 7, r * 7 + 7).map((d, i) => {
-            const on = !!d && trained.has(d), picked = d === day;
             return (
               <View key={i} style={{ flex: 1, alignItems: 'center', paddingVertical: 3 }}>
-                {d && (
-                  <Pressable disabled={!on} onPress={() => onDay(d)} accessibilityRole="button" accessibilityLabel={`${longDate(d)}${on ? ', trained' : ''}`}
-                    aria-pressed={picked} aria-disabled={!on}
-                    style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.brand : 'transparent',
-                      borderWidth: 2, borderColor: picked ? c.text : d === now ? c.accent : 'transparent', opacity: d > now ? 0.35 : 1 }}>
-                    <T style={{ fontSize: 14, fontWeight: on ? '700' : '400' }} color={on ? c.onAccent : c.text}>{Number(d.slice(8))}</T>
-                  </Pressable>
-                )}
+                {d && dot(d)}
               </View>
             );
           })}
         </View>
       ))}
-      <T v="small" center style={{ marginTop: space.sm }}>{days ? `Trained on ${plural(days, 'day')} in ${monthName(month).split(' ')[0]}` : 'No workouts this month'}</T>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.sm }}>
+        <T v="small">{days ? `Trained on ${plural(days, 'day')} in ${monthName(month).split(' ')[0]}` : 'No workouts this month'}</T>
+        {toggle('Week')}
+      </View>
     </Card>
   );
 }
@@ -271,14 +326,23 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
   const { v, log, replace, update } = useLog();
   const { c } = useTheme();
   const saveAsTemplate = useSaveAsTemplate();
+  const flow = useWorkoutFlow();
   const { sets, volume } = workoutStats(v, w);
   const ago = daysAgo(w.date);
-  const time = new Date(w.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const clock = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const cal = workoutCalories(v, w);
   const recs = recordsOf(v, w);
   const prIds = new Set(recs.map((r) => r.exerciseId));
-  const meta = [...(w.endedAt ? [duration(w.endedAt - w.startedAt)] : []), plural(sets, 'set'), ...(volume ? [fmtVolume(volume, v.unit)] : []),
-    ...(cal ? [`≈${cal} kcal`] : []), ...(w.feeling ? [w.feeling] : [])].join(' · ');
+  // One date, said once: "Today, 2:27 PM", "Yesterday, …", "Fri 9 Oct, …"; opened, the whole span.
+  const when = open
+    ? `${new Date(`${w.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', ...(w.date.slice(0, 4) !== today().slice(0, 4) ? { year: 'numeric' } : {}) })}, ${clock(w.startedAt)}${w.endedAt ? `–${clock(w.endedAt)}` : ''}`
+    : `${ago === 0 ? 'Today' : ago === 1 ? 'Yesterday' : longDate(w.date)}, ${clock(w.startedAt)}`;
+  const stats: [keyof typeof Ionicons.glyphMap, string][] = [
+    ...(w.endedAt ? [['time-outline', duration(w.endedAt - w.startedAt)] as [keyof typeof Ionicons.glyphMap, string]] : []),
+    ['layers-outline', plural(sets, 'set')],
+    ...(volume ? [['barbell-outline', fmtVolume(volume, v.unit)] as [keyof typeof Ionicons.glyphMap, string]] : []),
+    ...(open && cal ? [['flame-outline', `≈${cal} kcal`] as [keyof typeof Ionicons.glyphMap, string]] : []),
+  ];
   async function editIt() {
     try { await replace({ log }, 'Before editing a workout'); } catch { /* the undo copy is best effort here */ }
     router.push({ pathname: '/edit-workout', params: { id: w.id } });
@@ -288,33 +352,49 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
       try { await replace({ log: delWorkout(log, w.id) }, 'Before deleting a workout'); } catch { update((l) => delWorkout(l, w.id)); }
     }
   }
+  async function more() {
+    const pick = await menu(w.name, [{ label: 'Edit workout' }, { label: 'Save as template' }, { label: 'Delete', destructive: true }]);
+    if (pick === 0) editIt(); else if (pick === 1) saveAsTemplate(templateFrom(w), w.name); else if (pick === 2) remove();
+  }
+  const shown = open ? [] : w.exercises.slice(0, 3);
   return (
     <Card style={{ marginBottom: space.sm }}>
       <Pressable accessibilityRole="button" aria-expanded={open} onPress={onToggle} style={{ gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
           <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '700', fontSize: 19, flex: 1 }}>{w.name}</T>
-          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+          {recs.length ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.accentSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+              <Ionicons name="trophy" size={12} color={c.accent} />
+              <T style={{ fontSize: 12, fontWeight: '700' }} color={c.accent}>{plural(recs.length, 'PB')}</T>
+            </View>
+          ) : null}
+          {open ? <IconButton icon="ellipsis-horizontal" label={`${w.name}: edit, save as template or delete`} onPress={more} size={20} />
+            : <Ionicons name="chevron-down" size={18} color={c.muted} />}
         </View>
-        <T v="small">{longDate(w.date)}, {time} · {ago === 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago}d ago`}</T>
-        <T v="mono" style={{ fontSize: 12 }}>{meta}</T>
+        <T v="small">{when}</T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.md, rowGap: 4, marginTop: 4, marginBottom: 2 }}>
+          {stats.map(([icon, label]) => (
+            <View key={icon} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name={icon} size={14} color={c.accent} />
+              <T v="small" style={{ color: c.text }}>{label}</T>
+            </View>
+          ))}
+          {w.feeling ? <T v="small" style={{ backgroundColor: c.chip, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1, overflow: 'hidden' }}>{w.feeling}</T> : null}
+        </View>
         {w.note ? <T v="small" numberOfLines={open ? undefined : 2} style={{ fontStyle: 'italic', color: c.text }}>“{w.note}”</T> : null}
-        {recs.length ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: c.accentSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginVertical: 2 }}>
-            <Ionicons name="trophy" size={13} color={c.accent} />
-            <T style={{ fontSize: 12, fontWeight: '700' }} color={c.accent}>{recs.length === 1 ? '1 personal best' : `${recs.length} personal bests`}</T>
-          </View>
-        ) : null}
-        {!open && w.exercises.map((e) => {
+        {shown.map((e) => {
           const ex = getEx(v, e.exerciseId);
-          const best = isTimed(ex) ? e.sets[0] : bestSet(e.sets.filter((x) => x.kind !== 'W').length ? e.sets.filter((x) => x.kind !== 'W') : e.sets);
+          const work = e.sets.filter((x) => x.kind !== 'W');
+          const best = isTimed(ex) ? e.sets[0] : bestSet(work.length ? work : e.sets);
           return (
-            <View key={e.exerciseId} style={{ flexDirection: 'row', gap: space.sm }}>
-              <T numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{isTimed(ex) ? ex.name : `${e.sets.length} × ${ex.name}`}</T>
+            <View key={e.exerciseId} style={{ flexDirection: 'row', gap: space.sm, marginTop: 2 }}>
+              <T numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{ex.name}</T>
               {prIds.has(e.exerciseId) ? <Ionicons name="trophy" size={13} color={c.accent} accessibilityLabel="Personal best" /> : null}
-              <T v="mono" style={{ fontSize: 12 }}>{best ? fmtSet(best, ex, v.unit) : ''}</T>
+              <T v="small">{isTimed(ex) ? (best ? fmtSet(best, ex, v.unit) : '') : `${plural(e.sets.length, 'set')}${best ? ` · best ${fmtSet(best, ex, v.unit)}` : ''}`}</T>
             </View>
           );
         })}
+        {!open && w.exercises.length > 3 && <T v="small" style={{ marginTop: 2 }}>+{w.exercises.length - 3} more</T>}
       </Pressable>
       {open && (
         <>
@@ -325,12 +405,9 @@ function WorkoutCard({ w, open, onToggle }: { w: Workout; open: boolean; onToggl
           ))}
           {recs.length ? <><Gap h={space.sm} /><Records v={v} w={w} /></> : null}
           <Gap h={space.sm} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            <ShareWorkout w={w} />
-            <Button title="Edit" icon="create-outline" kind="secondary" style={{ minHeight: 40 }} onPress={editIt} />
-            <Button title="Save as template" icon="star-outline" kind="secondary" style={{ minHeight: 40 }}
-              onPress={() => saveAsTemplate(templateFrom(w), w.name)} />
-            <Button title="Delete" kind="ghost" style={{ minHeight: 40 }} onPress={remove} />
+          <View style={{ flexDirection: 'row', gap: space.sm }}>
+            <View style={{ flex: 1 }}><ShareWorkout w={w} title="Share" /></View>
+            <Button title="Do again" icon="repeat" kind="secondary" style={{ minHeight: 40, flex: 1 }} onPress={() => flow.start(undefined, false, w)} />
           </View>
         </>
       )}
