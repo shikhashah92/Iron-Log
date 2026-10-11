@@ -43,3 +43,6 @@ yarn-error.*
 # secrets
 .env*
 *service-account*.json
+
+# Local Claude Code settings
+.claude/
