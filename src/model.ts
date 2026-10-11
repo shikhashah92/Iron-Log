@@ -602,6 +602,15 @@ export function startWorkout(l: Log, templateId?: string, now = Date.now()): Log
   };
   return { ...l, workouts: [...l.workouts, w] };
 }
+/** "Do again": the same workout from History. Its template if that still exists, else the same exercises and set counts, last time's numbers as hints. */
+export function repeatWorkout(l: Log, from: Workout, now = Date.now()): Log {
+  if (from.templateId && viewOf(l).templates.some((t) => t.id === from.templateId)) return startWorkout(l, from.templateId, now);
+  const started = startWorkout(l, undefined, now), w = viewOf(started).active;
+  if (started === l || !w) return l; // one already going
+  const v = viewOf(started);
+  const exercises = from.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: planSets(v, e.exerciseId, e.sets.length), ...(e.group !== undefined ? { group: e.group } : {}) }));
+  return putWorkout(started, { ...w, name: from.name, exercises }, now);
+}
 export const putWorkout = (l: Log, w: Workout, now = Date.now()): Log =>
   ({ ...l, workouts: l.workouts.map((x) => (x.id === w.id ? { ...w, updatedAt: now } : x)) });
 /**

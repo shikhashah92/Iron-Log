@@ -7,6 +7,9 @@ export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
   { date: '2026-10-11', title: 'A cleaner, smarter Uplift', changes: [
+    { kind: 'better', icon: 'calendar-outline', title: 'History you can scan', text: 'This week as a strip (open the month when you need it), workouts grouped by month with totals, and clearer cards.' },
+    { kind: 'new', icon: 'repeat', title: 'Do it again', text: 'Open any past workout and tap Do again to start the same one, with last time’s numbers filled in.' },
+    { kind: 'fixed', icon: 'logo-youtube', title: 'Back from YouTube', text: 'On iPhone, coming back from a video no longer leaves an empty page in front of Uplift.' },
     { kind: 'new', icon: 'copy-outline', title: 'Same again, one tap', text: 'Tick a set and its weight and reps fill in the next empty one. Tap ✓ to log it again.' },
     { kind: 'better', icon: 'timer-outline', title: 'A clearer workout screen', text: 'A big clock, a progress bar and sets left. Finished exercises fold away, and Finish lights up once everything’s ticked.' },
     { kind: 'better', icon: 'layers-outline', title: 'Your extra sets stick', text: 'Did 4 sets where the template says 3? Next time you’ll get 4.' },

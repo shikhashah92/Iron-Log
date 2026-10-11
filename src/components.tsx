@@ -538,7 +538,7 @@ export function Records({ v, w }: { v: LogView; w: Workout }) {
 }
 
 /** Share a finished workout as a picture. It's drawn when this appears, so the share sheet opens right on the tap. */
-export function ShareWorkout({ w, primary }: { w: Workout; primary?: boolean }) {
+export function ShareWorkout({ w, primary, title = 'Share workout' }: { w: Workout; primary?: boolean; title?: string }) {
   const { v } = useLog();
   const [blob, setBlob] = useState<Blob | null>(null);
   useEffect(() => {
@@ -547,7 +547,7 @@ export function ShareWorkout({ w, primary }: { w: Workout; primary?: boolean }) 
     return () => { on = false; };
   }, [v, w]);
   const share = () => shareWorkout(v, w, blob ?? undefined).catch(() => notify('Couldn’t make the picture', 'Try again in a moment.'));
-  return <Button title="Share workout" icon="share-social-outline" kind={primary ? 'primary' : 'secondary'} onPress={share} style={primary ? undefined : { minHeight: 40 }} />;
+  return <Button title={title} icon="share-social-outline" kind={primary ? 'primary' : 'secondary'} onPress={share} style={primary ? undefined : { minHeight: 40 }} />;
 }
 
 /** A progress ring (the weekly goal): mint arc over a quiet track, the count in the middle. */
