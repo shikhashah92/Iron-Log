@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { daysAgo, delTemplate, getEx, planSets, plural, putTemplate, today, type Template } from '../model';
+import { bestSet, daysAgo, delTemplate, fmtSet, getEx, lastEntry, musclesOf, MUSCLE_NAMES, planSets, plural, putTemplate, today, type Muscle, type Template } from '../model';
 import { useLog, useTheme } from '../store';
 import { ask, confirm } from '../io';
-import { Empty, ExArt, goBack, openExercise } from '../components';
+import { Empty, ExArt, goBack, openExercise, Tag } from '../components';
 import { useWorkoutFlow } from '../workout';
 import { Button, Card, Gap, Header, IconButton, Screen, T } from '../ui';
 import { sans, space } from '../theme';
@@ -15,7 +15,7 @@ const ago = (day: string) => { const d = daysAgo(day, today()); return d <= 0 ? 
 /** A template: what it'll plan and when you last did it, then Start. "Edit" changes its exercises and set counts. */
 export default function TemplateScreen() {
   const { id = '', edit: startEditing } = useLocalSearchParams<{ id: string; edit?: string }>();
-  const { v, update } = useLog();
+  const { v, log, update } = useLog();
   const { c } = useTheme();
   const flow = useWorkoutFlow();
   const [editing, setEditing] = useState(startEditing === '1');
@@ -38,6 +38,20 @@ export default function TemplateScreen() {
     goBack();
   }
   const small = { minHeight: 40, paddingHorizontal: space.md };
+  // What Start will plan: at least the template's sets, never fewer than last time.
+  const planned = t.exercises.map((e) => planSets(v, e.exerciseId, e.sets).length);
+  // About 45 s a set plus your rest timer (a minute if it's off), to the nearest 5 minutes.
+  const mins = Math.max(5, Math.round((planned.reduce((x, y) => x + y, 0) * (45 + (log.settings.restSecs || 60))) / 60 / 5) * 5);
+  // Main muscles, the most-hit first.
+  const hits = new Map<Muscle, number>();
+  t.exercises.forEach((e, i) => musclesOf(getEx(v, e.exerciseId))?.main.forEach((k) => hits.set(k, (hits.get(k) ?? 0) + planned[i])));
+  const worked = [...hits].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
+  const lastLine = (i: number) => {
+    const e = t.exercises[i], ex = getEx(v, e.exerciseId), prev = lastEntry(v, e.exerciseId);
+    const work = prev?.sets.filter((x) => x.kind !== 'W') ?? [];
+    const best = work.length ? bestSet(work) : undefined;
+    return `${plural(planned[i], 'set')} · ${best ? `last ${fmtSet(best, ex, v.unit)}` : 'new for you'}`;
+  };
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -45,7 +59,11 @@ export default function TemplateScreen() {
         <Button title={editing ? 'Done' : 'Edit'} kind="ghost" onPress={() => setEditing(!editing)} style={small} />
         <IconButton icon="close" label="Close" onPress={goBack} />
       </>} />
-      <T v="small">{last ? `Last performed ${ago(last.date)}` : 'Not done yet'} · {plural(t.exercises.length, 'exercise')}</T>
+      <T v="small">{[plural(t.exercises.length, 'exercise'), plural(planned.reduce((a, b) => a + b, 0), 'set'),
+        planned.length ? `about ${mins} min` : '', last ? `last done ${ago(last.date)}` : 'not done yet'].filter(Boolean).join(' · ')}</T>
+      {!editing && worked.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: space.sm }}>
+        {worked.map((k, i) => <Tag key={k} label={MUSCLE_NAMES[k]} tone={i < 2 ? 'accent' : undefined} />)}
+      </View>}
       <Gap h={space.md} />
       {!editing && <Button title="Start workout" icon="play" onPress={() => flow.start(t.id, true)} disabled={!t.exercises.length} />}
       <Gap h={space.md} />
@@ -59,8 +77,8 @@ export default function TemplateScreen() {
                 style={({ pressed }) => ({ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: space.sm, opacity: pressed ? 0.6 : 1 })}>
                 <ExArt id={e.exerciseId} size={40} />
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{editing ? ex.name : `${count(i)} × ${ex.name}`}</T>
-                  <T v="small" numberOfLines={1}>{ex.group}{e.sets ? '' : ' · sets as last time'}</T>
+                  <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{ex.name}</T>
+                  <T v="small" numberOfLines={1}>{editing ? `${ex.group}${e.sets ? '' : ' · sets as last time'}` : lastLine(i)}</T>
                 </View>
               </Pressable>
               {editing && (

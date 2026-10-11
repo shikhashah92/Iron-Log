@@ -7,6 +7,10 @@ export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
   { date: '2026-10-11', title: 'A cleaner, smarter Uplift', changes: [
+    { kind: 'better', icon: 'list-outline', title: 'Find exercises faster', text: 'The picker has the same filters as Exercises, puts your favourites and recent ones first, and keeps yoga and sports apart from lifts.' },
+    { kind: 'better', icon: 'eye-outline', title: 'Know what’s coming', text: 'A template shows total sets, about how long it takes, the muscles it works and your last numbers on each lift.' },
+    { kind: 'better', icon: 'ribbon-outline', title: 'A real finish', text: 'After a workout: your time, sets, volume and change on last time come first, then how it felt.' },
+    { kind: 'better', icon: 'rocket-outline', title: 'Quicker to start', text: 'New here? Two questions, your name and your goal, and you’re in.' },
     { kind: 'better', icon: 'calendar-outline', title: 'History you can scan', text: 'This week as a strip (open the month when you need it), workouts grouped by month with totals, and clearer cards.' },
     { kind: 'new', icon: 'repeat', title: 'Do it again', text: 'Open any past workout and tap Do again to start the same one, with last time’s numbers filled in.' },
     { kind: 'fixed', icon: 'logo-youtube', title: 'Back from YouTube', text: 'On iPhone, coming back from a video no longer leaves an empty page in front of Uplift.' },

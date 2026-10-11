@@ -4,14 +4,15 @@ import { Animated, Easing, Image, Modal, Pressable, StyleSheet, View } from 'rea
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, twoDb,
+  ACTIVITY_GROUPS, addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, twoDb,
   type Entry, type Exercise, type TemplateExercise, type View as LogView, type Workout,
 } from './model';
+import { GROUPS } from './exercises';
 import { drawWorkout, shareWorkout } from './share';
-import { ask, notify } from './io';
+import { ask, menu, notify } from './io';
 import { useLog, useTheme } from './store';
 import { adjustRest, stopRest, useNow, useRest, useRestLabel } from './timer';
-import { Button, Card, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
+import { Button, Card, Chip, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
 import { sans, radius, space } from './theme';
 import { isAndroid, isIOS, isStandalone } from './pwa';
 
@@ -245,6 +246,23 @@ export function TimeChart({ series, band, unit = '', empty = 'Nothing logged in 
         {readings.map(({ s, p }, i) => <circle key={i} cx={X(p.date)} cy={Y(p.v)} r={4} fill={c.card} stroke={s.color ?? c.accent} strokeWidth={2} />)}
       </>}
     </svg>
+    </View>
+  );
+}
+
+/** Is this exercise in the filter: All, Favorites, Custom, or a group (a muscle group or an activity one)? */
+export const inGroup = (v: LogView, e: Exercise, group: string) =>
+  group === 'All' || (group === 'Favorites' ? isFav(v, e.id) : group === 'Custom' ? isCustom(v, e.id) : e.group === group);
+/** The filters over an exercise list: they wrap, so none hide off the edge, with cardio, yoga and the rest behind one Activities chip. */
+export function GroupChips({ group, onChange }: { group: string; onChange: (g: string) => void }) {
+  const { v } = useLog();
+  const chips = ['All', ...(v.favorites.length ? ['Favorites'] : []), ...GROUPS, ...(v.exercises.length ? ['Custom'] : [])];
+  const activity = (ACTIVITY_GROUPS as readonly string[]).includes(group);
+  async function pickActivity() { const i = await menu('Activities', ACTIVITY_GROUPS.map((label) => ({ label }))); if (i !== null) onChange(ACTIVITY_GROUPS[i]); }
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: space.md }}>
+      {chips.map((g) => <Chip key={g} label={g === 'Favorites' ? '★ Favorites' : g} selected={group === g} onPress={() => onChange(g)} />)}
+      <Chip label={activity ? `${group} ▾` : 'Activities ▾'} selected={activity} onPress={pickActivity} />
     </View>
   );
 }
