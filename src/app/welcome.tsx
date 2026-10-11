@@ -4,22 +4,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useStore, useTheme } from '../store';
 import { useBackup } from '../backupActions';
-import { addDays, GENDERS, newLog, putProfile, today, type Gender } from '../model';
-import { DobField } from '../DateField';
+import { GOALS, newLog, putProfile, withUnits, type Goal } from '../model';
+import { startTour } from '../tour';
 import { isAndroid, isIOS, isStandalone, useInstall } from '../pwa';
 import { InstallSteps } from '../components';
-import { BrandMark, Button, Choice, Field, Gap, IconButton, MAX_WIDTH, Screen, T } from '../ui';
+import { BrandMark, Button, Choice, Field, Gap, IconButton, MAX_WIDTH, Screen, Segmented, T } from '../ui';
 import { font, radius, space } from '../theme';
 
-type Step = 'install' | 'name' | 'born' | 'gender';
-const QUESTIONS: Step[] = ['name', 'born', 'gender'];
+type Step = 'install' | 'name' | 'goal';
+const QUESTIONS: Step[] = ['name', 'goal'];
 const SKIP_INSTALL = 'uplift.skipInstall';
 const skipped = () => { try { return localStorage.getItem(SKIP_INSTALL) === '1'; } catch { return false; } };
 
 /**
  * First run. In a phone's browser, installing comes first: on iPhone the Home Screen app keeps its own storage, so
- * anything set up in Safari would be left behind. Then three questions, one at a time: a name (the only one needed),
- * date of birth and gender (both skippable). Everything stays on this device.
+ * anything set up in Safari would be left behind. Then two questions: a name (the only one needed) and what you're here
+ * for (skippable), and you're in, with the tour. Birthday, gender, height and weight wait in Me until they matter.
  */
 export default function Welcome() {
   const { start } = useStore();
@@ -29,7 +29,7 @@ export default function Welcome() {
   const phoneBrowser = (isIOS() || isAndroid()) && !isStandalone();
   const [step, setStep] = useState<Step>(phoneBrowser && !skipped() ? 'install' : 'name');
   const [name, setName] = useState('');
-  const [dob, setDob] = useState('');
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lb'>('kg');
   const [busy, setBusy] = useState(false);
 
   // Each step slides in from the right and fades up (a quick, springy settle).
@@ -40,12 +40,12 @@ export default function Welcome() {
   }, [step, enter]);
   const anim = { flex: 1, opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }] };
 
-  async function finish(gender?: Gender) {
+  async function finish(goal?: Goal) {
     if (busy) return;
     setBusy(true);
     const fresh = newLog(name.trim().slice(0, 40));
-    const log = { ...putProfile(fresh, fresh.profiles[0].id, { dob: dob || undefined, gender }), settings: { ...fresh.settings, setupPending: true as const } };
-    try { await start({ log, images: {} }); } finally { setBusy(false); }
+    const log = withUnits(putProfile(fresh, fresh.profiles[0].id, { goal }), { weight: weightUnit, length: weightUnit === 'lb' ? 'in' : 'cm' });
+    try { await start({ log, images: {} }); startTour(); } finally { setBusy(false); }
   }
   const inBrowser = () => { try { localStorage.setItem(SKIP_INSTALL, '1'); } catch { /* private mode: just go on */ } setStep('name'); };
 
@@ -90,11 +90,10 @@ export default function Welcome() {
 
   const i = QUESTIONS.indexOf(step);
   const back = () => setStep(i > 0 ? QUESTIONS[i - 1] : 'install');
-  const Q = { name: 'What should we call you?', born: 'When were you born?', gender: 'How do you identify?' }[step];
+  const Q = { name: 'What should we call you?', goal: 'What are you here for?' }[step];
   const hint = {
     name: 'Just a first name is fine. It’s only ever shown to you.',
-    born: 'Optional. Uplift shows your age in Me and keeps it up to date.',
-    gender: 'Optional. You can change it any time in Me.',
+    goal: 'It shapes what Uplift suggests. Change it any time in Me.',
   }[step];
 
   return (
@@ -102,10 +101,10 @@ export default function Welcome() {
       {/* Progress: three segments that fill as you go. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingTop: space.lg, minHeight: 56 }}>
         {i > 0 || phoneBrowser ? <IconButton icon="chevron-back" label="Back" onPress={back} /> : <View style={{ width: 24 }} />}
-        <View style={{ flex: 1, flexDirection: 'row', gap: 6 }} accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: 3, now: i + 1 }}>
+        <View style={{ flex: 1, flexDirection: 'row', gap: 6 }} accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: QUESTIONS.length, now: i + 1 }}>
           {QUESTIONS.map((q, k) => <View key={q} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: k <= i ? c.brand : c.chip }} />)}
         </View>
-        <T v="small" style={{ width: 40, textAlign: 'right' }}>{i + 1} / 3</T>
+        <T v="small" style={{ width: 40, textAlign: 'right' }}>{i + 1} / {QUESTIONS.length}</T>
       </View>
       <Animated.View style={anim}>
         <Gap h={space.xl} />
@@ -117,9 +116,9 @@ export default function Welcome() {
         {step === 'name' && (
           <>
             <Field placeholder="Your name" value={name} onChangeText={setName} autoCapitalize="words" autoFocus accessibilityLabel="Your name"
-              onSubmitEditing={() => name.trim() && setStep('born')} style={{ fontSize: 22, minHeight: 60 }} returnKeyType="next" />
+              onSubmitEditing={() => name.trim() && setStep('goal')} style={{ fontSize: 22, minHeight: 60 }} returnKeyType="next" />
             <Gap />
-            <Button title="Next" icon="arrow-forward" onPress={() => setStep('born')} disabled={!name.trim()} />
+            <Button title="Next" icon="arrow-forward" onPress={() => setStep('goal')} disabled={!name.trim()} />
             <Gap h={space.xl} />
             <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-start', backgroundColor: c.accentSoft, borderRadius: radius.md, padding: space.md }}>
               <Ionicons name="lock-closed-outline" size={20} color={c.accent} style={{ marginTop: 1 }} />
@@ -130,18 +129,15 @@ export default function Welcome() {
           </>
         )}
 
-        {step === 'born' && (
+        {step === 'goal' && (
           <>
-            <DobField value={dob} onChange={setDob} max={addDays(today(), -3652)} />
-            <Gap h={space.xl} />
-            <Button title={dob ? 'Next' : 'Skip'} icon={dob ? 'arrow-forward' : undefined} kind={dob ? 'primary' : 'secondary'} onPress={() => setStep('gender')} />
-          </>
-        )}
-
-        {step === 'gender' && (
-          <>
+            {/* Units first: tapping a goal is the last step. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.lg }}>
+              <T v="small">Weights in</T>
+              <View style={{ flex: 1 }}><Segmented value={weightUnit} onChange={setWeightUnit} options={[{ id: 'kg', label: 'kg' }, { id: 'lb', label: 'lb' }]} /></View>
+            </View>
             <View style={{ gap: space.sm }}>
-              {GENDERS.map((g) => <Choice key={g.id} label={g.label} disabled={busy} onPress={() => finish(g.id)} />)}
+              {GOALS.map((g) => <Choice key={g.id} icon={g.icon as keyof typeof Ionicons.glyphMap} label={g.label} disabled={busy} onPress={() => finish(g.id)} />)}
             </View>
             <Gap h={space.lg} />
             <Button title="Skip" kind="secondary" onPress={() => finish()} disabled={busy} />
