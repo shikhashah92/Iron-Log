@@ -6,7 +6,8 @@ import { useLog, useTheme } from '../store';
 import { notify, saveFile } from '../io';
 import { BASE, isAndroid, isIOS } from '../pwa';
 import { goBack } from '../components';
-import { Button, Field, Gap, Header, IconButton, Screen, selectAll, T } from '../ui';
+import { TimeField } from '../DateField';
+import { Button, Gap, Header, IconButton, Screen, T } from '../ui';
 import { radius, sans, space } from '../theme';
 
 const NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -29,7 +30,7 @@ export default function Training() {
 
   async function add() {
     if (!days.length) return notify('Pick at least one day');
-    if (!ok) return notify('Check the time', 'Use 24-hour time, like 07:00 or 18:30.');
+    if (!ok) return notify('Check the time', 'Pick a time for the reminder.');
     const t = `${hhmm.slice(0, 2)}:${hhmm.slice(2)}`;
     update((l) => putProfile(l, p.id, { trainDays: days, trainTime: t }));
     const start = trainingStart(days, new Date());
@@ -59,7 +60,8 @@ export default function Training() {
       </View>
       <T v="small" style={{ marginTop: space.xs }}>{days.length ? `${plural(days.length, 'day')} a week${p.weeklyGoal && days.length !== p.weeklyGoal ? ` (your goal is ${p.weeklyGoal})` : ''}` : 'No days picked'}</T>
       <Gap />
-      <Field label="Time (24-hour)" value={time} onChangeText={setTime} inputMode="numeric" onFocus={selectAll} placeholder="07:00" />
+      <T v="label">Time</T>
+      <TimeField value={time} onChange={setTime} label="Reminder time" />
       <Gap />
       <Button title="Add to my calendar" icon="calendar-outline" onPress={add} />
       <T v="small" center style={{ marginTop: space.sm, fontSize: 12 }}>Changing your days later? Add it again, then delete the old event in your calendar.</T>

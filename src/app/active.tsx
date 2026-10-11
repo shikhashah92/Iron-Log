@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
-import { duration, plural, setTimes } from '../model';
+import { plural, setTimes, stopwatch } from '../model';
 import { DateTimeField } from '../DateField';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../store';
@@ -61,7 +61,7 @@ function Live() {
           <T numberOfLines={2} style={{ fontFamily: sans, fontWeight: '800', fontSize: 26, letterSpacing: -0.5, marginTop: space.xs }}>{w.name}</T>
         </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: space.sm }}>
-          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 34, fontVariant: ['tabular-nums'] }}>{duration(now - w.startedAt)}</T>
+          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 34, fontVariant: ['tabular-nums'] }}>{stopwatch(now - w.startedAt)}</T>
           <Pressable accessibilityRole="button" accessibilityLabel="Change the start time" onPress={() => setEditStart(!editStart)} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <T v="small">started {new Date(w.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</T>
             <Ionicons name="pencil" size={13} color={c.muted} />

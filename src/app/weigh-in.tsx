@@ -23,7 +23,9 @@ export default function WeighInScreen() {
   const last = v.weighIns.at(-1);
   const photoKey = (wid: string) => `weigh-${wid}`;
   const [date, setDate] = useState(ed?.date ?? today());
-  const [weight, setWeight] = useState(ed ? r1(fromKg(ed.weight, units.weight)) : last ? r1(fromKg(last.weight, units.weight)) : '');
+  // A new weigh-in starts empty, last time's weight only a hint: Save can't log yesterday's number by accident.
+  const [weight, setWeight] = useState(ed ? r1(fromKg(ed.weight, units.weight)) : '');
+  const lastHint = last ? r1(fromKg(last.weight, units.weight)) : '';
   const [fat, setFat] = useState(ed?.fat !== undefined ? String(ed.fat) : '');
   const [m, setM] = useState<Record<MeasureId, string>>(() => Object.fromEntries(MEASURES.map((x) => [x.id, ed?.[x.id] !== undefined ? r1(fromCm(ed[x.id]!, units.length)) : ''])) as Record<MeasureId, string>);
   const [more, setMore] = useState(!!ed && (ed.fat !== undefined || MEASURES.some((x) => ed[x.id] !== undefined) || !!ed.photo));
@@ -61,7 +63,7 @@ export default function WeighInScreen() {
       <View style={{ gap: space.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.md }}>
           <View style={{ flex: 1 }}>
-            <Field label={`Weight (${units.weight})`} value={weight} onChangeText={setWeight} inputMode="decimal" autoFocus={!ed} onFocus={selectAll}
+            <Field label={`Weight (${units.weight})`} value={weight} onChangeText={setWeight} inputMode="decimal" autoFocus={!ed} onFocus={selectAll} placeholder={lastHint}
               style={{ fontSize: 28, minHeight: 60, textAlign: 'center' }} onSubmitEditing={save} />
           </View>
           <DateField value={date} onChange={setDate} />

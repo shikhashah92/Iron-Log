@@ -167,7 +167,14 @@ export const longDate = (day: string, now = today()) =>
 /** "14 Jul 2022": for chart axes and ranges, where the year always matters. */
 export const dateWithYear = (day: string) =>
   new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+/** How long a workout took, said so it can't be misread: "12s", "52m", "1h 05m". */
 export function duration(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h}h ${pad(m)}m` : m ? `${m}m` : `${s}s`;
+}
+/** A running clock, for the workout in progress: "7:10", "1:05:12". */
+export function stopwatch(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
   return `${h > 0 ? `${h}:${pad(m)}` : m}:${pad(s % 60)}`;
@@ -332,7 +339,7 @@ export function weekStats(v: View, date: string) {
   const workouts = new Set<string>();
   let sets = 0, volume = 0;
   for (const e of v.entries) {
-    if (e.date < since || e.date > date) continue;
+    if (e.date < since || e.date > date || e.workoutId === v.active?.id) continue; // finished workouts only, like totals()
     workouts.add(e.workoutId);
     sets += e.sets.length;
     volume += volumeOf(e, getEx(v, e.exerciseId), v.bodyweight);
@@ -391,7 +398,7 @@ export function totals(v: View, from: string, to: string) {
   const done = v.workouts.filter((w) => !w.active && w.date >= from && w.date <= to);
   let sets = 0, volume = 0;
   for (const e of v.entries) {
-    if (e.date < from || e.date > to) continue;
+    if (e.date < from || e.date > to || e.workoutId === v.active?.id) continue; // the one still going counts once it's finished
     sets += working(e.sets).length;
     volume += volumeOf(e, getEx(v, e.exerciseId), v.bodyweight);
   }

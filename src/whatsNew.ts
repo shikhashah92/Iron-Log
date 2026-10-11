@@ -7,6 +7,11 @@ export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
   { date: '2026-10-11', title: 'A cleaner, smarter Uplift', changes: [
+    { kind: 'better', icon: 'apps-outline', title: 'Four tabs, not five', text: 'Workout and Exercises are now one Train tab: your workouts and the exercise library side by side.' },
+    { kind: 'new', icon: 'timer-outline', title: 'Your workout lives in the tab bar', text: 'While you train, the Train tab shows the clock. Tap it to jump back in. A slim strip says what’s next.' },
+    { kind: 'fixed', icon: 'calculator-outline', title: 'Totals you can trust', text: 'This week, This month and Wrapped no longer count sets from a workout you haven’t finished yet.' },
+    { kind: 'fixed', icon: 'scale-outline', title: 'No accidental weigh-ins', text: 'A new weigh-in starts empty, with your last weight as a hint, so Save can’t log yesterday’s number again.' },
+    { kind: 'fixed', icon: 'time-outline', title: 'Clearer times', text: 'Workouts say 52m or 1h 05m, not 52:09. Reminder times use your phone’s time picker.' },
     { kind: 'better', icon: 'list-outline', title: 'Find exercises faster', text: 'The picker has the same filters as Exercises, puts your favourites and recent ones first, and keeps yoga and sports apart from lifts.' },
     { kind: 'better', icon: 'eye-outline', title: 'Know what’s coming', text: 'A template shows total sets, about how long it takes, the muscles it works and your last numbers on each lift.' },
     { kind: 'better', icon: 'ribbon-outline', title: 'A real finish', text: 'After a workout: your time, sets, volume and change on last time come first, then how it felt.' },

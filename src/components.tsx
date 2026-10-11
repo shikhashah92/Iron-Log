@@ -4,14 +4,14 @@ import { Animated, Easing, Image, Modal, Pressable, StyleSheet, View } from 'rea
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  ACTIVITY_GROUPS, addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, twoDb,
+  ACTIVITY_GROUPS, addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, twoDb,
   type Entry, type Exercise, type TemplateExercise, type View as LogView, type Workout,
 } from './model';
 import { GROUPS } from './exercises';
 import { drawWorkout, shareWorkout } from './share';
 import { ask, menu, notify } from './io';
 import { useLog, useTheme } from './store';
-import { adjustRest, stopRest, useNow, useRest, useRestLabel } from './timer';
+import { adjustRest, stopRest, useRest, useRestLabel } from './timer';
 import { Button, Card, Chip, Field, Gap, MAX_WIDTH, Segmented, T } from './ui';
 import { sans, radius, space } from './theme';
 import { isAndroid, isIOS, isStandalone } from './pwa';
@@ -365,27 +365,24 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
   const { v } = useLog();
   const { c } = useTheme();
   const w = v.active;
-  const now = useNow(!!w);
   const rest = useRest(); // outside the workout screen, the rest countdown rides along here instead of a bar of its own
-  if (!w) return null;
-  // What's next: the first exercise with a set still to tick.
+  if (!w || (!w.exercises.length && rest === null)) return null;
+  // The clock and name are on the Train tab; this slim strip says what's next.
   const ni = w.exercises.findIndex((e) => e.sets.some((x) => x.done === false));
-  const nextUp = ni < 0 ? 'All sets done' : `Next: ${getEx(v, w.exercises[ni].exerciseId).name}, set ${w.exercises[ni].sets.findIndex((x) => x.done === false) + 1}`;
+  const nextUp = ni < 0 ? 'All sets done: finish when you’re ready' : `Next: ${getEx(v, w.exercises[ni].exerciseId).name}, set ${w.exercises[ni].sets.findIndex((x) => x.done === false) + 1}`;
   return (
-    <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}, in progress. ${nextUp}${rest !== null ? rest > 0 ? `, rest ${rest} seconds left` : ', rest over' : ''}`} onPress={() => router.push('/active')}
-        style={({ pressed }) => [st.rest, { backgroundColor: c.brand, borderColor: c.brand, opacity: pressed ? 0.85 : 1 }]}>
-        <Ionicons name="chevron-up" size={20} color={c.onAccent} />
-        <View style={{ flex: 1 }}>
-          <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '700', fontSize: 17 }} color={c.onAccent}>{w.name}</T>
-          {w.exercises.length > 0 && <T numberOfLines={1} style={{ fontSize: 12 }} color={c.onAccent}>{nextUp}</T>}
-        </View>
-        {rest !== null ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.onAccent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-            <Ionicons name="timer-outline" size={15} color={c.brand} />
-            <T style={{ fontFamily: sans, fontSize: 15, fontWeight: '700' }} color={c.brand}>{rest > 0 ? `${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, '0')}` : 'Go'}</T>
+    <View style={[st.fabWrap, { bottom: bottom - 6, paddingHorizontal: space.lg }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${w.name}. ${nextUp}${rest !== null ? rest > 0 ? `, rest ${rest} seconds left` : ', rest over' : ''}`} onPress={() => router.push('/active')}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, width: '100%', maxWidth: 520, minHeight: 40, paddingHorizontal: space.md,
+          borderRadius: radius.md, borderWidth: 1, borderColor: c.border, backgroundColor: c.card, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', opacity: pressed ? 0.85 : 1 })}>
+        <T numberOfLines={1} v="small" style={{ flex: 1, color: c.text }}>{nextUp}</T>
+        {rest !== null && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.brand, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+            <Ionicons name="timer-outline" size={14} color={c.onAccent} />
+            <T style={{ fontFamily: sans, fontSize: 13, fontWeight: '700' }} color={c.onAccent}>{rest > 0 ? `${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, '0')}` : 'Go'}</T>
           </View>
-        ) : <T style={{ fontFamily: sans, fontSize: 16 }} color={c.onAccent}>{duration(now - w.startedAt)}</T>}
+        )}
+        <Ionicons name="chevron-up" size={16} color={c.muted} />
       </Pressable>
     </View>
   );

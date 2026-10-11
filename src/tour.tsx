@@ -9,15 +9,14 @@ import { Button, MAX_WIDTH, T } from './ui';
 import { radius, space } from './theme';
 
 type Step = { tab: number; icon: keyof typeof Ionicons.glyphMap; title: string; body: string };
-const TAB_PATHS = ['/', '/exercises', '/workout', '/history', '/me'] as const;
+const TAB_PATHS = ['/', '/workout', '/history', '/me'] as const;
 export const STEPS: Step[] = [
   { tab: 0, icon: 'lock-closed-outline', title: 'Welcome to Uplift', body: 'A quick look around. Everything you log stays on this phone: no account, no sync, nothing uploaded.' },
-  { tab: 0, icon: 'home-outline', title: 'Home', body: 'Today at a glance: your workout in progress, this week’s numbers, favourite exercises, and a nudge when a weigh-in or a backup is due.' },
-  { tab: 1, icon: 'list-outline', title: 'Exercises', body: 'Over 100 exercises and activities, with drawings and how-to steps. Star your favorites, or add your own.' },
-  { tab: 2, icon: 'barbell-outline', title: 'Workout', body: 'Start an empty workout or a template. Sets fill in from last time: type over them and tick each one. The rest timer starts itself. Log a run or a class here too.' },
-  { tab: 3, icon: 'stats-chart-outline', title: 'History', body: 'Every workout with its time and estimated calories, and each exercise’s progress over time. Edit, delete, or save one as a template.' },
-  { tab: 4, icon: 'person-circle-outline', title: 'Me', body: 'Weigh-ins, your smoothed trend, a target weight with a planned curve, measurements and progress photos.' },
-  { tab: 4, icon: 'shield-checkmark-outline', title: 'Keep a backup', body: 'Settings (the gear in Me) saves a backup file to your own Files or Drive, and imports from Strong. You can replay this tour and contact us from there too.' },
+  { tab: 0, icon: 'home-outline', title: 'Home', body: 'Today at a glance: start your next workout in one tap, see this week’s numbers, and get a nudge when a weigh-in or a backup is due.' },
+  { tab: 1, icon: 'barbell-outline', title: 'Train', body: 'Templates, plans and quick starts, plus the exercise library with drawings and how-to steps. During a workout this tab is its clock: tap it to jump back.' },
+  { tab: 2, icon: 'stats-chart-outline', title: 'History', body: 'Every workout with its time and estimated calories, and each exercise’s progress over time. Edit, delete, or save one as a template.' },
+  { tab: 3, icon: 'person-circle-outline', title: 'Me', body: 'Weigh-ins, your smoothed trend, a target weight with a planned curve, measurements and progress photos.' },
+  { tab: 3, icon: 'shield-checkmark-outline', title: 'Keep a backup', body: 'Settings (the gear in Me) saves a backup file to your own Files or Drive, and imports from Strong. You can replay this tour and contact us from there too.' },
 ];
 
 // One tour at a time, for the whole app: a tiny external store (no provider needed).
