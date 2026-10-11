@@ -1,12 +1,14 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useState } from 'react';
 import { useLog, useTheme } from '../../store';
+import { useWorkoutFlow } from '../../workout';
 import { useBackup } from '../../backupActions';
 import { duration, fmtDur, fmtKg, fmtVolume, putProfile, putWorkout, startWorkout, upNext, viewOf, getEx, longDate, needsBackupNudge, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
-import { fmtWeight, planStatus, trendOf, weighInDue } from '../../body';
+import { fmtWeight, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
-import { AddButton, Empty, ExRow, InstallNudge, Ring, Section, Stat } from '../../components';
+import { Empty, ExRow, InstallNudge, Ring, Section, Stat, wantsInstall } from '../../components';
 import { challengeNum, challengeProgress, challengeUnit, daysOff, easeBack, goalStreak, monthName, pastYou, prevMonth, weekProgress, wrapped } from '../../fun';
 import { menu } from '../../io';
 import { Banner, BrandMark, Button, Card, Gap, Screen, T } from '../../ui';
@@ -26,20 +28,25 @@ export default function Home() {
   const openWorkout = () => (live ? router.push('/active') : router.navigate('/workout'));
   const favIds = v.favorites.map((f) => f.exerciseId);
   const recent = recentExIds(v).slice(0, 6);
+  const flow = useWorkoutFlow();
+  const next = v.templates.find((t) => t.id === upNext(v, iso).templateId);
+  // Setting up, one card at a time: install, then a weekly goal, then where backups go.
+  const [install, setInstall] = useState(wantsInstall);
+  const setup = [install && 'install', !v.profile.weeklyGoal && 'goal', !log.settings.backupChoice && log.workouts.some((w) => !w.active) && 'backup']
+    .filter(Boolean) as ('install' | 'goal' | 'backup')[];
 
   return (
     <View style={{ flex: 1 }}>
       <Screen>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: space.lg, paddingBottom: space.md }}>
           <BrandMark />
-          <Pressable accessibilityRole="button" accessibilityLabel={`Profile: ${v.profile.name}. Switch`} onPress={() => router.push('/profiles')}
+          {log.profiles.length > 1 && <Pressable accessibilityRole="button" accessibilityLabel={`Profile: ${v.profile.name}. Switch`} onPress={() => router.push('/profiles')}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: space.md, borderRadius: 999, borderWidth: 1, borderColor: c.border, opacity: pressed ? 0.7 : 1 })}>
             <Ionicons name="person-circle-outline" size={20} color={c.accent} />
             <T style={{ fontWeight: '600' }} numberOfLines={1}>{v.profile.name}</T>
-          </Pressable>
+          </Pressable>}
         </View>
 
-        <InstallNudge />
         {saveError ? <><Banner tone="error" text={saveError} action="Back up" onPress={backup.exportPlain} /><Gap h={space.md} /></> : null}
         <Section title="Today" right={<T v="mono" style={{ fontSize: 12 }}>{longDate(iso)}</T>}>
           {live && (
@@ -60,11 +67,17 @@ export default function Home() {
           })}
           {!live && !todays.length && <Empty>No workout yet today.</Empty>}
           <Gap h={space.sm} />
-          <Button title={live ? 'Resume workout' : todays.length ? 'Start another workout' : 'Start a workout'} onPress={openWorkout} />
+          {live || !next ? <Button title={live ? 'Resume workout' : 'Start a workout'} onPress={openWorkout} /> : <>
+            <Button title={`Start ${next.name}`} icon="play" onPress={() => flow.start(next.id)} />
+            <Button title={todays.length ? 'Something else' : 'Something else today'} kind="ghost" onPress={openWorkout} style={{ minHeight: 40, marginTop: 4 }} />
+          </>}
         </Section>
 
+        {setup[0] === 'install' && <InstallNudge onLater={() => setInstall(false)} />}
+        {setup[0] === 'goal' && <GoalCard />}
+
         {/* Backups: a quiet nudge once there's something worth losing, never before. */}
-        {!log.settings.backupChoice && log.workouts.some((w) => !w.active) ? (
+        {setup[0] === 'backup' ? (
           <Card style={{ marginBottom: space.md, gap: space.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               <Ionicons name="shield-checkmark-outline" size={20} color={c.accent} />
@@ -79,9 +92,10 @@ export default function Home() {
           <><Banner text="It’s been a week since your last backup." action="Back up" onPress={backup.exportLocked} /><Gap h={space.md} /></>
         ) : null}
 
+        {setup.length > 1 && <T v="small" center style={{ marginTop: -space.sm, marginBottom: space.md, fontSize: 12 }}>{plural(setup.length - 1, 'more setup step')} after this</T>}
         <NewsCard />
         <WelcomeBack />
-        <GoalCard />
+        {!!v.profile.weeklyGoal && <GoalCard />}
         <WrappedCard />
         <PastYou />
         <ChallengeCard />
@@ -112,7 +126,6 @@ export default function Home() {
 
         <WeightCard />
       </Screen>
-      <AddButton label={live ? 'Resume workout' : 'Start a workout'} onPress={openWorkout} />
       {backup.modal}
     </View>
   );
@@ -124,15 +137,15 @@ function WeightCard() {
   const { c } = useTheme();
   const units = log.settings.units ?? { weight: 'kg', length: 'cm' };
   const now = trendOf(v.weighIns).at(-1);
-  const due = v.weighIns.length > 0 && weighInDue(v.weighIns, v.profile.weighEvery ?? '3x', today());
-  const status = v.profile.target && now ? planStatus(v.profile.target, now.trend, today()).label : '';
+  // Only when a weigh-in is due: the rest lives in Me.
+  if (!now || !weighInDue(v.weighIns, v.profile.weighEvery ?? '3x', today())) return null;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={due ? 'Weigh-in due. Log it' : 'Weight'} onPress={() => router.push(due || !now ? '/weigh-in' : '/me')}>
-      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderColor: due ? c.accent : c.border }}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Weigh-in due. Log it" onPress={() => router.push('/weigh-in')}>
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderColor: c.accent }}>
         <Ionicons name="scale-outline" size={24} color={c.accent} />
         <View style={{ flex: 1 }}>
-          <T style={{ fontWeight: '600' }}>{now ? `${fmtWeight(now.trend, units.weight)} trend` : 'Log your weight'}</T>
-          <T v="small">{[now && now.weight !== now.trend ? `Last weigh-in ${fmtWeight(now.weight, units.weight)}` : '', due ? 'Weigh-in due' : status].filter(Boolean).join(' · ') || (now ? 'See your trend in Me' : 'Optional: track your bodyweight')}</T>
+          <T style={{ fontWeight: '600' }}>Weigh-in due</T>
+          <T v="small">{`Trend ${fmtWeight(now.trend, units.weight)}. Log today’s weight`}</T>
         </View>
         <Ionicons name="chevron-forward" size={20} color={c.muted} />
       </Card>

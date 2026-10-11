@@ -104,7 +104,7 @@ export function Star({ id }: { id: string }) {
   return (
     <Pressable accessibilityRole="button" aria-pressed={on} accessibilityLabel={on ? 'Remove from favorites' : 'Add to favorites'}
       hitSlop={6} onPress={() => update((l) => toggleFav(l, id))} style={{ minWidth: 36, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name={on ? 'star' : 'star-outline'} size={22} color={on ? c.accent : c.border} />
+      <Ionicons name={on ? 'star' : 'star-outline'} size={22} color={on ? c.accent : c.muted} />
     </Pressable>
   );
 }
@@ -138,7 +138,7 @@ export function ExRow({ ex, right, actions, onPress, star = true, last }: {
       </View>
       {right ?? (
         <View style={{ alignItems: 'flex-end', gap: 2 }}>
-          <T v="mono" style={{ fontSize: 12 }}>{prev ? shortDate(prev.date) : 'no log'}</T>
+          {prev && <T v="mono" style={{ fontSize: 12 }}>{shortDate(prev.date)}</T>}
           {best && <T style={{ fontFamily: sans, fontSize: 13 }}>{best}</T>}
           <Spark id={ex.id} />
         </View>
@@ -295,7 +295,7 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
         Est. 1RM uses the Epley formula; warm-ups don’t count.
       </T>}
       <Gap h={space.md} />
-      <T v="label">{all ? `All sessions (${list.length})` : `Last ${Math.min(10, list.length)} sessions`}</T>
+      <T v="label">{all ? `All sessions (${list.length})` : list.length === 1 ? 'Last session' : `Last ${Math.min(10, list.length)} sessions`}</T>
       <SetLines entries={all ? list : list.slice(0, 10)} />
       {list.length > 10 && <Button title={all ? 'Show fewer' : `Show all ${list.length}`} kind="ghost" onPress={() => setAll(!all)} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />}
     </>
@@ -449,15 +449,18 @@ export function PassphraseModal({ visible, mode, onSubmit, onClose }: {
 }
 
 const NUDGE_KEY = 'uplift.installNudgeAt';
+/** Whether the install card is wanted: a phone's browser (not the installed app), and not put off in the last two weeks. */
+export function wantsInstall() {
+  try { if (Date.now() - Number(localStorage.getItem(NUDGE_KEY) ?? 0) < 14 * 86400_000) return false; } catch { /* private mode */ }
+  return !isStandalone() && (isIOS() || isAndroid());
+}
 /**
- * In a phone's browser (not the installed app): a card asking to add Uplift to the Home Screen, with a "how" sheet
- * for this phone. "Not now" hides it for two weeks. Once installed it never shows (the app runs standalone).
+ * The card asking to add Uplift to the Home Screen, with a "how" sheet for this phone. "Not now" hides it for two
+ * weeks. Home shows it only when `wantsInstall()`.
  */
-export function InstallNudge() {
+export function InstallNudge({ onLater }: { onLater: () => void }) {
   const { c } = useTheme();
-  const [hidden, setHidden] = useState(() => { try { return Date.now() - Number(localStorage.getItem(NUDGE_KEY) ?? 0) < 14 * 86400_000; } catch { return false; } });
-  if (hidden || isStandalone() || !(isIOS() || isAndroid())) return null;
-  const later = () => { try { localStorage.setItem(NUDGE_KEY, String(Date.now())); } catch { /* private mode: hide for this visit only */ } setHidden(true); };
+  const later = () => { try { localStorage.setItem(NUDGE_KEY, String(Date.now())); } catch { /* private mode: hide for this visit only */ } onLater(); };
   return (
     <Card style={{ marginBottom: space.md, gap: space.sm, borderColor: c.accent }}>
       <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>

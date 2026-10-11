@@ -52,14 +52,10 @@ export default function ExerciseDetail() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
         <Tag label={ex.group} />
         {ex.equip ? <Tag label={ex.equip} /> : null}
-        {!isTimed(ex) && <Tag label={WEIGHT_TYPES.find((t) => t.id === ex.weightType)?.unit.replaceAll('kg', v.unit) ?? ex.weightType} />}
+        {!isTimed(ex) && <Tag label={ex.oneDb ? 'One dumbbell' : WEIGHT_TYPES.find((t) => t.id === ex.weightType)?.unit.replaceAll('kg', v.unit) ?? ex.weightType} />}
         {custom && <Tag label="Custom" tone="accent" />}
         {pr > 0 && <Tag label={`PR ${fmtKg(pr, v.unit)}`} />}
       </View>
-      {pr > 0 && !custom && ex.weightType !== 'bodyweight' ? (
-        <Button title={`Challenge a friend to match ${fmtKg(pr, v.unit)}`} icon="flag-outline" kind="ghost" style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 40 }}
-          onPress={() => shareChallenge({ name: `Match my ${fmtKg(pr, v.unit)} ${ex.name}`, kind: 'best', exerciseId: id, target: pr, days: 30 }, v.profile.name)} />
-      ) : null}
       <Gap h={space.md} />
       {uri ? (
         <>
@@ -78,10 +74,17 @@ export default function ExerciseDetail() {
               <T v="small" style={{ fontSize: 11, marginTop: space.xs }}>Illustration: Workout Guide · Everkinetic · CC BY-SA 4.0</T>
             </View>
           )}
-          <Button title="Add your own photo or GIF" icon="camera-outline" kind="ghost" onPress={addPhoto} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />
         </>
       )}
-      <Gap h={space.md} />
+      {/* The main thing to do here, then the extras beside each other. */}
+      <Button title={v.active ? `Add to ${v.active.name}` : 'Start a workout with this'} onPress={addToWorkout} style={{ marginTop: space.md }} />
+      {(!uri || (ex.kind !== 'cardio' && ex.kind !== 'activity')) && <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
+        {/* ponytail: a YouTube search, not picked videos: never a dead link, works for custom exercises too. */}
+        {ex.kind !== 'cardio' && ex.kind !== 'activity' && <Button title="Watch how" icon="logo-youtube" kind="secondary" style={{ flex: 1, minHeight: 44 }}
+          onPress={() => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${ex.name} ${ex.kind === 'yoga' ? 'how to' : 'exercise form'}`)}`)} />}
+        {!uri && <Button title="Your photo" icon="camera-outline" kind="secondary" onPress={addPhoto} style={{ flex: 1, minHeight: 44 }} />}
+      </View>}
+      <Gap h={space.lg} />
       {ex.kind === 'cardio' || ex.kind === 'activity' ? (
         <View style={{ gap: space.sm }}>
           <T v="label">Intensity, by the talk test</T>
@@ -98,9 +101,6 @@ export default function ExerciseDetail() {
           {ex.kind === 'yoga' && <T v="small">{ex.yoga === 'hold' ? 'Log rounds and how long you held each: a number on its own is seconds (30 = 0:30).' : ex.yoga === 'rounds' ? 'Log the rounds; add the time too for a calorie estimate.' : 'Log the time (a number on its own is minutes), and rounds if you count them.'}</T>}
         </View>
       ) : <Empty>No form notes for this one yet{custom ? '. Tap Edit to add some.' : '.'}</Empty>}
-      {/* ponytail: a YouTube search, not picked videos: never a dead link, works for custom exercises too. */}
-      {ex.kind !== 'cardio' && ex.kind !== 'activity' && <Button title="Watch how on YouTube" icon="logo-youtube" kind="ghost" style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 40, marginTop: space.sm }}
-        onPress={() => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${ex.name} ${ex.kind === 'yoga' ? 'how to' : 'exercise form'}`)}`)} />}
       {muscles && <View style={{ gap: space.xs, marginTop: space.lg }}>
         <T v="label">Muscles it works</T>
         <BodyMap fill={(k) => (muscles.main.includes(k) ? c.brand : muscles.help.includes(k) ? mix(c.chip, c.brand, 0.35) : mix(c.chip, c.muted, 0.25))} />
@@ -110,8 +110,6 @@ export default function ExerciseDetail() {
         </View>
         {custom && <T v="small">Not right? Tap Edit to change them.</T>}
       </View>}
-      <Gap />
-      <Button title={v.active ? `Add to ${v.active.name}` : 'Start a workout with this'} onPress={addToWorkout} />
       {custom && (
         <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
           <Button title="Edit" kind="secondary" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/edit-exercise', params: { id } })} />
@@ -121,6 +119,11 @@ export default function ExerciseDetail() {
       <Gap />
       <T v="label">Progress</T>
       {logged ? <ProgressBlock v={v} id={id} /> : <Empty>No sets logged for this exercise yet.</Empty>}
+      {pr > 0 && !custom && ex.weightType !== 'bodyweight' ? (
+        <Button title={`Challenge a friend to match ${fmtKg(pr, v.unit)}`} icon="flag-outline" kind="ghost" style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 40 }}
+          onPress={() => shareChallenge({ name: `Match my ${fmtKg(pr, v.unit)} ${ex.name}`, kind: 'best', exerciseId: id, target: pr, days: 30 }, v.profile.name)} />
+      ) : null}
+
     </Screen>
   );
 }
