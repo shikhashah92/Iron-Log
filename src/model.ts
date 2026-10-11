@@ -27,6 +27,8 @@ export const FEELINGS = [
 export interface Exercise {
   id: string; name: string; group: string; equip: string; weightType: WeightType; metric?: 'secs';
   setup: string[]; exec: string[]; avoid: string[];
+  /** Dumbbell: one dumbbell held in both hands (goblet squat), so volume isn't doubled. */
+  oneDb?: true;
   kind?: 'cardio' | 'activity' | 'yoga'; met?: [number, number, number]; art?: false;
   /** Strength: the muscles it works, main ones and helpers (a helper counts half a set). Unset: guessed from the name. */
   muscles?: Muscles;
@@ -261,6 +263,8 @@ export const bestSet = (sets: SetRow[]) => [...sets].sort((a, b) => b.w - a.w ||
 /** Heaviest working set ever (warm-ups don't count). Cardio and activities don't have one. */
 export const prOf = (v: View, exerciseId: string) => (isTimed(getEx(v, exerciseId)) ? 0
   : historyOf(v, exerciseId).reduce((m, e) => Math.max(m, ...working(e.sets).map((s) => s.w)), 0));
+/** Weight logged per dumbbell, with one in each hand: volume counts both. */
+export const twoDb = (ex: Exercise) => ex.weightType === 'dumbbell' && !ex.oneDb;
 const load = (s: SetRow, ex: Exercise, bw: number) => (ex.weightType === 'bodyweight' ? (bw > 0 ? bw + s.w : s.w) : s.w);
 /** What a chart plots per session: top load for strength; distance (km, else minutes) for cardio; minutes for activities; longest hold (s), rounds or minutes for yoga. */
 export function topLoad(e: Entry, ex: Exercise, bw: number): number {
@@ -271,7 +275,7 @@ export function topLoad(e: Entry, ex: Exercise, bw: number): number {
 }
 export function volumeOf(e: { sets: SetRow[] }, ex: Exercise, bw: number): number {
   if (ex.metric === 'secs' || isTimed(ex)) return 0;
-  return e.sets.reduce((t, s) => t + Math.max(0, load(s, ex, bw)) * s.r * (ex.weightType === 'dumbbell' ? 2 : 1), 0);
+  return e.sets.reduce((t, s) => t + Math.max(0, load(s, ex, bw)) * s.r * (twoDb(ex) ? 2 : 1), 0);
 }
 /** Epley estimate of the best one-rep max across these days. */
 export const estOneRM = (entries: Entry[], ex: Exercise, bw: number) => isTimed(ex) ? 0 :
@@ -312,7 +316,7 @@ export function fmtSet(s: SetRow, ex: Exercise, u: WeightUnit = 'kg'): string {
   const rep = ex.metric === 'secs' ? `${s.r}s` : String(s.r);
   if (ex.weightType === 'bodyweight') return s.w ? `BW${s.w > 0 ? '+' : ''}${wt(s.w, u)}×${rep}` : `BW×${rep}`;
   if (!s.w) return ex.metric === 'secs' ? rep : `${rep} reps`;
-  return `${wt(s.w, u)}${ex.weightType === 'dumbbell' ? '/DB' : ''}×${rep}`;
+  return `${wt(s.w, u)}${twoDb(ex) ? '/DB' : ''}×${rep}`;
 }
 /** Exercises by most recent use (newest first). */
 export function recentExIds(v: View): string[] {

@@ -1,8 +1,8 @@
 import { View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { FEELINGS, recordsOf, weekStart } from '../model';
 import { challengeProgress, newMilestones } from '../fun';
-import { Confetti, goBack, MilestoneCard, Records, Ring, ShareWorkout } from '../components';
+import { Confetti, MilestoneCard, Records, Ring, ShareWorkout } from '../components';
 import { useLog } from '../store';
 import { useEditWorkout } from '../workout';
 import { Button, Choice, Gap, Header, IconButton, Screen, T } from '../ui';
@@ -24,11 +24,13 @@ export default function Feeling() {
   // Challenges this workout finished off.
   const won = w ? (v.profile.challenges ?? []).map((j) => challengeProgress(v, j, w.date)).filter((p) => p?.completedOn === w.date).map((p) => p!.def.name) : [];
   const party = !!w && (closed || ms.length > 0 || won.length > 0 || recordsOf(v, w).length > 0);
-  const pick = (feeling: string) => { if (feeling) edit((w) => ({ ...w, feeling })); goBack(); };
+  // Done: land on History, where the workout just saved sits on top.
+  const close = () => router.dismissTo('/history');
+  const pick = (feeling: string) => { if (feeling) edit((w) => ({ ...w, feeling })); close(); };
   return (
     <View style={{ flex: 1 }}>
     <Screen edges={['top', 'bottom']}>
-      <Header title="Workout saved" right={<IconButton icon="close" label="Close" onPress={goBack} />} />
+      <Header title="Workout saved" right={<IconButton icon="close" label="Close" onPress={close} />} />
       {w && (
         <>
           {closed && (

@@ -4,7 +4,7 @@ import { Animated, Easing, Image, Modal, Pressable, StyleSheet, View } from 'rea
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import {
-  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, wt,
+  addDays, clock, dateWithYear, recordLabel, recordsOf, fmtDur, secsOf, duration, estOneRM, isTimed, fmtSet, getEx, hasArt, historyOf, plural, today, isCustom, isFav, lastEntry, longDate, newId, num, putTemplate, shortDate, toggleFav, topLoad, inUnit, fmtKg, wt, twoDb,
   type Entry, type Exercise, type TemplateExercise, type View as LogView, type Workout,
 } from './model';
 import { drawWorkout, shareWorkout } from './share';
@@ -253,7 +253,7 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
       ['Total', `${Math.round(h.reduce((t, e) => t + e.sets.reduce((u, x) => u + secsOf(ex, x), 0), 0) / 60)} min`]]
     : ex.kind === 'activity'
     ? [['Sessions', h.length], ['Total', `${Math.round(h.reduce((t, e) => t + mins(e), 0) / 60 * 10) / 10} h`], ['Longest', `${Math.round(Math.max(0, ...h.map(mins)))} min`]]
-    : [['Sessions', h.length], ['Best load', wt(best, v.unit)], ['Est. 1RM', wt(estOneRM(h, ex, bw), v.unit)]];
+    : [['Sessions', h.length], ['Best load', fmtKg(best, v.unit)], ['Est. 1RM', `${Math.round(inUnit(estOneRM(h, ex, bw), v.unit))} ${v.unit}`]];
   return (
     <>
       <Segmented<Range> value={range} onChange={setRange} options={RANGES} />
@@ -263,7 +263,7 @@ export function ProgressBlock({ v, id }: { v: LogView; id: string }) {
       </View>
       <TimeChart series={[{ points: series, style: 'line' }, { points: series, style: 'dots' }]} empty={`No sessions in the ${rangeLabel(range).toLowerCase()}.`} />
       {isTimed(ex) ? <T v="small" style={{ fontSize: 13 }}>{ex.kind === 'cardio' ? 'The chart shows distance per session (or minutes when no distance was logged).' : ex.yoga === 'hold' ? 'The chart shows your longest hold per session, in seconds.' : ex.yoga === 'rounds' ? 'The chart shows rounds per session.' : 'The chart shows minutes per session.'}</T> : <T v="small" style={{ fontSize: 13 }}>
-        {ex.weightType === 'dumbbell' ? 'Values are per dumbbell. ' : ''}
+        {twoDb(ex) ? 'Values are per dumbbell; volume counts both (20 kg × 2). ' : ''}
         {ex.weightType === 'bodyweight' ? (bw ? `Bodyweight ${fmtKg(bw, v.unit)} included. ` : 'Log your weight in the Me tab for loaded estimates. ') : ''}
         Est. 1RM uses the Epley formula; warm-ups don’t count.
       </T>}
@@ -333,8 +333,8 @@ export function WorkoutBar({ bottom }: { bottom: number }) {
   );
 }
 
-/** The rest countdown, floating above the tab bar on every screen while it runs. */
-export function RestBar({ bottom = 12 }: { bottom?: number }) {
+/** The rest countdown, floating above the tab bar on every screen while it runs. `docked`: sits below the content instead of over it. */
+export function RestBar({ bottom = 12, docked }: { bottom?: number; docked?: boolean }) {
   const left = useRest();
   const label = useRestLabel();
   const { c } = useTheme();
@@ -348,7 +348,7 @@ export function RestBar({ bottom = 12 }: { bottom?: number }) {
     </Pressable>
   );
   return (
-    <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }]}>
+    <View style={[st.fabWrap, { bottom, paddingHorizontal: space.lg }, docked && { position: 'relative', bottom: 0, paddingVertical: space.sm }]}>
       <View accessibilityRole="timer" accessibilityLiveRegion="polite" style={[st.rest, { backgroundColor: c.card, borderColor: c.border }]}>
         <T v="label" numberOfLines={2} style={{ fontSize: 11, maxWidth: 72 }}>{done ? 'Go' : label}</T>
         <T style={{ fontFamily: sans, fontSize: 24, minWidth: 64, color: done ? c.good : c.text }}>{clock}</T>

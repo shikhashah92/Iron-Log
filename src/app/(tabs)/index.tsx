@@ -122,15 +122,15 @@ function WeightCard() {
   const { c } = useTheme();
   const units = log.settings.units ?? { weight: 'kg', length: 'cm' };
   const now = trendOf(v.weighIns).at(-1);
-  const due = weighInDue(v.weighIns, v.profile.weighEvery ?? '3x', today());
+  const due = v.weighIns.length > 0 && weighInDue(v.weighIns, v.profile.weighEvery ?? '3x', today());
   const status = v.profile.target && now ? planStatus(v.profile.target, now.trend, today()).label : '';
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={due ? 'Weigh-in due. Log it' : 'Weight'} onPress={() => router.push(due ? '/weigh-in' : '/me')}>
+    <Pressable accessibilityRole="button" accessibilityLabel={due ? 'Weigh-in due. Log it' : 'Weight'} onPress={() => router.push(due || !now ? '/weigh-in' : '/me')}>
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, borderColor: due ? c.accent : c.border }}>
         <Ionicons name="scale-outline" size={24} color={c.accent} />
         <View style={{ flex: 1 }}>
           <T style={{ fontWeight: '600' }}>{now ? `${fmtWeight(now.trend, units.weight)} trend` : 'Log your weight'}</T>
-          <T v="small">{[now && now.weight !== now.trend ? `Last weigh-in ${fmtWeight(now.weight, units.weight)}` : '', due ? 'Weigh-in due' : status].filter(Boolean).join(' · ') || 'See your trend in Me'}</T>
+          <T v="small">{[now && now.weight !== now.trend ? `Last weigh-in ${fmtWeight(now.weight, units.weight)}` : '', due ? 'Weigh-in due' : status].filter(Boolean).join(' · ') || (now ? 'See your trend in Me' : 'Optional: track your bodyweight')}</T>
         </View>
         <Ionicons name="chevron-forward" size={20} color={c.muted} />
       </Card>

@@ -20,6 +20,7 @@ export default function EditExercise() {
   const [group, setGroup] = useState(ed?.group ?? 'Chest');
   const [equip, setEquip] = useState(ed?.equip ?? '');
   const [weightType, setWeightType] = useState<WeightType>(ed?.weightType ?? 'barbell');
+  const [dbs, setDbs] = useState<'two' | 'one'>(ed?.oneDb ? 'one' : 'two');
   const [metric, setMetric] = useState<'reps' | 'secs'>(ed?.metric ?? 'reps');
   const [kind, setKind] = useState<'strength' | 'cardio' | 'activity' | 'yoga'>(ed?.kind ?? 'strength');
   const [setup, setSetup] = useState(ed?.setup.join('\n') ?? '');
@@ -43,6 +44,7 @@ export default function EditExercise() {
     update((l) => putExercise(l, {
       id: ed?.id ?? newId('u'), name: name.trim().slice(0, 80), group: kind === 'strength' ? MUSCLES[muscles.main[0]] : group,
       ...(kind === 'strength' ? { muscles } : {}), equip: equip.trim().slice(0, 60) || 'Other', weightType,
+      ...(kind === 'strength' && weightType === 'dumbbell' && dbs === 'one' ? { oneDb: true as const } : {}),
       ...(kind === 'strength' && metric === 'secs' ? { metric: 'secs' as const } : {}), ...(kind !== 'strength' ? { kind } : {}), ...(kind === 'yoga' ? { yoga: 'hold' as const } : {}),
       setup: lines(setup), exec: lines(exec), avoid: lines(avoid),
     }));
@@ -89,6 +91,7 @@ export default function EditExercise() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
             {WEIGHT_TYPES.map((t) => <Chip key={t.id} label={t.label.replaceAll('kg', v.unit)} selected={weightType === t.id} onPress={() => setWeightType(t.id)} />)}
           </View>
+          {weightType === 'dumbbell' && <Segmented value={dbs} onChange={setDbs} options={[{ id: 'two', label: 'Two dumbbells' }, { id: 'one', label: 'One dumbbell' }]} />}
         </View>}
         {kind === 'strength' && <View style={{ gap: space.xs }}>
           <T v="label">Count</T>

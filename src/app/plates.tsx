@@ -37,13 +37,13 @@ export default function Plates() {
           <T v="label">Each side</T>
           {/* One end of the bar: the sleeve, its plates (heaviest on the inside), the collar, then the bar towards the middle. */}
           <View accessibilityRole="image" accessibilityLabel={side.length ? `Each side: ${side.map((p) => `${num(p)} ${u}`).join(', ')}` : 'Just the bar'}
-            style={{ flexDirection: 'row', alignItems: 'center', height: 170, marginVertical: space.md }}>
+            style={{ flexDirection: 'row', alignItems: 'center', height: 170, marginVertical: space.md, overflow: 'hidden' }}>
             <View style={{ width: 24, height: 22, backgroundColor: c.muted, borderTopLeftRadius: 4, borderBottomLeftRadius: 4 }} />
             {[...side].reverse().map((p, i) => (
-              <View key={i} style={{ width: look(u, p) <= 3 ? 22 : 16, height: HEIGHT[look(u, p)], marginLeft: i ? 2 : 0, borderRadius: 4, backgroundColor: COLOUR[look(u, p)], borderWidth: 1, borderColor: 'rgba(0,0,0,0.25)' }} />
+              <View key={i} style={{ width: look(u, p) <= 3 ? 22 : 16, flexShrink: 1, minWidth: 4, height: HEIGHT[look(u, p)], marginLeft: i ? 2 : 0, borderRadius: 4, backgroundColor: COLOUR[look(u, p)], borderWidth: 1, borderColor: 'rgba(0,0,0,0.25)' }} />
             ))}
             <View style={{ width: 12, height: 44, backgroundColor: c.muted, borderRadius: 3, marginLeft: 2 }} />
-            <View style={{ flex: 1, height: 14, backgroundColor: c.muted, marginLeft: 0 }} />
+            <View style={{ flex: 1, minWidth: 24, height: 14, backgroundColor: c.muted, marginLeft: 0 }} />
           </View>
           <T style={{ fontSize: 22, fontWeight: '700' }}>{side.length ? side.map((p) => num(p)).join(' + ') : 'Nothing: just the bar'}</T>
           {side.length ? <T v="small" style={{ marginTop: 2 }}>{u} on each side, heaviest first, on a {b} {u} bar.</T> : null}

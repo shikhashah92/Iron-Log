@@ -40,7 +40,7 @@ export function TourOverlay({ inset }: { inset: number }) {
   const pct = `${((s.tab + 0.5) / TAB_PATHS.length) * 100}%` as const;
   return (
     <View style={{ position: 'absolute', inset: 0 }} accessibilityViewIsModal>
-      <Pressable accessible={false} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => {}} />
+      <Pressable accessible={false} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={end} />
       {/* Ring on the tab this step is about. */}
       <View pointerEvents="none" style={{ position: 'absolute', bottom: inset + 5, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', height: 60 }}>
         <View style={{ position: 'absolute', left: pct, marginLeft: -30, width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: c.accent }} />

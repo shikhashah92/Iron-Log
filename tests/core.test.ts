@@ -115,6 +115,8 @@ test('stats: Epley 1RM, dumbbell volume counts both hands, bodyweight adds the p
   assert.equal(Math.round(estOneRM(v.entries.filter((e) => e.exerciseId === bench), ex, 0) * 10) / 10, 76);
   const db = getEx(v, 'flat-db-press');
   assert.equal(volumeOf({ sets: [{ w: 20, r: 10 }] }, db, 0), 400);
+  assert.equal(volumeOf({ sets: [{ w: 20, r: 10 }] }, getEx(v, 'goblet-squat'), 0), 200); // one dumbbell
+  assert.equal(fmtSet({ w: 20, r: 10 }, getEx(v, 'goblet-squat')), '20×10');
   const pu = getEx(v, 'push-up');
   assert.equal(volumeOf(v.entries.find((e) => e.exerciseId === 'push-up')!, pu, 70), 1400);
   assert.equal(fmtSet({ w: 0, r: 20 }, pu), 'BW×20');
