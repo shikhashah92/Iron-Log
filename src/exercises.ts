@@ -649,6 +649,7 @@ const STRENGTH: readonly Exercise[] = [
   "group": "Legs",
   "equip": "Dumbbell",
   "weightType": "dumbbell",
+  "oneDb": true,
   "setup": [
    "Hold one dumbbell vertically at the chest, both hands cupping the top plate.",
    "Feet shoulder-width, toes slightly out."

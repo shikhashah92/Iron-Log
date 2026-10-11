@@ -70,7 +70,7 @@ function Live() {
         <Button title="Cancel workout" kind="danger" onPress={async () => { if (await flow.cancel(w)) goBack(); }} />
         <Gap />
       </Screen>
-      <RestBar />
+      <RestBar docked />
     </View>
   );
 }

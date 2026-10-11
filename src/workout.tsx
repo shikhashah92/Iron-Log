@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   addSetTo, addWarmups, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
-  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, unfinished, inUnit,
+  putWorkout, removeExercise, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, inUnit, isEmptySet, twoDb,
   type Log, type SetRow, type WeightUnit, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
@@ -51,7 +51,8 @@ export function useWorkoutFlow() {
    * backed out (the workout is still going).
    */
   async function finish(w: Workout): Promise<string | 'discarded' | null> {
-    const open = unfinished(w);
+    // Empty unticked sets are dropped either way, so only ask about ones with numbers in them.
+    const open = w.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done === false && !isEmptySet(v, e.exerciseId, s)).length, 0);
     let markDone = false;
     if (open) markDone = await choose(`${plural(open, 'set')} not ticked`, 'Log them as they’re shown, or leave them out?', 'Mark all done', 'Discard unfinished');
     // Forgot to close it: end at the last change, not hours later.
@@ -65,8 +66,9 @@ export function useWorkoutFlow() {
       return 'discarded';
     }
     const t = preview.templateId ? v.templates.find((x) => x.id === preview.templateId) : undefined;
-    const updateTemplate = !!t && differsFromTemplate(preview)
-      && await choose(`Update “${t.name}”?`, 'This workout had different exercises or set counts than the template. Save them to the template for next time?', 'Update template', 'Keep original');
+    // Judged on the workout as you laid it out, so sets left empty and dropped don't count as a change.
+    const updateTemplate = !!t && differsFromTemplate(w)
+      && await choose(`Save changes to “${t.name}”?`, 'You added or removed exercises or sets. Use this layout next time?', 'Save to template', 'Keep as is');
     update((l: Log) => {
       const done = finishWorkout(l, w.id, markDone, end);
       return updateTemplate && t && done.workout ? putTemplate(done.log, { ...t, exercises: templateFrom(done.workout) }) : done.log;
@@ -170,6 +172,7 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
                 </Pressable>
               );
             })()}
+            {live && lifting && !prev && <T v="small" style={{ marginTop: space.sm }}>First time: pick a weight you could lift about 12 times. Uplift fills it in next time.</T>}
             <SetTable workout={workout} i={i} prev={prev?.sets ?? []} live={live} restSecs={log.settings.restSecs} />
             {live && (ex.yoga === 'hold' || ex.metric === 'secs') && (() => {
               const j = e.sets.findIndex((x) => x.done === false && x.r > 0);
@@ -203,7 +206,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
   const labels = setLabels(e.sets);
   const yoga = ex.kind === 'yoga';
   const u = v.unit;
-  const unit = ex.kind === 'cardio' ? 'km' : ex.kind === 'activity' ? 'Effort' : ex.weightType === 'bodyweight' ? `+${u}` : ex.weightType === 'dumbbell' ? `${u}/DB` : u;
+  const unit = ex.kind === 'cardio' ? 'km' : ex.kind === 'activity' ? 'Effort' : ex.weightType === 'bodyweight' ? `+${u}` : twoDb(ex) ? `${u}/DB` : u;
   // A plain number means seconds in a hold and minutes in other times: the header says which.
   const reps = ex.yoga === 'hold' ? 'Hold (sec)' : isTimed(ex) ? 'Time (min)' : ex.metric === 'secs' ? 'Secs' : 'Reps';
   // Time first for cardio and activities; yoga reads "3 rounds, 30 s hold".
@@ -245,7 +248,14 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
       <View style={st.row}>
         <T v="label" style={{ ...st.head, width: 30, minHeight: 0, textAlign: 'center' }}>Set</T>
         <T v="label" style={{ ...st.head, ...st.prevCol }}>Previous</T>
-        {cols.map((h) => <T key={h} v="label" style={{ ...st.head, ...st.cell, textAlign: 'center' }}>{h}</T>)}
+        {cols.map((h) => h === unit && ex.weightType === 'barbell' ? (
+          // Barbell: the weight header opens the plate calculator at the working weight.
+          <Pressable key={h} accessibilityRole="button" accessibilityLabel="Plate calculator" hitSlop={6} style={[st.cell, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }]}
+            onPress={() => { const top = Math.max(0, ...e.sets.filter((x) => x.kind !== 'W').map((x) => x.w)); router.push({ pathname: '/plates', params: top ? { kg: String(top) } : {} }); }}>
+            <T v="label" style={st.head}>{h}</T>
+            <Ionicons name="barbell-outline" size={16} color={c.accent} />
+          </Pressable>
+        ) : <T key={h} v="label" style={{ ...st.head, ...st.cell, textAlign: 'center' }}>{h}</T>)}
         {live && <View style={st.tick}><Ionicons name="checkmark" size={16} color={c.muted} /></View>}
       </View>
       {e.sets.map((s, j) => {
@@ -278,12 +288,12 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               </>
             ) : (
               <>
-                <SetInput value={inUnit(s.w, u)} hint={hint} decimal label={`Set ${labels[j]} weight in ${u}`} onCommit={(t) => {
+                <SetInput value={inUnit(s.w, u)} hint={hint} unit={u} decimal label={`Set ${labels[j]} weight in ${u}`} onCommit={(t) => {
                   // Only a bodyweight exercise takes minus kg (assistance); anywhere else it's a typo, so say so rather than keep it.
                   if (!minus && parseFloat(t.replace(',', '.')) < 0) return notify(`Weight can’t be below 0 ${u}. Minus ${u} is only for assisted bodyweight exercises, like an assisted pull-up.`);
                   edit((w) => setValue(w, i, j, 'w', t, minus, u));
                 }} />
-                <SetInput value={s.r} hint={hint} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setValue(w, i, j, 'r', t))} />
+                <SetInput value={s.r} hint={hint} unit={reps.toLowerCase()} label={`Set ${labels[j]} ${reps.toLowerCase()}`} onCommit={(t) => edit((w) => setValue(w, i, j, 'r', t))} />
               </>
             )}
             {live && (
