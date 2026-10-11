@@ -92,8 +92,17 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
   const { v, log } = useLog();
   const { c } = useTheme();
   const edit = useEditWorkout(workout.id);
+  const [opened, setOpened] = useState<number[]>([]); // finished exercises tapped open again
+  const lift = (id: string) => { const x = getEx(v, id); return !isTimed(x) && x.metric !== 'secs' && x.weightType !== 'bodyweight'; };
+  const anyNew = live && workout.exercises.some((e) => lift(e.exerciseId) && !lastEntry(v, e.exerciseId, workout.id));
   return (
     <>
+      {anyNew && (
+        <View style={{ flexDirection: 'row', gap: space.sm, backgroundColor: c.accentSoft, borderRadius: radius.md, padding: space.md, marginBottom: space.md }}>
+          <Ionicons name="bulb-outline" size={18} color={c.accent} />
+          <T v="small" style={{ flex: 1, color: c.text }}>First time on a lift? Pick a weight you could lift about 12 times. Uplift fills it in next time.</T>
+        </View>
+      )}
       {workout.exercises.map((e, i) => {
         const ex = getEx(v, e.exerciseId);
         const prev = lastEntry(v, e.exerciseId, workout.id);
@@ -127,6 +136,20 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
           ];
           const pick = await menu(ex.name, opts.map(([label, , destructive]) => ({ label, destructive })));
           if (pick !== null) await opts[pick][1]();
+        }
+        // Every set ticked: one line, so the next exercise comes up. Tap to open it again.
+        if (live && e.sets.length && e.sets.every((x) => x.done !== false) && !opened.includes(i)) {
+          const work = e.sets.filter((x) => x.kind !== 'W'), same = work.length > 1 && work.every((x) => x.w === work[0].w && x.r === work[0].r);
+          return (
+            <Pressable key={`${e.exerciseId}-${i}`} accessibilityRole="button" accessibilityLabel={`${ex.name}, done. Open`} onPress={() => setOpened([...opened, i])}>
+              <Card style={{ marginBottom: space.sm, flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.md }}>
+                <Ionicons name="checkmark-circle" size={22} color={c.accent} />
+                <T numberOfLines={1} style={{ flex: 1, fontWeight: '600' }}>{ex.name}</T>
+                <T v="mono" numberOfLines={1} style={{ fontSize: 12, flexShrink: 1 }}>{same ? `${work.length} × ${fmtSet(work[0], ex, v.unit)}` : work.map((x) => fmtSet(x, ex, v.unit)).join('  ')}</T>
+                <Ionicons name="chevron-down" size={18} color={c.muted} />
+              </Card>
+            </Pressable>
+          );
         }
         return (
           <Card key={`${e.exerciseId}-${i}`} style={{ marginBottom: space.md, paddingBottom: space.md,
@@ -172,7 +195,6 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
                 </Pressable>
               );
             })()}
-            {live && lifting && !prev && <T v="small" style={{ marginTop: space.sm }}>First time: pick a weight you could lift about 12 times. Uplift fills it in next time.</T>}
             <SetTable workout={workout} i={i} prev={prev?.sets ?? []} live={live} restSecs={log.settings.restSecs} />
             {live && (ex.yoga === 'hold' || ex.metric === 'secs') && (() => {
               const j = e.sets.findIndex((x) => x.done === false && x.r > 0);
@@ -189,7 +211,11 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
               );
             })()}
             {ex.kind === 'cardio' && (() => { const d = e.sets.reduce((t, x) => t + x.w, 0), secs = e.sets.reduce((t, x) => t + x.r, 0); const p = pace(d, secs); return p ? <T v="small" style={{ marginTop: 4 }}>Pace {p}</T> : null; })()}
-            <Button title="Add set" icon="add" kind="secondary" onPress={() => edit((w) => addSetTo(w, i, !live))} style={{ minHeight: 40, marginTop: space.sm }} />
+            <Pressable accessibilityRole="button" accessibilityLabel={`Add a set to ${ex.name}`} onPress={() => edit((w) => addSetTo(w, i, !live))} hitSlop={6}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', minHeight: 40, marginTop: 2 }}>
+              <Ionicons name="add" size={18} color={c.accent} />
+              <T style={{ fontWeight: '600', fontSize: 15 }} color={c.accent}>Add set</T>
+            </Pressable>
           </Card>
         );
       })}
@@ -247,7 +273,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
     <View style={{ marginTop: space.sm }}>
       <View style={st.row}>
         <T v="label" style={{ ...st.head, width: 30, minHeight: 0, textAlign: 'center' }}>Set</T>
-        <T v="label" style={{ ...st.head, ...st.prevCol }}>Previous</T>
+        {prev.length > 0 && <T v="label" style={{ ...st.head, ...st.prevCol }}>Previous</T>}
         {cols.map((h) => h === unit && ex.weightType === 'barbell' ? (
           // Barbell: the weight header opens the plate calculator at the working weight.
           <Pressable key={h} accessibilityRole="button" accessibilityLabel="Plate calculator" hitSlop={6} style={[st.cell, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }]}
@@ -269,7 +295,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               <T style={{ fontFamily: sans, fontWeight: '600', textAlign: 'center', color: s.kind === 'W' ? c.warnText : s.kind === 'D' ? c.accent : c.text }}>{labels[j]}</T>
               {s.rpe ? <T style={{ fontSize: 9, lineHeight: 11, textAlign: 'center' }} color={c.muted}>@{num(s.rpe)}</T> : null}
             </Pressable>
-            <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex, u)}</T>
+            {prev.length > 0 && <T v="mono" numberOfLines={1} style={{ ...st.prevCol, fontSize: 12 }}>{prevText(s.kind === 'W' ? prev.find((p) => p.kind === 'W') : prev.filter((p) => p.kind !== 'W')[working], ex, u)}</T>}
             {yoga ? (
               <>
                 <SetInput value={s.w} hint={hint} label={`Set ${labels[j]} rounds`} onCommit={(t) => edit((w) => setValue(w, i, j, 'w', String(Math.round(Number(t.replace(',', '.')) || 0))))} />
@@ -288,7 +314,7 @@ function SetTable({ workout, i, prev, live, restSecs }: { workout: Workout; i: n
               </>
             ) : (
               <>
-                <SetInput value={inUnit(s.w, u)} hint={hint} unit={u} decimal label={`Set ${labels[j]} weight in ${u}`} onCommit={(t) => {
+                <SetInput value={inUnit(s.w, u)} hint={hint} unit={minus ? `+${u}` : u} decimal label={`Set ${labels[j]} weight in ${u}`} onCommit={(t) => {
                   // Only a bodyweight exercise takes minus kg (assistance); anywhere else it's a typo, so say so rather than keep it.
                   if (!minus && parseFloat(t.replace(',', '.')) < 0) return notify(`Weight can’t be below 0 ${u}. Minus ${u} is only for assisted bodyweight exercises, like an assisted pull-up.`);
                   edit((w) => setValue(w, i, j, 'w', t, minus, u));

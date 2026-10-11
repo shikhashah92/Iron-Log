@@ -1021,3 +1021,17 @@ test("what's new: newest first, one entry per day, and a new log starts up to da
   assert.ok(RELEASES.every((r) => r.changes.length && /^\d{4}-\d{2}-\d{2}$/.test(r.date)));
   assert.equal(newLog().settings.newsSeen, LATEST);
 });
+
+test('a template never plans fewer sets than last time, and a ticked set fills the blank one after it', () => {
+  let l = did(newLog('Asha', 1), D1, [[bench, [[60, 8], [60, 8], [60, 7], [60, 6]]]]);
+  l = putTemplate(l, { id: 't1', name: 'Push', exercises: [{ exerciseId: bench, sets: 3 }] });
+  assert.equal(active(startWorkout(l, 't1', at(D2))).exercises[0].sets.length, 4, 'did 4 last time: 4, not the template\'s 3');
+  // Never done: 3 blank sets. Ticking set 1 copies it into set 2 as a hint, not into set 3, and never over typed numbers.
+  let w = active(startWorkout(newLog(), undefined, at(D2)));
+  w = { ...w, exercises: [{ exerciseId: row, sets: [{ w: 40, r: 10, done: false, typed: true }, { w: 0, r: 0, done: false }, { w: 0, r: 0, done: false }] }] };
+  const t = toggleDone(w, 0, 0);
+  assert.equal(t.ticked, true);
+  assert.deepEqual(t.workout.exercises[0].sets.slice(1), [{ w: 40, r: 10, done: false }, { w: 0, r: 0, done: false }]);
+  const typed = { ...w, exercises: [{ exerciseId: row, sets: [w.exercises[0].sets[0], { w: 0, r: 5, done: false, typed: true }] }] };
+  assert.deepEqual(toggleDone(typed, 0, 0).workout.exercises[0].sets[1], { w: 0, r: 5, done: false, typed: true });
+});

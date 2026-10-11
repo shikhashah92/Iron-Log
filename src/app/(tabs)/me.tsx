@@ -5,7 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   bmi, bmiLabel, fmtLength, fmtWeight, fromKg, healthyRange, planCurve, planRate, planStatus, trendChange, trendOf, weighInDue, type WeighEvery,
 } from '../../body';
-import { ageOn, backupDue, dateWithYear, dayKey, daysAgo, GENDERS, GOALS, imgKey, MEASURES, plural, today } from '../../model';
+import { addDays, ageOn, backupDue, dateWithYear, dayKey, daysAgo, GENDERS, GOALS, imgKey, MEASURES, plural, today } from '../../model';
 import { useBackup } from '../../backupActions';
 import { useLog, useTheme } from '../../store';
 import { notify } from '../../io';
@@ -29,7 +29,9 @@ export default function Me() {
   const shown = series.filter((x) => x.date >= since);
   const w = (kg: number) => Number(fromKg(kg, units.weight).toFixed(1));
   const status = p.target && now ? planStatus(p.target, now.trend, iso) : null;
-  const plan = p.target ? planCurve(p.target).filter((x) => x.date >= since) : [];
+  // The plan runs ahead of today: all the way to the target in All, a quarter of the window ahead in 3M / 1Y.
+  const ahead = range === 'all' ? '9999-12-31' : addDays(iso, range === '3m' ? 23 : 91);
+  const plan = p.target ? planCurve(p.target).filter((x) => x.date >= since && x.date <= ahead) : [];
   const b = now && p.height ? bmi(now.trend, p.height) : 0;
   const band = p.height ? healthyRange(p.height) : undefined;
   const change = (days: number) => { const d = trendChange(series, iso, days); return d === null ? '—' : `${d > 0 ? '+' : ''}${w(d)}`; };

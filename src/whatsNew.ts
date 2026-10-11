@@ -7,10 +7,14 @@ export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
   { date: '2026-10-11', title: 'A cleaner, smarter Uplift', changes: [
+    { kind: 'new', icon: 'copy-outline', title: 'Same again, one tap', text: 'Tick a set and its weight and reps fill in the next empty one. Tap ✓ to log it again.' },
+    { kind: 'better', icon: 'timer-outline', title: 'A clearer workout screen', text: 'A big clock, a progress bar and sets left. Finished exercises fold away, and Finish lights up once everything’s ticked.' },
+    { kind: 'better', icon: 'layers-outline', title: 'Your extra sets stick', text: 'Did 4 sets where the template says 3? Next time you’ll get 4.' },
     { kind: 'better', icon: 'home-outline', title: 'A focused Home', text: 'Start your next planned workout in one tap. Setup tips come one at a time, and your weight only shows up when a weigh-in is due.' },
     { kind: 'better', icon: 'barbell-outline', title: 'A tidier Workout tab', text: 'Empty, activity and past workouts sit side by side, and the ready-made list is shorter, with See all for the rest.' },
     { kind: 'better', icon: 'play-circle-outline', title: 'Start from any exercise', text: 'On an exercise’s page, Start a workout sits right under the picture, with Watch how and Your photo beside it.' },
     { kind: 'better', icon: 'stats-chart-outline', title: 'Trends, reordered', text: 'Muscles worked and your weekly bars come first. Your streak now sits in This month.' },
+    { kind: 'fixed', icon: 'trending-down-outline', title: 'Weight chart, future days', text: 'Touching a day ahead of today shows only your plan, not your last weigh-in. 3M and 1Y stay mostly in the past, with a Today line.' },
     { kind: 'fixed', icon: 'construct-outline', title: 'Small fixes', text: 'Clearer month-on-month changes, short workouts no longer show 0 minutes, and the goblet squat says One dumbbell.' },
     { kind: 'better', icon: 'person-circle-outline', title: 'A calmer Me tab', text: 'Your weight, its chart and Log weigh-in now sit together, with your target, trophies and challenges as single rows.' },
     { kind: 'new', icon: 'analytics-outline', title: 'Touch a chart to read it', text: 'Drag along the weight or exercise charts to see each day’s numbers.' },
