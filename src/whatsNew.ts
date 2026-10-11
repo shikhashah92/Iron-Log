@@ -7,6 +7,9 @@ export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
   { date: '2026-10-11', title: 'Ideas for every muscle', changes: [
+    { kind: 'better', icon: 'person-circle-outline', title: 'A calmer Me tab', text: 'Your weight, its chart and Log weigh-in now sit together, with your target, trophies and challenges as single rows.' },
+    { kind: 'new', icon: 'analytics-outline', title: 'Touch a chart to read it', text: 'Drag along the weight or exercise charts to see each day’s numbers.' },
+    { kind: 'better', icon: 'settings-outline', title: 'Settings, sorted', text: 'Grouped into workouts, reminders, your data and help. Units and weigh-in reminders live here now.' },
     { kind: 'new', icon: 'body-outline', title: 'Exercises for each muscle', text: 'In History → Trends, tap a muscle on the body map to see exercises that work it. Your favourites and recent ones come first.' },
     { kind: 'new', icon: 'logo-youtube', title: 'Watch how on YouTube', text: 'Every exercise page has a button that finds form videos for it on YouTube.' },
     { kind: 'new', icon: 'information-circle-outline', title: 'Look before you lift', text: 'Open an exercise’s page from a template preview, or from the ⓘ in the exercise picker.' },
