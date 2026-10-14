@@ -1417,7 +1417,8 @@ const ACTIVITIES: readonly Exercise[] = [
   ],
   "setup": [],
   "exec": [],
-  "avoid": []
+  "avoid": [],
+  "art": false
  },
  {
   "id": "row-erg",

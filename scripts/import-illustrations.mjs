@@ -18,7 +18,7 @@ const SLUG = {
   'overhead-triceps-ext': 'overhead-tricep-extension', 'close-grip-bench': 'close-grip-bench-press',
   'ez-skull-crusher': 'skull-crusher', 'bench-dips': 'bench-dip',
   // activities (the rest have no drawing: `art: false`)
-  'run': 'running', 'treadmill': 'running', 'walk': 'walking', 'treadmill-walk': 'treadmill-incline-walk', 'hike': 'hiking', 'cycle': 'cycling', 'indoor-cycle': 'cycling', 'swim': 'swimming', 'row-erg': 'rowing', 'elliptical': 'elliptical', 'stair-climber': 'stair-climber', 'jump-rope': 'jump-rope', 'yin-yoga': 'childs-pose', 'stretching': 'worlds-greatest-stretch', 'hiit': 'burpee', 'circuit': 'jumping-jack', 'wod': 'kettlebell-swing', 'spin': 'cycling',
+  'run': 'running', 'treadmill': 'running', 'walk': 'walking', 'treadmill-walk': 'treadmill-incline-walk', 'hike': 'hiking', 'cycle': 'cycling', 'indoor-cycle': 'cycling', 'row-erg': 'rowing', 'elliptical': 'elliptical', 'stair-climber': 'stair-climber', 'jump-rope': 'jump-rope', 'yin-yoga': 'childs-pose', 'stretching': 'worlds-greatest-stretch', 'hiit': 'burpee', 'circuit': 'jumping-jack', 'wod': 'kettlebell-swing', 'spin': 'cycling',
   // yoga: the closest pose in the set (the rest have `art: false`); flows keep all three frames
   'surya-namaskar': 'hindu-push-up', 'marjaryasana-bitilasana': 'cat-cow-stretch', 'tadasana': 'toe-touch#3', 'uttanasana': 'toe-touch#1',
   'adho-mukha-svanasana': 'hindu-push-up#3', 'phalakasana': 'hindu-push-up#1', 'ashtanga-namaskara': 'hindu-push-up#2', 'balasana': 'childs-pose#1',

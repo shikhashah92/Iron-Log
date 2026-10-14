@@ -6,6 +6,11 @@ export interface Change { kind: ChangeKind; icon: keyof typeof Ionicons.glyphMap
 export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
+  { date: '2026-10-14', title: 'Steadier starts', changes: [
+    { kind: 'fixed', icon: 'flash-outline', title: 'Opens on a weak signal', text: 'With a poor connection, Uplift opens from your phone in a few seconds instead of sitting on a blank screen.' },
+    { kind: 'fixed', icon: 'refresh-outline', title: 'No more silent blank page', text: 'If a screen ever fails to load, you’ll see what went wrong and a Reload button. Your data stays safe.' },
+    { kind: 'fixed', icon: 'water-outline', title: 'Swimming picture removed', text: 'Swimming showed a swim-bench machine that jumped around. It has no picture now, like other activities.' },
+  ] },
   { date: '2026-10-11', title: 'A cleaner, smarter Uplift', changes: [
     { kind: 'better', icon: 'flag-outline', title: 'Targets in one tap', text: 'Pick 8, 12, 16 or 24 weeks for your target weight. It starts from your trend, and you can change it if you need to.' },
     { kind: 'better', icon: 'list-outline', title: 'Weigh-ins by month', text: 'Every weigh-in shows its change on the one before, grouped by month.' },

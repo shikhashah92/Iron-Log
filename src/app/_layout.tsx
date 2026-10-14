@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useStore, StoreProvider, useTheme } from '../store';
 import { today } from '../model';
@@ -106,6 +106,20 @@ function Root() {
     </Stack>
     <DialogHost />
     </>
+  );
+}
+
+/** A crash while drawing a screen: say so and offer a reload, instead of a blank page (and lift the splash so it shows). */
+export function ErrorBoundary({ error }: ErrorBoundaryProps) {
+  useEffect(() => { document.getElementById('splash')?.remove(); }, []);
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+      <Text style={{ fontSize: 20, fontWeight: '700', color: '#888' }}>Something went wrong</Text>
+      <Text style={{ color: '#888', textAlign: 'center' }}>Your data is safe on this device. Details: {error.message}</Text>
+      <Pressable accessibilityRole="button" onPress={() => location.reload()} style={{ paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: '#888' }}>
+        <Text style={{ color: '#fff', fontWeight: '700' }}>Reload</Text>
+      </Pressable>
+    </View>
   );
 }
 

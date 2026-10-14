@@ -48,11 +48,15 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     // Network first so deploys show up; the cached shell when offline. Every route uses the same shell
     // (GitHub Pages serves deep links as 404.html, a copy of the shell: use it, but only cache real 200s).
-    e.respondWith(fetch(req).then((res) => {
+    const net = fetch(req).then((res) => {
       // Only ever the app page itself is kept as the shell.
       if (res.ok && (res.headers.get('content-type') ?? '').includes('text/html')) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(ROOT, copy)); }
       return res;
-    }).catch(() => caches.match(ROOT)));
+    });
+    // A weak signal (the gym) can leave the request hanging for a minute with a blank screen: after 3 s, open the
+    // cached shell instead; the network copy still lands in the cache for next time. No cached shell yet: keep waiting.
+    const slow = new Promise((ok) => setTimeout(ok, 3000)).then(() => caches.match(ROOT));
+    e.respondWith(Promise.race([net, slow]).then((res) => res ?? net).catch(() => caches.match(ROOT)));
     return;
   }
   // Hashed static files never change: cache first, fill the cache on first use.
