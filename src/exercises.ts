@@ -1,5 +1,5 @@
 // The built-in exercise library (ships with the app, never stored). Custom exercises live in the log.
-import type { Exercise, Muscle, Muscles, Template } from "./model";
+import type { Exercise, Muscle, Muscles, Template, TemplateExercise } from "./model";
 import { YOGA } from "./yoga.ts";
 
 export const GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core"] as const;
@@ -1286,6 +1286,112 @@ const STRENGTH: readonly Exercise[] = [
    "Rolling out further than you can control.",
    "Piking back with the hips instead of the abs."
   ]
+ },
+ {
+  "id": "smith-squat",
+  "name": "Smith Machine Squat",
+  "group": "Legs",
+  "equip": "Machine",
+  "weightType": "machine",
+  "art": false,
+  "setup": [
+   "Bar across the upper back, feet a little in front of the bar, shoulder width.",
+   "Unhook by twisting the bar; brace before you go down."
+  ],
+  "exec": [
+   "Sit down and back until the thighs are about parallel.",
+   "Drive up through the whole foot, knees tracking over the toes."
+  ],
+  "avoid": [
+   "Feet right under the bar, which loads the knees and lower back.",
+   "Knees caving in.",
+   "Bouncing out of the bottom."
+  ]
+ },
+ {
+  "id": "smith-hip-thrust",
+  "name": "Smith Machine Hip Thrust",
+  "group": "Legs",
+  "equip": "Machine",
+  "weightType": "machine",
+  "art": false,
+  "setup": [
+   "Upper back on a bench, bar padded across the hip crease.",
+   "Feet flat, about shoulder width, shins vertical at the top."
+  ],
+  "exec": [
+   "Tuck the chin, drive through the heels and squeeze the glutes to lift the hips level.",
+   "Pause at the top, lower under control."
+  ],
+  "avoid": [
+   "Arching the lower back to finish the rep.",
+   "Pushing through the toes.",
+   "Rushing the top squeeze."
+  ]
+ },
+ {
+  "id": "db-pullover",
+  "name": "Dumbbell Pullover",
+  "group": "Back",
+  "equip": "Dumbbell",
+  "weightType": "dumbbell",
+  "oneDb": true,
+  "art": false,
+  "setup": [
+   "Lie on a bench holding one dumbbell over the chest with both hands, elbows softly bent.",
+   "Feet planted, ribs down."
+  ],
+  "exec": [
+   "Lower the dumbbell back behind the head in an arc until you feel a stretch in the lats.",
+   "Pull it back over the chest with the same elbow bend."
+  ],
+  "avoid": [
+   "Bending and straightening the elbows (that turns it into a triceps lift).",
+   "Arching the lower back at the bottom.",
+   "Going deeper than your shoulders allow."
+  ]
+ },
+ {
+  "id": "kb-lateral-raise",
+  "name": "Kettlebell Lateral Raise",
+  "group": "Shoulders",
+  "equip": "Kettlebell",
+  "weightType": "dumbbell",
+  "art": false,
+  "setup": [
+   "Stand tall with a kettlebell by each side, handles in a neutral grip.",
+   "Slight bend at the elbows, shoulders down."
+  ],
+  "exec": [
+   "Raise the arms out to the sides to shoulder height, leading with the elbows.",
+   "Lower slowly; the bell's offset weight makes the way down count."
+  ],
+  "avoid": [
+   "Swinging the body to get the bells up.",
+   "Shrugging the shoulders toward the ears.",
+   "Raising above shoulder height."
+  ]
+ },
+ {
+  "id": "underhand-pulldown",
+  "name": "Underhand Lat Pulldown",
+  "group": "Back",
+  "equip": "Cable",
+  "weightType": "cable",
+  "art": false,
+  "setup": [
+   "A lat pulldown with palms facing you, hands about shoulder width.",
+   "Thighs under the pads, chest up, slight lean back."
+  ],
+  "exec": [
+   "Pull the bar to the upper chest, driving the elbows down to your sides.",
+   "Let it rise under control to a full stretch."
+  ],
+  "avoid": [
+   "Leaning far back and rowing the weight down.",
+   "Pulling with the arms only; think elbows down.",
+   "Letting the stack crash at the top."
+  ]
  }
 ];
 
@@ -1856,6 +1962,8 @@ const WORKS: Record<string, string> = {
   'walking-lunge': 'quadriceps gluteal / hamstring calves', 'reverse-lunge': 'quadriceps gluteal / hamstring', 'step-up': 'quadriceps gluteal / hamstring calves',
   'leg-extension': 'quadriceps', 'seated-leg-curl': 'hamstring / calves', 'lying-leg-curl': 'hamstring / calves', 'hip-thrust': 'gluteal / hamstring',
   'glute-bridge': 'gluteal / hamstring', 'calf-raise': 'calves',
+  'smith-squat': 'quadriceps gluteal / adductors hamstring', 'smith-hip-thrust': 'gluteal / hamstring', 'db-pullover': 'upper-back / chest triceps',
+  'kb-lateral-raise': 'deltoids / trapezius', 'underhand-pulldown': 'upper-back biceps',
   'bb-curl': 'biceps / forearm', 'ez-bar-curl': 'biceps / forearm', 'db-biceps-curl': 'biceps / forearm', 'alt-db-curl': 'biceps / forearm',
   'hammer-curl': 'biceps forearm', 'incline-db-curl': 'biceps / forearm', 'cable-biceps-curl': 'biceps / forearm', 'preacher-curl': 'biceps / forearm',
   'triceps-pushdown': 'triceps', 'rope-pushdown': 'triceps', 'overhead-triceps-ext': 'triceps', 'close-grip-bench': 'triceps chest / deltoids',
@@ -1874,8 +1982,11 @@ export const BUILT_IN: readonly Exercise[] = [...STRENGTH.map((e) => (WORKS[e.id
  * Ready-made templates (built in like the library, never stored). Editing or renaming one saves your own copy under
  * the same id, which then replaces it. Set counts are left out: 3 for a new exercise, else as many as last time.
  */
-const starter = (id: string, name: string, ids: string[]): Template =>
-  ({ id: `starter-${id}`, profileId: '', name, exercises: ids.map((exerciseId) => ({ exerciseId })), updatedAt: 0, starter: true });
+const starter = (id: string, name: string, ids: (string | TemplateExercise)[]): Template =>
+  ({ id: `starter-${id}`, profileId: '', name, exercises: ids.map((e) => (typeof e === 'string' ? { exerciseId: e } : e)), updatedAt: 0, starter: true });
+/** One slot with its set count; `alt`: the either-or option; `group`: a superset number. */
+const x = (exerciseId: string, sets: number, alt?: string, group?: number): TemplateExercise =>
+  ({ exerciseId, sets, ...(alt ? { alt } : {}), ...(group ? { group } : {}) });
 export const STARTERS: readonly Template[] = [
   starter('full-body', 'Full body', ['goblet-squat', 'flat-db-press', 'lat-pulldown', 'seated-db-press', 'rdl', 'plank']),
   starter('full-body-b', 'Full body B', ['leg-press', 'incline-db-press', 'seated-cable-row', 'lateral-raise', 'hip-thrust', 'dead-bug']),
@@ -1890,6 +2001,12 @@ export const STARTERS: readonly Template[] = [
   starter('arms', 'Arms', ['ez-bar-curl', 'close-grip-bench', 'hammer-curl', 'rope-pushdown', 'incline-db-curl', 'overhead-triceps-ext']),
   starter('glutes', 'Glutes', ['hip-thrust', 'rdl', 'bulgarian-split-squat', 'seated-leg-curl', 'glute-bridge']),
   starter('core', 'Core', ['plank', 'hanging-leg-raise', 'cable-crunch', 'dead-bug', 'russian-twist']),
+  starter('upper-a', 'Upper A', [x('bench-press-bb', 4), x('bb-bent-row', 4), x('ohp-bb', 3), x('lat-pulldown', 3, 'db-pullover'),
+    x('lateral-raise', 3, 'kb-lateral-raise'), x('rope-pushdown', 3, 'triceps-pushdown', 1), x('db-biceps-curl', 3, 'cable-biceps-curl', 1)]),
+  starter('lower-a', 'Lower A', [x('smith-squat', 4), x('smith-hip-thrust', 3), x('leg-press', 3), x('seated-leg-curl', 3), x('calf-raise', 3), x('plank', 3)]),
+  starter('upper-b', 'Upper B', [x('incline-barbell-press', 3), x('t-bar-row', 3, 'underhand-pulldown'), x('flat-db-press', 3, 'cable-fly'),
+    x('seated-cable-row', 3, 'one-arm-db-row'), x('face-pull', 3), x('close-grip-bench', 3, 'overhead-triceps-ext', 1), x('hammer-curl', 3, 'bb-curl', 1)]),
+  starter('lower-b', 'Lower B', [x('leg-press', 4), x('step-up', 3), x('back-extension', 3), x('leg-extension', 3), x('seated-leg-curl', 3), x('cable-crunch', 3)]),
   starter('yoga', 'Morning yoga', ['surya-namaskar', 'tadasana', 'vrksasana', 'trikonasana', 'adho-mukha-svanasana', 'bhujangasana', 'setu-bandhasana', 'paschimottanasana', 'balasana', 'anulom-vilom', 'shavasana']),
 ];
 
@@ -1898,5 +2015,6 @@ export interface Plan { id: string; name: string; days: string; about: string; t
 export const PLANS: readonly Plan[] = [
   { id: 'full-body-3', name: 'Full body, 3 days', days: '3 days a week', about: 'New to lifting or short on time: the whole body each session, alternating A and B.', templates: ['starter-full-body', 'starter-full-body-b'] },
   { id: 'upper-lower-4', name: 'Upper / Lower', days: '4 days a week', about: 'Each half of the body twice a week, with room to push the weights up.', templates: ['starter-upper', 'starter-lower'] },
+  { id: 'upper-lower-ab', name: 'Upper / Lower A-B', days: '4 days a week', about: 'Built for a lean phase: keep your muscle while you cut. Four different sessions, and some lifts let you pick one of two.', templates: ['starter-upper-a', 'starter-lower-a', 'starter-upper-b', 'starter-lower-b'] },
   { id: 'ppl', name: 'Push Pull Legs', days: '3 or 6 days a week', about: 'Pushing muscles, then pulling, then legs. Run it once or twice a week.', templates: ['starter-push', 'starter-pull', 'starter-legs'] },
 ];

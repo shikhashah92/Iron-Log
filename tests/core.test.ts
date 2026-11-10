@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
-  delWeighIn, duration, stopwatch, longDate, needsBackupNudge, newLog, planSets, repeatWorkout, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, setKind, setLabels,
+  delWeighIn, duration, stopwatch, longDate, needsBackupNudge, newLog, planSets, repeatWorkout, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, swapAlt, setKind, setLabels,
   exercisesFor, setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
@@ -231,7 +231,7 @@ test('built-in library: unique ids; strength has cues and drawings; activities h
   assert.equal(new Set(BUILT_IN.map((e) => e.id)).size, BUILT_IN.length);
   const frames = (id: string) => [1, 2, 3].every((n) => existsSync(`public/illustrations/${id}/${n}.svg`));
   for (const e of BUILT_IN) {
-    if (!e.kind) { assert.ok(e.setup.length && e.exec.length && e.avoid.length, e.id); assert.ok(frames(e.id), `${e.id} frames`); continue; }
+    if (!e.kind) { assert.ok(e.setup.length && e.exec.length && e.avoid.length, e.id); assert.ok(e.art === false ? !existsSync(`public/illustrations/${e.id}`) : frames(e.id), `${e.id} frames`); continue; }
     assert.ok((ACTIVITY_GROUPS as readonly string[]).includes(e.group), `${e.id} group`);
     if (e.kind === 'yoga') assert.ok(e.yoga && e.setup.length && e.exec.length && e.avoid.length, `${e.id} how-to`);
     assert.ok(e.met && e.met.length === 3 && e.met[0] <= e.met[1] && e.met[1] <= e.met[2] && e.met[0] >= 1, `${e.id} MET`);
@@ -645,7 +645,7 @@ test('reminders start on a day the repeat includes', async () => {
 
 test('ready-made templates: real exercises, startable, and editing one saves a plain copy of your own', () => {
   const ids = new Set(BUILT_IN.map((e) => e.id));
-  for (const s of STARTERS) for (const e of s.exercises) assert.ok(ids.has(e.exerciseId), `${s.name}: ${e.exerciseId}`);
+  for (const s of STARTERS) for (const e of s.exercises) for (const id of [e.exerciseId, e.alt ?? e.exerciseId]) assert.ok(ids.has(id), `${s.name}: ${id}`);
   let l = newLog('A', at(D1));
   assert.equal(viewOf(l).templates.filter((t) => t.starter).length, STARTERS.length);
   assert.equal(l.templates.length, 0, 'not stored');
@@ -1065,4 +1065,20 @@ test('a workout length says its unit; the live clock is a stopwatch', () => {
   assert.equal(duration(65 * 60_000), '1h 05m');
   assert.equal(stopwatch(7 * 60_000 + 10_000), '7:10');
   assert.equal(stopwatch(3_912_000), '1:05:12');
+});
+
+test('either-or slots: start the one done less recently, swap keeps the superset, no "update template?" after', () => {
+  let l = newLog('A', at(D1));
+  const upper = viewOf(l).templates.find((t) => t.id === 'starter-upper-a')!;
+  let w = viewOf(startWorkout(l, upper.id, at(D1))).active!;
+  assert.deepEqual([w.exercises[3].exerciseId, w.exercises[3].alt], ['lat-pulldown', 'db-pullover'], 'never done: the first');
+  l = did(l, D1, [['lat-pulldown', [[20, 10]]]]);
+  w = viewOf(startWorkout(l, upper.id, at(D2))).active!;
+  assert.deepEqual([w.exercises[3].exerciseId, w.exercises[3].alt], ['db-pullover', 'lat-pulldown'], 'alternates');
+  const curl = w.exercises.findIndex((e) => e.exerciseId === 'db-biceps-curl');
+  const swapped = swapAlt(w, viewOf(l), curl);
+  assert.deepEqual([swapped.exercises[curl].exerciseId, swapped.exercises[curl].alt, swapped.exercises[curl].group], ['cable-biceps-curl', 'db-biceps-curl', 1]);
+  assert.equal(swapped.exercises[curl].sets.length, 3);
+  assert.equal(differsFromTemplate(swapped), false);
+  assert.equal(templateFrom(swapped)[curl].alt, 'db-biceps-curl');
 });

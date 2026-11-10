@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   addSetTo, addWarmups, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
-  putWorkout, removeExercise, repeatWorkout, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, inUnit, isEmptySet, twoDb,
+  putWorkout, removeExercise, repeatWorkout, swapAlt, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, inUnit, isEmptySet, twoDb,
   type Log, type SetRow, type WeightUnit, type Workout,
 } from './model';
 import { useLog, useTheme } from './store';
@@ -113,8 +113,12 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
         // The working weight: the heaviest working set, typed or last time's hint.
         const top = Math.max(0, ...e.sets.filter((x) => x.kind !== 'W').map((x) => x.w));
         const note = async () => { const t = await ask(`Note on ${ex.name}`, e.note ?? ''); if (t !== null) edit((w) => setNote(w, i, t)); };
+        // An either-or slot from the template: the other option, one tap away.
+        const alt = e.alt && !workout.exercises.some((x) => x.exerciseId === e.alt) ? getEx(v, e.alt) : undefined;
+        const swap = () => edit((w) => swapAlt(w, v, i, !live));
         async function actions() {
           const opts: [string, () => void | Promise<void>, boolean?][] = [
+            ...(alt ? [[`Swap to ${alt.name}`, swap] as [string, () => void]] : []),
             [e.note ? 'Edit note' : 'Add a note', note],
             ...(e.note ? [['Remove note', () => edit((w) => setNote(w, i, ''))] as [string, () => void]] : []),
             ...(lifting ? [['Add warm-up sets', () => {
@@ -170,6 +174,13 @@ export function WorkoutEditor({ workout, live }: { workout: Workout; live: boole
                 <Ionicons name="ellipsis-horizontal" size={20} color={c.text} />
               </Pressable>
             </View>
+            {alt && !e.sets.some((x) => x.done !== false) && ( // until a set is ticked; then it's in the menu
+              <Pressable accessibilityRole="button" accessibilityLabel={`Swap to ${alt.name}`} onPress={swap} hitSlop={6}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: space.xs, alignSelf: 'flex-start' }}>
+                <Ionicons name="swap-horizontal" size={15} color={c.accent} />
+                <T v="small">or <T v="small" style={{ fontWeight: '700' }} color={c.accent}>{alt.name}</T></T>
+              </Pressable>
+            )}
             {e.note ? (
               <Pressable accessibilityRole="button" accessibilityLabel={`Note: ${e.note}. Edit`} onPress={note} style={{ flexDirection: 'row', gap: 6, marginTop: space.xs }}>
                 <Ionicons name="document-text-outline" size={15} color={c.accent} style={{ marginTop: 2 }} />

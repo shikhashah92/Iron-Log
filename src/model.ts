@@ -100,7 +100,7 @@ export type SetKind = 'W' | 'D'; // warm-up, drop set
 /** `rpe`: how hard the set was (6–10, halves allowed), only if you chose to note it. */
 export interface SetRow { w: number; r: number; done?: false; typed?: true; kind?: SetKind; rpe?: number }
 /** `note`: yours, about this exercise today ("seat height 4"). `group`: exercises sharing a number are a superset, done back to back. */
-export interface WorkoutExercise { exerciseId: string; sets: SetRow[]; note?: string; group?: number }
+export interface WorkoutExercise { exerciseId: string; sets: SetRow[]; note?: string; group?: number; alt?: string }
 /** One workout: a template run, or an empty one you built as you went. At most one per person is `active` at a time. */
 export interface Workout {
   id: string; profileId: string; date: string; name: string; startedAt: number; endedAt?: number; feeling?: string; note?: string;
@@ -111,8 +111,8 @@ export interface Workout {
 }
 /** Derived per exercise per workout (only logged sets): what history, charts and records read. */
 export interface Entry { profileId: string; date: string; exerciseId: string; sets: SetRow[]; updatedAt: number; workoutId: string; startedAt: number }
-/** `sets`: how many to plan; when absent, as many as last time (or 3 for a new exercise). */
-export interface TemplateExercise { exerciseId: string; sets?: number; group?: number }
+/** `sets`: how many to plan; when absent, as many as last time (or 3 for a new exercise). `alt`: an either-or option for this slot. */
+export interface TemplateExercise { exerciseId: string; sets?: number; group?: number; alt?: string }
 /** `starter`: a ready-made one from the app (in the view only, never stored). */
 export interface Template { id: string; profileId: string; name: string; exercises: TemplateExercise[]; updatedAt: number; starter?: true }
 export interface Favorite { profileId: string; exerciseId: string; at: number }
@@ -577,7 +577,7 @@ export function putTemplate(l: Log, t: { id: string; name: string; exercises: Te
 export const delTemplate = (l: Log, id: string) => ({ ...l, templates: l.templates.filter((t) => !(t.profileId === pidOf(l) && t.id === id)) });
 /** A template from a workout you did: its exercises, with as many sets as you did. */
 export const templateFrom = (w: Workout): TemplateExercise[] =>
-  w.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets.filter((s) => s.done !== false).length || e.sets.length, ...(e.group ? { group: e.group } : {}) }));
+  w.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets.filter((s) => s.done !== false).length || e.sets.length, ...(e.group ? { group: e.group } : {}), ...(e.alt ? { alt: e.alt } : {}) }));
 
 // ---- workouts ----
 export function timeOfDayName(ms: number): string {
@@ -601,11 +601,16 @@ export function startWorkout(l: Log, templateId?: string, now = Date.now()): Log
   const v = viewOf(l);
   if (v.active) return l;
   const t = templateId ? v.templates.find((x) => x.id === templateId) : undefined;
-  const exercises = (t?.exercises ?? []).map((te) => ({ exerciseId: te.exerciseId, sets: planSets(v, te.exerciseId, te.sets), ...(te.group ? { group: te.group } : {}) }));
+  const exercises = (t?.exercises ?? []).map((te) => {
+    // An either-or slot: the option done less recently (never done counts as longest ago; a tie keeps the first).
+    const when = (id: string) => lastEntry(v, id)?.startedAt ?? -1;
+    const [id, alt] = te.alt && when(te.alt) < when(te.exerciseId) ? [te.alt, te.exerciseId] : [te.exerciseId, te.alt];
+    return { exerciseId: id, sets: planSets(v, id, te.sets), ...(te.group ? { group: te.group } : {}), ...(alt ? { alt } : {}) };
+  });
   const w: Workout = {
     id: newId('w'), profileId: pidOf(l), date: dayKey(new Date(now)), name: t?.name ?? timeOfDayName(now), startedAt: now, active: true,
     exercises, updatedAt: now,
-    ...(t ? { templateId: t.id, planned: exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets.length })) } : {}),
+    ...(t ? { templateId: t.id, planned: exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets.length, ...(e.alt ? { alt: e.alt } : {}) })) } : {}),
   };
   return { ...l, workouts: [...l.workouts, w] };
 }
@@ -668,8 +673,10 @@ export const isForgotten = (w: Workout | undefined, now = Date.now()): w is Work
 /** Did this workout add or drop exercises, or change set counts, compared with what its template planned? */
 export function differsFromTemplate(w: Workout): boolean {
   if (!w.planned) return false;
-  const did = new Map(w.exercises.map((e) => [e.exerciseId, e.sets.length]));
-  const plan = new Map(w.planned.map((p) => [p.exerciseId, p.sets]));
+  // An either-or slot matches whichever option you did.
+  const slot = (e: { exerciseId: string; alt?: string }) => [e.exerciseId, e.alt ?? ''].sort().join('|');
+  const did = new Map(w.exercises.map((e) => [slot(e), e.sets.length]));
+  const plan = new Map(w.planned.map((p) => [slot(p), p.sets]));
   return did.size !== plan.size || [...did].some(([id, n]) => plan.get(id) !== n);
 }
 
@@ -745,6 +752,13 @@ export function addExercises(w: Workout, v: View, ids: string[], done = false): 
 }
 export const replaceExercise = (w: Workout, v: View, i: number, id: string, done = false): Workout =>
   w.exercises.some((e) => e.exerciseId === id) ? w : mapEx(w, i, () => ({ exerciseId: id, sets: asLogged(planSets(v, id, undefined, w.id), done) }));
+/** Either-or slot: do the other option instead (same superset, same set count, its own last numbers as hints). */
+export function swapAlt(w: Workout, v: View, i: number, done = false): Workout {
+  const e = w.exercises[i];
+  if (!e?.alt || w.exercises.some((x) => x.exerciseId === e.alt)) return w;
+  const { note: _n, ...rest } = e; // a note was about the other lift
+  return mapEx(w, i, () => ({ ...rest, exerciseId: e.alt!, alt: e.exerciseId, sets: asLogged(planSets(v, e.alt!, e.sets.length, w.id), done) }));
+}
 /** Move exercise `from` to position `to` (clamped), shifting the ones between. */
 export function moveExercise(w: Workout, from: number, to: number): Workout {
   to = Math.max(0, Math.min(w.exercises.length - 1, to));

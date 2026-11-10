@@ -14,7 +14,7 @@ import { space } from '../theme';
  * Tap to select several, then Add. With `&replace=<i>`, one tap swaps that exercise. Favorites and recent ones first.
  */
 export default function Picker() {
-  const { workout, template, replace, activity } = useLocalSearchParams<{ workout?: string; template?: string; replace?: string; activity?: string }>();
+  const { workout, template, replace, activity, alt } = useLocalSearchParams<{ workout?: string; template?: string; replace?: string; activity?: string; alt?: string }>();
   const { v, update } = useLog();
   const { c } = useTheme();
   const [q, setQ] = useState('');
@@ -55,10 +55,16 @@ export default function Picker() {
       return router.replace('/active');
     }
     if (swapping !== null && w) { update((l) => putWorkout(l, replaceExercise(w, v, swapping, id, !w.active))); return goBack(); }
+    // A template slot's either-or option.
+    if (alt !== undefined && t) {
+      const i = Number(alt);
+      if (!already.includes(id)) update((l) => putTemplate(l, { ...t, exercises: t.exercises.map((e, j) => (j === i ? { ...e, alt: id } : e)) }));
+      return goBack();
+    }
     if (already.includes(id)) return;
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   }
-  const title = onlyActivities ? 'Log an activity' : swapping !== null ? 'Replace with…' : t ? `Add to ${t.name}` : 'Add exercises';
+  const title = onlyActivities ? 'Log an activity' : swapping !== null ? 'Replace with…' : alt !== undefined && t ? `Or instead of ${getEx(v, t.exercises[Number(alt)]?.exerciseId ?? '').name}…` : t ? `Add to ${t.name}` : 'Add exercises';
 
   return (
     <View style={{ flex: 1 }}>
