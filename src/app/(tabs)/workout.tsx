@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ACTIVITY_GROUPS, allExercises, isCustom, matches, daysAgo, duration, getEx, logPastWorkout, newId, nextInPlan, putTemplate, today, type Template } from '../../model';
 import { GROUPS, PLANS } from '../../exercises';
-import { Empty, ExRow, GroupChips, inGroup } from '../../components';
+import { Empty, ExRow, GroupChips, inGroup, Tag } from '../../components';
 import { useLog, useTheme } from '../../store';
 import { useNow } from '../../timer';
 import { ask } from '../../io';
@@ -47,7 +47,8 @@ export default function StartWorkout() {
   const flow = useWorkoutFlow();
   const now = useNow(!!v.active);
   const mine = v.templates.filter((t) => !t.starter);
-  const singles = v.templates.filter((t) => t.starter);
+  // Workouts that belong to a plan are listed under it, not again here.
+  const singles = v.templates.filter((t) => t.starter && !PLANS.some((p) => p.templates.includes(t.id)));
   const [all, setAll] = useState(false);
   const [tab, setTab] = useState<'start' | 'library'>('start');
   async function newTemplate() {
@@ -116,23 +117,35 @@ export default function StartWorkout() {
           <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 20 }}>Ready-made by Uplift</T>
         </View>
         <T v="small" style={{ marginTop: 4, marginBottom: space.md, color: c.text }}>Open one to start it. Change it and it becomes yours.</T>
-        <T v="label" style={{ marginBottom: space.sm }}>Plans · one workout per session, in turn</T>
+        <T v="label" style={{ marginBottom: space.sm }}>Plans · do them in turn, or pick any day</T>
         <View style={{ gap: space.sm, marginBottom: space.lg }}>
           {PLANS.map((p) => {
             const last = v.workouts.find((w) => !w.active && w.templateId && p.templates.includes(w.templateId));
             const next = last ? nextInPlan(p, last.templateId) : p.templates[0];
-            const names = p.templates.map((id) => v.templates.find((t) => t.id === id)?.name ?? id);
+            // Every day of the plan, each opening its own preview; "Next" is just a suggestion.
             return (
-              <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.name} plan. Next: ${v.templates.find((t) => t.id === next)?.name}`}
-                onPress={() => router.push({ pathname: '/template', params: { id: next } })}
-                style={({ pressed }) => ({ backgroundColor: c.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: space.md, gap: 2, opacity: pressed ? 0.7 : 1 })}>
+              <View key={p.id} style={{ backgroundColor: c.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, paddingHorizontal: space.md, paddingTop: space.md }}>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.sm }}>
                   <T style={{ flex: 1, fontFamily: sans, fontWeight: '700', fontSize: 18 }}>{p.name}</T>
                   <T v="small" style={{ fontSize: 12 }}>{p.days}</T>
                 </View>
-                <T v="small" style={{ fontSize: 13 }}>{names.join(' → ')}</T>
-                <T style={{ fontSize: 13, fontWeight: '700', marginTop: 2 }} color={c.accent}>{last ? `Next up: ${v.templates.find((t) => t.id === next)?.name}` : `Start with ${names[0]}`} →</T>
-              </Pressable>
+                <T v="small" style={{ fontSize: 13, marginTop: 2, marginBottom: space.xs }}>{p.about}</T>
+                {p.templates.map((id, i) => {
+                  const t = v.templates.find((x) => x.id === id);
+                  if (!t) return null;
+                  const done = v.workouts.find((w) => !w.active && w.templateId === id);
+                  return (
+                    <Pressable key={id} accessibilityRole="button" accessibilityLabel={`${t.name}${id === next ? ', next up' : ''}`}
+                      onPress={() => router.push({ pathname: '/template', params: { id } })}
+                      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 48, borderTopWidth: 1, borderTopColor: c.border, opacity: pressed ? 0.6 : 1 })}>
+                      <T v="small" style={{ width: 16, fontSize: 12 }}>{i + 1}</T>
+                      <T style={{ flex: 1, fontWeight: id === next ? '700' : '500' }}>{t.name}</T>
+                      {id === next ? <Tag label="Next" tone="accent" /> : <T v="small" style={{ fontSize: 12 }}>{done ? ago(done.date) : ''}</T>}
+                      <Ionicons name="chevron-forward" size={16} color={c.muted} />
+                    </Pressable>
+                  );
+                })}
+              </View>
             );
           })}
         </View>

@@ -6,7 +6,9 @@ export interface Change { kind: ChangeKind; icon: keyof typeof Ionicons.glyphMap
 export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
-  { date: '2026-11-10', title: 'Either-or lifts', changes: [
+  { date: '2026-11-10', title: 'Plans, your way', changes: [
+    { kind: 'better', icon: 'list-outline', title: 'See every day of a plan', text: 'Each plan on Train lists all its workouts. Next up is marked, but you can open and start any day.' },
+    { kind: 'better', icon: 'albums-outline', title: 'No doubles', text: 'Workouts that belong to a plan now sit only under that plan, so Single workouts is shorter.' },
     { kind: 'new', icon: 'calendar-outline', title: 'Upper / Lower A-B plan', text: 'A new 4-day plan for a lean phase: Upper A, Lower A, Upper B, Lower B, each with its own lifts.' },
     { kind: 'new', icon: 'swap-horizontal', title: 'Pick one of two', text: 'Some template slots offer two lifts. Uplift starts the one you did less recently. Tap “or …” to switch.' },
     { kind: 'new', icon: 'barbell-outline', title: 'Five new exercises', text: 'Smith machine squat and hip thrust, dumbbell pullover, kettlebell lateral raise and underhand lat pulldown.' },
