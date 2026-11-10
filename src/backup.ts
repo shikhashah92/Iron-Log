@@ -121,7 +121,7 @@ export function parseBackup(text: string): { log: Log; images: Images } {
       ...(x.kind === 'W' || x.kind === 'D' ? { kind: x.kind } : {}), ...(isRpe(x.rpe) ? { rpe: x.rpe } : {}) });
     const exercises = w.exercises.map((e: any) => ({ exerciseId: e.exerciseId,
       sets: (active ? e.sets : e.sets.filter((x: any) => x.done !== false)).map(set),
-      ...(isName(e.note, 300) ? { note: e.note } : {}), ...(isGroup(e.group) ? { group: e.group } : {}) }))
+      ...(isName(e.note, 300) ? { note: e.note } : {}), ...(isGroup(e.group) ? { group: e.group } : {}), ...(isAlt(e) ? { alt: e.alt } : {}) }))
       .filter((e: any) => active || e.sets.length);
     const out: Workout = { id: w.id, profileId: w.profileId, date: w.date, name: w.name, startedAt: w.startedAt, exercises, updatedAt: time(w.updatedAt) };
     if (active) out.active = true;
@@ -179,10 +179,11 @@ export function challengeDef(v: any): ChallengeDef | null {
 const isGroup = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 200;
 const isRpe = (v: unknown): v is number => Number.isFinite(v) && (v as number) >= 1 && (v as number) <= 10;
 
-function planOf(v: unknown): { exerciseId: string; sets?: number; group?: number }[] {
+const isAlt = (e: any): boolean => isId(e?.alt) && e.alt !== e.exerciseId;
+function planOf(v: unknown): { exerciseId: string; sets?: number; group?: number; alt?: string }[] {
   const seen = new Set<string>();
   return (Array.isArray(v) ? v : []).filter((x: any) => isId(x?.exerciseId) && !seen.has(x.exerciseId) && seen.add(x.exerciseId)).slice(0, 200)
-    .map((x: any) => ({ exerciseId: x.exerciseId, ...(Number.isInteger(x.sets) && x.sets >= 1 && x.sets <= 50 ? { sets: x.sets } : {}), ...(isGroup(x.group) ? { group: x.group } : {}) }));
+    .map((x: any) => ({ exerciseId: x.exerciseId, ...(Number.isInteger(x.sets) && x.sets >= 1 && x.sets <= 50 ? { sets: x.sets } : {}), ...(isGroup(x.group) ? { group: x.group } : {}), ...(isAlt(x) ? { alt: x.alt } : {}) }));
 }
 
 /**

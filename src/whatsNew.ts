@@ -6,6 +6,11 @@ export interface Change { kind: ChangeKind; icon: keyof typeof Ionicons.glyphMap
 export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
+  { date: '2026-11-10', title: 'Either-or lifts', changes: [
+    { kind: 'new', icon: 'calendar-outline', title: 'Upper / Lower A-B plan', text: 'A new 4-day plan for a lean phase: Upper A, Lower A, Upper B, Lower B, each with its own lifts.' },
+    { kind: 'new', icon: 'swap-horizontal', title: 'Pick one of two', text: 'Some template slots offer two lifts. Uplift starts the one you did less recently. Tap “or …” to switch.' },
+    { kind: 'new', icon: 'barbell-outline', title: 'Five new exercises', text: 'Smith machine squat and hip thrust, dumbbell pullover, kettlebell lateral raise and underhand lat pulldown.' },
+  ] },
   { date: '2026-10-14', title: 'Steadier starts', changes: [
     { kind: 'fixed', icon: 'flash-outline', title: 'Opens on a weak signal', text: 'With a poor connection, Uplift opens from your phone in a few seconds instead of sitting on a blank screen.' },
     { kind: 'fixed', icon: 'refresh-outline', title: 'No more silent blank page', text: 'If a screen ever fails to load, you’ll see what went wrong and a Reload button. Your data stays safe.' },

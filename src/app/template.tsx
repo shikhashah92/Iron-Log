@@ -79,6 +79,7 @@ export default function TemplateScreen() {
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <T numberOfLines={1} style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{ex.name}</T>
                   <T v="small" numberOfLines={1}>{editing ? `${ex.group}${e.sets ? '' : ' · sets as last time'}` : lastLine(i)}</T>
+                  {e.alt && <T v="small" numberOfLines={1}>or <T v="small" style={{ fontWeight: '700' }} color={c.accent}>{getEx(v, e.alt).name}</T></T>}
                 </View>
               </Pressable>
               {editing && (
@@ -90,6 +91,10 @@ export default function TemplateScreen() {
                   <Pressable accessibilityRole="button" accessibilityLabel={`More sets of ${ex.name}`} onPress={() => setCount(i, count(i) + 1)} hitSlop={4}>
                     <Ionicons name="add-circle-outline" size={26} color={c.accent} />
                   </Pressable>
+                  {e.alt ? <IconButton icon="close-circle-outline" label={`Remove the either-or option for ${ex.name}`} size={20}
+                    onPress={() => save({ ...t, exercises: t.exercises.map(({ alt: _a, ...x }, j) => (j === i ? x : t.exercises[j])) })} />
+                    : <IconButton icon="swap-horizontal" label={`Add an either-or option for ${ex.name}`} size={20}
+                      onPress={() => router.push({ pathname: '/picker', params: { template: t.id, alt: String(i) } })} />}
                   <IconButton icon="chevron-up" label={`Move ${ex.name} up`} size={20} onPress={() => move(i, -1)} />
                   <IconButton icon="trash-outline" label={`Remove ${ex.name}`} size={20} color={c.danger}
                     onPress={() => save({ ...t, exercises: t.exercises.filter((_, j) => j !== i) })} />
