@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   ACTIVITY_GROUPS, addDays, fmtDur, addExercises, addProfile, ageOn, addSetTo, clock, pace, parseClock, setTime, topLoad, delProfile, delSetFrom, differsFromTemplate, estOneRM, finishWorkout, fmtSet, getEx, moveExercise,
   delWeighIn, duration, stopwatch, longDate, needsBackupNudge, newLog, planSets, repeatWorkout, prOf, putExercise, putProfile, putTemplate, putWeighIn, putWorkout, removeExercise, replaceExercise, swapAlt, setKind, setLabels,
-  exercisesFor, setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
+  exercisesFor, setValue, setTimes, logPastWorkout, emptySets, dropEmptySets, startWorkout, templateFrom, recordsOf, recordLabel, isForgotten, setNote, lastNote, supersetWithNext, leaveSuperset, restsAfter, warmupsFor, addWarmups, platesFor, setRpe, weekRecap, upNext, backupDue, totals, weekly, weekStart, weekStreak, groupSets, fromName, guessMuscles, MUSCLES, muscleSets, musclesOf, toggleDone, toggleFav, elapsed, togglePause, viewOf, volumeOf, weekStats, workoutStats, type Log, type Workout,
 } from '../src/model.ts';
 import { csvCell, parseBackup, serialize, toBackupJSON, toCSV } from '../src/backup.ts';
 import { decryptEnvelope, deriveKey, encryptWithKey, isEnvelope, newSalt } from '../src/crypto.ts';
@@ -1081,4 +1081,18 @@ test('either-or slots: start the one done less recently, swap keeps the superset
   assert.equal(swapped.exercises[curl].sets.length, 3);
   assert.equal(differsFromTemplate(swapped), false);
   assert.equal(templateFrom(swapped)[curl].alt, 'db-biceps-curl');
+});
+
+test('pause: the clock stands still, resume moves the start on, a paused workout survives backup and finishes without the pause', () => {
+  let l = startWorkout(sample(), undefined, at(D2));
+  l = putWorkout(l, togglePause(active(l), at(D2) + 60_000));
+  assert.equal(elapsed(active(l), at(D2) + 20 * 60_000), 60_000, 'paused at 1:00, still 1:00 later');
+  assert.deepEqual(parseBackup(serialize(l)).log, l, 'pausedAt kept on load');
+  const fin = finishWorkout(putWorkout(l, { ...active(l), exercises: [{ exerciseId: bench, sets: [{ w: 60, r: 8 }] }] }), active(l).id, false, at(D2) + 30 * 60_000).workout!;
+  assert.equal(fin.endedAt! - fin.startedAt, 60_000, 'finished while paused: only the minute before the pause counts');
+  assert.equal(fin.pausedAt, undefined);
+  const r = togglePause(active(l), at(D2) + 21 * 60_000);
+  assert.equal(r.pausedAt, undefined);
+  assert.equal(r.startedAt, at(D2) + 20 * 60_000, 'resumed after 20 minutes paused');
+  assert.equal(elapsed(r, at(D2) + 22 * 60_000), 2 * 60_000);
 });

@@ -125,6 +125,7 @@ export function parseBackup(text: string): { log: Log; images: Images } {
       .filter((e: any) => active || e.sets.length);
     const out: Workout = { id: w.id, profileId: w.profileId, date: w.date, name: w.name, startedAt: w.startedAt, exercises, updatedAt: time(w.updatedAt) };
     if (active) out.active = true;
+    if (active && isTime(w.pausedAt)) out.pausedAt = w.pausedAt;
     if (isTime(w.endedAt) && w.endedAt >= w.startedAt) out.endedAt = w.endedAt;
     if (isName(w.feeling, 30)) out.feeling = w.feeling;
     if (isName(w.note, 1000)) out.note = w.note;

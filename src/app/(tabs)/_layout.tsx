@@ -8,7 +8,7 @@ import { WorkoutBar } from '../../components';
 import { MAX_WIDTH } from '../../ui';
 import { TourOverlay } from '../../tour';
 import { stopRest, useNow } from '../../timer';
-import { backupDue, stopwatch } from '../../model';
+import { backupDue, elapsed, stopwatch, type Workout } from '../../model';
 import { useForgottenWorkout } from '../../workout';
 import { offerUnreadable } from '../../backupActions';
 import { sans } from '../../theme';
@@ -64,7 +64,7 @@ export default function TabsLayout() {
           title: t.title,
           // A dot on Me when a backup is overdue (Settings, from Me, is where you save one).
           ...(t.name === 'me' && due ? { tabBarBadge: '', tabBarBadgeStyle: { backgroundColor: c.warnText, minWidth: 10, height: 10, borderRadius: 5, top: 4 } } : {}),
-          tabBarIcon: ({ color, focused, size }) => (t.name === 'workout' && liveW ? <LiveClock since={liveW.startedAt} /> : <Ionicons name={focused ? t.on : t.icon} size={size} color={color} />),
+          tabBarIcon: ({ color, focused, size }) => (t.name === 'workout' && liveW ? <LiveClock w={liveW} /> : <Ionicons name={focused ? t.on : t.icon} size={size} color={color} />),
           // A workout going: Train is that workout. Its clock is the icon, its name the label, and a tap opens it.
           ...(t.name === 'workout' && liveW ? { title: liveW.name, tabBarActiveTintColor: c.accent, tabBarInactiveTintColor: c.accent } : {}),
         }} listeners={t.name === 'workout' && liveW ? { tabPress: (e) => { e.preventDefault(); router.push('/active'); } } : undefined} />
@@ -77,13 +77,13 @@ export default function TabsLayout() {
 }
 
 /** The running clock on the Train tab while a workout is in progress. */
-function LiveClock({ since }: { since: number }) {
+function LiveClock({ w }: { w: Workout }) {
   const { c } = useTheme();
-  const now = useNow(true);
+  const now = useNow(!w.pausedAt);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.brand, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.onAccent }} />
-      <Text style={{ fontFamily: sans, fontSize: 13, fontWeight: '700', color: c.onAccent, fontVariant: ['tabular-nums'] }}>{stopwatch(now - since)}</Text>
+      {w.pausedAt ? <Ionicons name="pause" size={10} color={c.onAccent} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.onAccent }} />}
+      <Text style={{ fontFamily: sans, fontSize: 13, fontWeight: '700', color: c.onAccent, fontVariant: ['tabular-nums'] }}>{stopwatch(elapsed(w, now))}</Text>
     </View>
   );
 }
