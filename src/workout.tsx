@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  addSetTo, addWarmups, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
+  addSetTo, addWarmups, elapsed, fmtDur, lastNote, leaveSuperset, pace, restsAfter, setNote, supersetWithNext, warmupsFor, delSetFrom, differsFromTemplate, duration, finishWorkout, fmtSet, getEx, INTENSITIES, isForgotten, isTimed, lastEntry, moveExercise, num, plural, putTemplate,
   putWorkout, removeExercise, repeatWorkout, swapAlt, setKind, setLabels, setRpe, setTime, setValue, startWorkout, templateFrom, today, toggleDone, inUnit, isEmptySet, twoDb,
   type Log, type SetRow, type WeightUnit, type Workout,
 } from './model';
@@ -36,7 +36,7 @@ export function useWorkoutFlow() {
     const cur = v.active;
     if (cur) {
       const resume = await choose('A workout is in progress',
-        `“${cur.name}” is still going (${duration(Date.now() - cur.startedAt)}). Pick it up, or finish it and start the new one?`,
+        `“${cur.name}” is still going (${duration(elapsed(cur))}). Pick it up, or finish it and start the new one?`,
         'Resume it', 'Finish it, start new');
       if (resume) return go();
       if (!(await finish(cur))) return;

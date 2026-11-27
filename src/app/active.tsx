@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
-import { plural, setTimes, stopwatch } from '../model';
+import { elapsed, plural, setTimes, stopwatch, togglePause } from '../model';
 import { DateTimeField } from '../DateField';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLog, useTheme } from '../store';
@@ -23,7 +23,7 @@ export default function ActiveWorkout() {
 function Live() {
   const { v } = useLog();
   const w = v.active!;
-  const now = useNow(true);
+  const now = useNow(!w.pausedAt);
   const flow = useWorkoutFlow();
   const edit = useEditWorkout(w.id);
   const { c } = useTheme();
@@ -61,7 +61,12 @@ function Live() {
           <T numberOfLines={2} style={{ fontFamily: sans, fontWeight: '800', fontSize: 26, letterSpacing: -0.5, marginTop: space.xs }}>{w.name}</T>
         </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: space.sm }}>
-          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 34, fontVariant: ['tabular-nums'] }}>{stopwatch(now - w.startedAt)}</T>
+          <T style={{ fontFamily: sans, fontWeight: '700', fontSize: 34, fontVariant: ['tabular-nums'] }} color={w.pausedAt ? c.muted : undefined}>{stopwatch(elapsed(w, now))}</T>
+          <Pressable accessibilityRole="button" accessibilityLabel={w.pausedAt ? 'Resume workout' : 'Pause workout'} onPress={() => edit((x) => togglePause(x))} hitSlop={6}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'center', borderRadius: 999, paddingHorizontal: 10, minHeight: 32, backgroundColor: w.pausedAt ? c.brand : c.chip }}>
+            <Ionicons name={w.pausedAt ? 'play' : 'pause'} size={14} color={w.pausedAt ? c.onAccent : c.text} />
+            <T v="small" style={{ fontWeight: '700' }} color={w.pausedAt ? c.onAccent : c.text}>{w.pausedAt ? 'Resume' : 'Pause'}</T>
+          </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Change the start time" onPress={() => setEditStart(!editStart)} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <T v="small">started {new Date(w.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</T>
             <Ionicons name="pencil" size={13} color={c.muted} />

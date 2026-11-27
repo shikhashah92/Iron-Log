@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useLog, useTheme } from '../../store';
 import { useWorkoutFlow } from '../../workout';
 import { useBackup } from '../../backupActions';
-import { duration, fmtDur, fmtKg, fmtVolume, putProfile, putWorkout, startWorkout, upNext, viewOf, getEx, longDate, needsBackupNudge, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
+import { duration, elapsed, fmtDur, fmtKg, fmtVolume, putProfile, putWorkout, startWorkout, upNext, viewOf, getEx, longDate, needsBackupNudge, plural, recentExIds, today, weekRecap, weekStart, weekStats, workoutStats } from '../../model';
 import { fmtWeight, trendOf, weighInDue } from '../../body';
 import { workoutCalories } from '../../calories';
 import { Empty, ExRow, InstallNudge, Ring, Section, Stat, wantsInstall } from '../../components';
@@ -53,7 +53,7 @@ export default function Home() {
             <Pressable accessibilityRole="button" accessibilityLabel={`Resume ${live.name}`} onPress={openWorkout}
               style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 6 }}>
               <T style={{ flex: 1, fontFamily: sans, fontWeight: '600', fontSize: 17 }} color={c.accent}>● {live.name}</T>
-              <T v="mono" style={{ fontSize: 12 }}>in progress · {duration(now - live.startedAt)}</T>
+              <T v="mono" style={{ fontSize: 12 }}>{live.pausedAt ? 'paused' : 'in progress'} · {duration(elapsed(live, now))}</T>
             </Pressable>
           )}
           {todays.map((w) => {

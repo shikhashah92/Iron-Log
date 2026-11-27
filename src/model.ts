@@ -105,6 +105,8 @@ export interface WorkoutExercise { exerciseId: string; sets: SetRow[]; note?: st
 export interface Workout {
   id: string; profileId: string; date: string; name: string; startedAt: number; endedAt?: number; feeling?: string; note?: string;
   exercises: WorkoutExercise[]; active?: true; templateId?: string;
+  /** In progress but paused since then: the clock stands still. */
+  pausedAt?: number;
   /** What the template asked for when it started (exercise and set count), to offer "update the template?" at Finish. */
   planned?: TemplateExercise[];
   source?: 'strong'; updatedAt: number;
@@ -634,6 +636,14 @@ export function setTimes(w: Workout, startedAt: number, endedAt = w.endedAt, now
   const name = w.name === timeOfDayName(w.startedAt) ? timeOfDayName(startedAt) : w.name;
   return { ...w, name, startedAt, date: dayKey(new Date(startedAt)), ...(endedAt !== undefined ? { endedAt: Math.min(Math.max(endedAt, startedAt), Math.max(now, startedAt)) } : {}) };
 }
+/** Time on a workout's clock: it stands still while paused. */
+export const elapsed = (w: Workout, now = Date.now()) => (w.pausedAt ?? now) - w.startedAt;
+/** Pause, or resume: the start moves on by the pause, so paused time never counts. */
+export function togglePause(w: Workout, now = Date.now()): Workout {
+  if (!w.pausedAt) return { ...w, pausedAt: now };
+  const { pausedAt, ...rest } = w;
+  return setTimes(rest, w.startedAt + Math.max(0, now - pausedAt), undefined, now);
+}
 /** A workout you forgot to log: already finished, empty, an hour long. Fill it in on "Edit workout". */
 export function logPastWorkout(l: Log, startedAt: number, now = Date.now()): { log: Log; id: string } {
   const w: Workout = { id: newId('w'), profileId: pidOf(l), date: dayKey(new Date(startedAt)), name: timeOfDayName(startedAt), startedAt, endedAt: startedAt + 3_600_000, exercises: [], updatedAt: now };
@@ -652,8 +662,9 @@ export const dropEmptySets = (v: View, w: Workout): Workout =>
  * workout with nothing logged is removed altogether (returns `empty`).
  */
 export function finishWorkout(l: Log, id: string, markDone: boolean, now = Date.now()): { log: Log; workout?: Workout } {
-  const w = l.workouts.find((x) => x.id === id);
-  if (!w) return { log: l };
+  const found = l.workouts.find((x) => x.id === id);
+  if (!found) return { log: l };
+  const w = found.pausedAt ? togglePause(found, now) : found; // finished while paused: the pause doesn't count
   const logged = (s: SetRow): SetRow => ({ w: s.w, r: s.r, ...(s.kind ? { kind: s.kind } : {}), ...(s.rpe ? { rpe: s.rpe } : {}) });
   const v = viewOf(l);
   const exercises = w.exercises

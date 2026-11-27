@@ -6,6 +6,9 @@ export interface Change { kind: ChangeKind; icon: keyof typeof Ionicons.glyphMap
 export interface Release { date: string; title: string; changes: Change[] }
 
 export const RELEASES: Release[] = [
+  { date: '2026-11-27', title: 'Take a breather', changes: [
+    { kind: 'new', icon: 'pause-outline', title: 'Pause a workout', text: 'Started a workout but not training yet? Tap Pause by the clock. Resume when you begin, and the wait won’t count.' },
+  ] },
   { date: '2026-11-10', title: 'Plans, your way', changes: [
     { kind: 'better', icon: 'list-outline', title: 'See every day of a plan', text: 'Each plan on Train lists all its workouts. Next up is marked, but you can open and start any day.' },
     { kind: 'better', icon: 'albums-outline', title: 'No doubles', text: 'Workouts that belong to a plan now sit only under that plan, so Single workouts is shorter.' },

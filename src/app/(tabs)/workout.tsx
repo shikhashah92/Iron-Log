@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ACTIVITY_GROUPS, allExercises, isCustom, matches, daysAgo, duration, getEx, logPastWorkout, newId, nextInPlan, putTemplate, today, type Template } from '../../model';
+import { ACTIVITY_GROUPS, allExercises, isCustom, matches, daysAgo, duration, elapsed, getEx, logPastWorkout, newId, nextInPlan, putTemplate, today, type Template } from '../../model';
 import { GROUPS, PLANS } from '../../exercises';
 import { Empty, ExRow, GroupChips, inGroup, Tag } from '../../components';
 import { useLog, useTheme } from '../../store';
@@ -71,7 +71,7 @@ export default function StartWorkout() {
             <Ionicons name="pulse" size={22} color={c.accent} />
             <View style={{ flex: 1 }}>
               <T style={{ fontFamily: sans, fontWeight: '600', fontSize: 18 }}>{v.active.name}</T>
-              <T v="small">In progress · <T v="small" style={{ fontFamily: sans }}>{duration(now - v.active.startedAt)}</T></T>
+              <T v="small">{v.active.pausedAt ? 'Paused' : 'In progress'} · <T v="small" style={{ fontFamily: sans }}>{duration(elapsed(v.active, now))}</T></T>
             </View>
             <T style={{ fontWeight: '700' }} color={c.accent}>Resume</T>
           </Card>
