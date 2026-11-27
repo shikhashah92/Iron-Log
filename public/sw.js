@@ -9,17 +9,24 @@ const SHELL = ['', 'manifest.webmanifest', 'icon-192.png', 'apple-touch-icon.png
   'favicon.svg', 'brand/mark.svg', 'brand/mark-reversed.svg', 'brand/mark-black.svg', 'fonts/Archivo-latin.woff2',
   'splash/dark.svg', 'splash/light.svg'].map(at);
 
+/** Cache whatever of `urls` isn't cached yet (hashed files never change, so what's here is current). */
+async function addMissing(cache, urls) {
+  const have = await Promise.all(urls.map((u) => cache.match(u)));
+  await cache.addAll(urls.filter((_, i) => !have[i]));
+}
+/** Cache the JS bundle a shell loads, and the icon fonts the bundle loads, so that shell opens offline. */
+async function keepCode(cache, html) {
+  const scripts = [...html.matchAll(/src="([^"]*\/_expo\/static\/[^"]+)"/g)].map((m) => m[1]);
+  await addMissing(cache, scripts);
+  const js = (await Promise.all(scripts.map(async (s) => (await cache.match(s)).text()))).join('');
+  await addMissing(cache, [...new Set([...js.matchAll(/"(\/[^"]*assets\/[^"]+\.ttf)"/g)].map((m) => m[1]))]);
+}
+
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(SHELL);
-    // Precache the current JS bundle referenced by the shell so the very next launch works offline.
-    const html = await (await cache.match(ROOT)).text();
-    const scripts = [...html.matchAll(/src="([^"]*\/_expo\/static\/[^"]+)"/g)].map((m) => m[1]);
-    await cache.addAll(scripts);
-    // …and the icon font the bundle loads, so icons render offline too.
-    const js = (await Promise.all(scripts.map(async (s) => (await cache.match(s)).text()))).join('');
-    await cache.addAll([...new Set([...js.matchAll(/"(\/[^"]*assets\/[^"]+\.ttf)"/g)].map((m) => m[1]))]);
+    await keepCode(cache, await (await cache.match(ROOT)).text());
     await self.skipWaiting();
   })());
 });
@@ -48,11 +55,16 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     // Network first so deploys show up; the cached shell when offline. Every route uses the same shell
     // (GitHub Pages serves deep links as 404.html, a copy of the shell: use it, but only cache real 200s).
-    const net = fetch(req).then((res) => {
-      // Only ever the app page itself is kept as the shell.
-      if (res.ok && (res.headers.get('content-type') ?? '').includes('text/html')) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(ROOT, copy)); }
-      return res;
-    });
+    const net = fetch(req);
+    // A new release's shell replaces the cached one only once its bundle is cached too: else, on a weak signal, the
+    // next launch would open a shell whose code isn't here and wait on the splash. If it doesn't all arrive, the old
+    // shell stays and the next launch tries again. Only ever the app page itself is kept as the shell.
+    e.waitUntil(net.then(async (res) => {
+      if (!res.ok || !(res.headers.get('content-type') ?? '').includes('text/html')) return;
+      const html = await res.clone().text(), c = await caches.open(CACHE);
+      await keepCode(c, html);
+      await c.put(ROOT, new Response(html, { headers: res.headers }));
+    }).catch(() => {}));
     // A weak signal (the gym) can leave the request hanging for a minute with a blank screen: after 3 s, open the
     // cached shell instead; the network copy still lands in the cache for next time. No cached shell yet: keep waiting.
     const slow = new Promise((ok) => setTimeout(ok, 3000)).then(() => caches.match(ROOT));
